@@ -1,0 +1,25 @@
+{
+  "name": "crm-mahalaxmi-frontend",
+  "version": "1.0.0",
+  "description": "Fast, Sustainable, Reliable CRM for Real Estate",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .js,.jsx"
+  },
+  "dependencies": {
+    "preact": "^10.19.3",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.8.1",
+    "vite": "^5.0.10"
+  },
+  "browserslist": [
+    ">0.5%",
+    "not dead",
+    "not ie <= 11"
+  ]
+}
