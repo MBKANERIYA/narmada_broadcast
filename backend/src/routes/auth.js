@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { query, run, get } from '../database.js';
 import { generateToken, auth as authMiddleware } from '../middleware/auth.js';
+import { checkUserLimit } from '../middleware/limits.js';
 
 const router = Router();
 
@@ -62,7 +63,7 @@ router.post('/login', async (req, res) => {
  * POST /api/v1/auth/register
  * Admin-only: create new user accounts within the tenant
  */
-router.post('/register', authMiddleware, async (req, res) => {
+router.post('/register', authMiddleware, checkUserLimit, async (req, res) => {
     try {
         if (!req.user || req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Admin access required to create users' });

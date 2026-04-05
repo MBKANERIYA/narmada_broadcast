@@ -2,12 +2,13 @@ import { Router } from 'express';
 import multer from 'multer';
 import { query, run, get } from '../database.js';
 import { sendTemplateMessage, sendBulkMessages, normalizePhone, uploadMediaForTemplate, createTemplate, fetchTemplates, deleteTemplate } from '../services/whatsapp.js';
+import { checkWhatsAppEnabled } from '../middleware/limits.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 /**
- * Admin-only access for all WhatsApp routes
+ * Admin-only + WhatsApp plan check for all WhatsApp routes
  */
 router.use((req, res, next) => {
     if (!req.user || req.user.role !== 'admin') {
@@ -15,6 +16,7 @@ router.use((req, res, next) => {
     }
     next();
 });
+router.use(checkWhatsAppEnabled);
 
 /**
  * GET /api/v1/whatsapp/recipients
