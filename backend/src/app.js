@@ -5,6 +5,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import config from './config.js';
 import { auth } from './middleware/auth.js';
+import { resolveTenant } from './middleware/tenant.js';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -30,30 +31,26 @@ app.use(cors({
     origin: config.corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-slug'],
 }));
 
-// Health check
+// Health check (no tenant needed)
 app.get('/health', (req, res) => {
     res.json({ status: 'healthy' });
 });
 
-
-
 app.get('/', (req, res) => {
-    res.json({ message: 'CRM Mahalaxmi API' });
+    res.json({ message: 'Real Estate CRM SaaS API' });
 });
 
 import { run } from './database.js';
 
-// API Routes
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/users', auth, authRoutes);
-
-// WhatsApp Webhook (Public, for Meta to send delivery statuses/errors)
+// ============================================================
+// WhatsApp Webhook — Public endpoint (no tenant/auth needed)
+// Meta sends delivery statuses here for ALL tenants
+// ============================================================
 app.get('/api/v1/whatsapp-webhook', (req, res) => {
-    // This token must match what you enter in Meta Dashboard
-    const VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "MahalaxmiWebhookToken123";
+    const VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "CrmSaasWebhookToken123";
     
     let mode = req.query["hub.mode"];
     let token = req.query["hub.verify_token"];
@@ -77,30 +74,22 @@ app.post('/api/v1/whatsapp-webhook', async (req, res) => {
         const body = req.body;
         
         if (body.object === "whatsapp_business_account") {
-            // Processing in background to respond fast to Meta
             for (const entry of (body.entry || [])) {
                 for (const change of (entry.changes || [])) {
                     const value = change.value;
                     
-                    // Handle message statuses (sent, delivered, read, failed)
                     if (value?.statuses) {
                         for (const status of value.statuses) {
                             const messageId = status.id;
                             const currentStatus = status.status;
                             const timestamp = new Date(parseInt(status.timestamp) * 1000).toISOString().slice(0, 19).replace('T', ' ');
 
-                            console.log(`\n================ WHATSAPP MESSAGE STATUS ================`);
-                            console.log(`To: ${status.recipient_id}`);
-                            console.log(`Message ID: ${messageId}`);
-                            console.log(`Status: ${currentStatus.toUpperCase()}`);
-                            
                             let errorDetail = null;
                             if (status.errors) {
                                 errorDetail = status.errors.map(err => `${err.title}: ${err.error_data?.details || err.message}`).join(' | ');
-                                console.error(`❌ Error: ${errorDetail}`);
                             }
 
-                            // Update database record
+                            // Update database record (no tenant filter needed — provider_message_id is globally unique)
                             try {
                                 let updateQuery = '';
                                 let params = [];
@@ -119,21 +108,16 @@ app.post('/api/v1/whatsapp-webhook', async (req, res) => {
                                     params = [currentStatus, messageId];
                                 }
 
-                                const result = await run(updateQuery, params);
-                                if (result.changes === 0) {
-                                    console.warn(`⚠️ No message found in DB with provider ID: ${messageId}`);
-                                }
+                                await run(updateQuery, params);
                             } catch (dbErr) {
                                 console.error('Database update error in webhook:', dbErr.message);
                             }
-                            console.log(`=========================================================\n`);
                         }
                     } 
                     
-                    // Handle incoming messages
                     if (value?.messages) {
                         value.messages.forEach(msg => {
-                            console.log(`\n[WhatsApp] Received incoming message from ${msg.from}:\n   "${msg.text?.body || msg.type}"\n`);
+                            console.log(`[WhatsApp] Incoming from ${msg.from}: "${msg.text?.body || msg.type}"`);
                         });
                     }
                 }
@@ -148,7 +132,17 @@ app.post('/api/v1/whatsapp-webhook', async (req, res) => {
     }
 });
 
-// Protected routes
+// ============================================================
+// TENANT-SCOPED API ROUTES
+// All routes below require tenant resolution
+// ============================================================
+app.use('/api/v1', resolveTenant);
+
+// Auth routes (tenant resolved, but auth not required for login)
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', auth, authRoutes);
+
+// Protected routes (tenant + auth required)
 app.use('/api/v1/dashboard', auth, dashboardRoutes);
 app.use('/api/v1/leads', auth, leadsRoutes);
 app.use('/api/v1/followups', auth, followupsRoutes);

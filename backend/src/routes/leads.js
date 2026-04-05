@@ -15,22 +15,19 @@ router.get('/', async (req, res) => {
       SELECT l.*, l.source as source_name, u.name as assigned_name
       FROM leads l
       LEFT JOIN users u ON l.assigned_to = u.id
-      WHERE 1=1
+      WHERE l.tenant_id = ?
     `;
-        const params = [];
+        const params = [req.tenantId];
 
-        // Employees can't see escalated leads
         if (!isAdmin) {
             sql += ' AND l.escalated = 0';
         }
 
-        // Filter for escalated leads (admin only) - exclude already processed ones
         if (isAdmin && escalated === '1') {
             sql += ' AND l.escalated = 1 AND l.status NOT IN (?, ?)';
             params.push('rejected', 'client');
         }
 
-        // Archive view: show rejected AND converted leads
         if (req.query.archived === '1') {
             sql += ' AND l.status IN (?, ?)';
             params.push('rejected', 'client');
@@ -68,8 +65,8 @@ router.get('/:id', async (req, res) => {
         const lead = await get(`
       SELECT l.*, l.source as source_name
       FROM leads l
-      WHERE l.id = ?
-    `, [req.params.id]);
+      WHERE l.id = ? AND l.tenant_id = ?
+    `, [req.params.id, req.tenantId]);
 
         if (!lead) {
             return res.status(404).json({ error: 'Lead not found' });
@@ -97,8 +94,8 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Name is required' });
         }
 
-        // Convert undefined to null for MySQL compatibility
         const values = [
+            req.tenantId,
             name,
             phone || null,
             email || null,
@@ -114,14 +111,14 @@ router.post('/', async (req, res) => {
         ];
 
         const result = await run(`
-      INSERT INTO leads (name, phone, email, budget_min, budget_max, location, interest, motive_to_buy, contact_person, source, status, assigned_to)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO leads (tenant_id, name, phone, email, budget_min, budget_max, location, interest, motive_to_buy, contact_person, source, status, assigned_to)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, values);
 
         res.status(201).json({ id: result.lastInsertRowid });
     } catch (error) {
         console.error('Lead create error:', error);
-        res.status(500).json({ error: 'Server error', details: error.message });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
@@ -141,8 +138,8 @@ router.put('/:id', async (req, res) => {
         name = ?, phone = ?, email = ?, budget_min = ?, budget_max = ?,
         location = ?, interest = ?, motive_to_buy = ?, contact_person = ?,
         source = ?, status = ?, assigned_to = ?
-      WHERE id = ?
-    `, [name, phone, email, budget_min, budget_max, location, interest, motive_to_buy, contact_person, source, status, assigned_to, req.params.id]);
+      WHERE id = ? AND tenant_id = ?
+    `, [name, phone, email, budget_min, budget_max, location, interest, motive_to_buy, contact_person, source, status, assigned_to, req.params.id, req.tenantId]);
 
         res.json({ success: true });
     } catch (error) {
@@ -159,18 +156,15 @@ router.patch('/:id/status', async (req, res) => {
         const { status } = req.body;
         const userId = req.user?.userId || 1;
 
-        // Get current status
-        const lead = await get('SELECT status FROM leads WHERE id = ?', [req.params.id]);
+        const lead = await get('SELECT status FROM leads WHERE id = ? AND tenant_id = ?', [req.params.id, req.tenantId]);
         if (!lead) {
             return res.status(404).json({ error: 'Lead not found' });
         }
 
-        // Update status
-        await run('UPDATE leads SET status = ? WHERE id = ?', [status, req.params.id]);
+        await run('UPDATE leads SET status = ? WHERE id = ? AND tenant_id = ?', [status, req.params.id, req.tenantId]);
 
-        // Create audit log
-        await run('INSERT INTO status_updates (lead_id, user_id, old_status, new_status) VALUES (?, ?, ?, ?)',
-            [req.params.id, userId, lead.status, status]);
+        await run('INSERT INTO status_updates (tenant_id, lead_id, user_id, old_status, new_status) VALUES (?, ?, ?, ?, ?)',
+            [req.tenantId, req.params.id, userId, lead.status, status]);
 
         res.json({ success: true });
     } catch (error) {
@@ -180,32 +174,11 @@ router.patch('/:id/status', async (req, res) => {
 });
 
 /**
- * DELETE /api/v1/leads/:id
- */
-router.delete('/:id', async (req, res) => {
-    try {
-        if (req.user?.role !== 'admin') {
-            return res.status(403).json({ error: 'Admin access required' });
-        }
-
-        await run('DELETE FROM leads WHERE id = ?', [req.params.id]);
-        res.status(204).send();
-    } catch (error) {
-        console.error('Lead delete error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-/**
  * PATCH /api/v1/leads/:id/escalate
- * Escalate a lead to admin (warm lead)
  */
 router.patch('/:id/escalate', async (req, res) => {
     try {
-        const leadId = req.params.id;
-
-        // Mark lead as escalated
-        await run('UPDATE leads SET escalated = 1, status = ? WHERE id = ?', ['warm', leadId]);
-
+        await run('UPDATE leads SET escalated = 1, status = ? WHERE id = ? AND tenant_id = ?', ['warm', req.params.id, req.tenantId]);
         res.json({ success: true, message: 'Lead escalated to admin' });
     } catch (error) {
         console.error('Lead escalate error:', error);
@@ -215,39 +188,33 @@ router.patch('/:id/escalate', async (req, res) => {
 
 /**
  * PUT /api/v1/leads/:id/convert-client
- * Convert warm lead to client
  */
 router.put('/:id/convert-client', async (req, res) => {
     try {
         const leadId = req.params.id;
         const { deal_date, price, property_details, documents_link, email, location, alternate_phone } = req.body;
 
-        const lead = await get('SELECT * FROM leads WHERE id = ?', [leadId]);
+        const lead = await get('SELECT * FROM leads WHERE id = ? AND tenant_id = ?', [leadId, req.tenantId]);
         if (!lead) return res.status(404).json({ error: 'Lead not found' });
 
-        // Check if already converted (prevent duplicate clicks)
         if (lead.status === 'client') {
             return res.status(400).json({ error: 'Lead already converted to client' });
         }
 
-        // Check if client already exists for this lead
-        const existingClient = await get('SELECT id FROM clients WHERE lead_id = ?', [leadId]);
+        const existingClient = await get('SELECT id FROM clients WHERE lead_id = ? AND tenant_id = ?', [leadId, req.tenantId]);
         if (existingClient) {
             return res.status(400).json({ error: 'Client already exists for this lead' });
         }
 
-        // Use form data for client fields, falling back to lead data for name/phone only
         const clientEmail = email || lead.email || '';
         const clientLocation = location || lead.location || '';
 
-        // Add to clients table with deal details (name/phone from lead, rest from form)
         await run(`
-            INSERT INTO clients (name, phone, email, location, source, lead_id, deal_date, price, property_details, documents_link, alternate_phone) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, [lead.name, lead.phone, clientEmail, clientLocation, lead.source || '', leadId, deal_date || null, price || null, property_details || null, documents_link || null, alternate_phone || null]);
+            INSERT INTO clients (tenant_id, name, phone, email, location, source, lead_id, deal_date, price, property_details, documents_link, alternate_phone) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [req.tenantId, lead.name, lead.phone, clientEmail, clientLocation, lead.source || '', leadId, deal_date || null, price || null, property_details || null, documents_link || null, alternate_phone || null]);
 
-        // Update lead status
-        await run('UPDATE leads SET status = ?, escalated = 0 WHERE id = ?', ['client', leadId]);
+        await run('UPDATE leads SET status = ?, escalated = 0 WHERE id = ? AND tenant_id = ?', ['client', leadId, req.tenantId]);
 
         res.json({ success: true, message: 'Lead converted to client' });
     } catch (error) {
@@ -258,12 +225,10 @@ router.put('/:id/convert-client', async (req, res) => {
 
 /**
  * PATCH /api/v1/leads/:id/reject
- * Reject/Archive a warm lead
  */
 router.patch('/:id/reject', async (req, res) => {
     try {
-        // Mark as rejected and remove escalated flag
-        await run('UPDATE leads SET status = ?, escalated = 0 WHERE id = ?', ['rejected', req.params.id]);
+        await run('UPDATE leads SET status = ?, escalated = 0 WHERE id = ? AND tenant_id = ?', ['rejected', req.params.id, req.tenantId]);
         res.json({ success: true, message: 'Lead rejected and archived' });
     } catch (error) {
         console.error('Lead reject error:', error);
@@ -273,12 +238,10 @@ router.patch('/:id/reject', async (req, res) => {
 
 /**
  * PATCH /api/v1/leads/:id/restore
- * Restore an archived/rejected lead back to warm leads
  */
 router.patch('/:id/restore', async (req, res) => {
     try {
-        // Set status back to 'new' and escalate to warm leads
-        await run('UPDATE leads SET status = ?, escalated = 1 WHERE id = ?', ['new', req.params.id]);
+        await run('UPDATE leads SET status = ?, escalated = 1 WHERE id = ? AND tenant_id = ?', ['new', req.params.id, req.tenantId]);
         res.json({ success: true, message: 'Lead restored to warm leads' });
     } catch (error) {
         console.error('Lead restore error:', error);
@@ -288,7 +251,6 @@ router.patch('/:id/restore', async (req, res) => {
 
 /**
  * DELETE /api/v1/leads/:id
- * Delete a lead permanently (admin only)
  */
 router.delete('/:id', async (req, res) => {
     try {
@@ -298,16 +260,13 @@ router.delete('/:id', async (req, res) => {
 
         const leadId = req.params.id;
 
-        // Manual Cascade Delete - Ensure dependencies are removed even if DB Foreign Keys fail to cascade
-        await run('DELETE FROM site_visits WHERE lead_id = ?', [leadId]);
-        await run('DELETE FROM follow_ups WHERE lead_id = ?', [leadId]);
-        await run('DELETE FROM status_updates WHERE lead_id = ?', [leadId]);
+        // Cascade delete within tenant
+        await run('DELETE FROM site_visits WHERE lead_id = ? AND tenant_id = ?', [leadId, req.tenantId]);
+        await run('DELETE FROM follow_ups WHERE lead_id = ? AND tenant_id = ?', [leadId, req.tenantId]);
+        await run('DELETE FROM status_updates WHERE lead_id = ? AND tenant_id = ?', [leadId, req.tenantId]);
+        await run('DELETE FROM tasks WHERE lead_id = ? AND tenant_id = ?', [leadId, req.tenantId]);
 
-        // For tasks, we might want to just unassign or delete. Let's delete for clean up.
-        await run('DELETE FROM tasks WHERE lead_id = ?', [leadId]);
-
-        // Delete the lead
-        await run('DELETE FROM leads WHERE id = ?', [leadId]);
+        await run('DELETE FROM leads WHERE id = ? AND tenant_id = ?', [leadId, req.tenantId]);
 
         res.status(204).send();
     } catch (error) {

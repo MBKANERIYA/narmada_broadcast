@@ -3,9 +3,6 @@ import { query, run, get } from '../database.js';
 
 const router = Router();
 
-
-
-
 /**
  * GET /api/v1/clients
  */
@@ -17,9 +14,9 @@ router.get('/', async (req, res) => {
       SELECT c.*, l.name as lead_name, l.contact_person
       FROM clients c
       LEFT JOIN leads l ON c.lead_id = l.id
-      WHERE 1=1
+      WHERE c.tenant_id = ?
     `;
-        const params = [];
+        const params = [req.tenantId];
 
         if (search) {
             sql += ' AND (c.name LIKE ? OR c.phone LIKE ? OR c.email LIKE ?)';
@@ -49,9 +46,9 @@ router.post('/', async (req, res) => {
         }
 
         const result = await run(`
-      INSERT INTO clients (name, phone, email, location, source, lead_id, deal_date, price, property_details, documents_link)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [name, phone, email, location, source, lead_id || null, deal_date || null, price || null, property_details || null, documents_link || null]);
+      INSERT INTO clients (tenant_id, name, phone, email, location, source, lead_id, deal_date, price, property_details, documents_link)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [req.tenantId, name, phone, email, location, source, lead_id || null, deal_date || null, price || null, property_details || null, documents_link || null]);
 
         res.status(201).json({ id: result.lastInsertRowid });
     } catch (error) {
@@ -62,12 +59,9 @@ router.post('/', async (req, res) => {
 
 /**
  * POST /api/v1/clients/bulk
- * Bulk import clients from CSV data (admin only)
- * IMPORTANT: This route MUST come before /:id routes to prevent Express matching "bulk" as an id
  */
 router.post('/bulk', async (req, res) => {
     try {
-        // Admin check
         if (!req.user || req.user.role !== 'admin') {
             return res.status(403).json({ error: 'Admin access required' });
         }
@@ -91,9 +85,10 @@ router.post('/bulk', async (req, res) => {
 
             try {
                 await run(`
-                    INSERT INTO clients (name, phone, email, location, source, deal_date, price, property_details, documents_link)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO clients (tenant_id, name, phone, email, location, source, deal_date, price, property_details, documents_link)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `, [
+                    req.tenantId,
                     client.name.trim(),
                     client.phone || null,
                     client.email || null,
@@ -125,7 +120,6 @@ router.post('/bulk', async (req, res) => {
 
 /**
  * PUT /api/v1/clients/:id
- * Update client details (admin only)
  */
 router.put('/:id', async (req, res) => {
     try {
@@ -143,8 +137,8 @@ router.put('/:id', async (req, res) => {
             UPDATE clients 
             SET name = ?, phone = ?, email = ?, location = ?, source = ?, 
                 deal_date = ?, price = ?, property_details = ?, documents_link = ?
-            WHERE id = ?
-        `, [name, phone, email, location, source, deal_date || null, price || null, property_details || null, documents_link || null, req.params.id]);
+            WHERE id = ? AND tenant_id = ?
+        `, [name, phone, email, location, source, deal_date || null, price || null, property_details || null, documents_link || null, req.params.id, req.tenantId]);
 
         res.json({ success: true });
     } catch (error) {
@@ -162,7 +156,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(403).json({ error: 'Admin access required' });
         }
 
-        await run('DELETE FROM clients WHERE id = ?', [req.params.id]);
+        await run('DELETE FROM clients WHERE id = ? AND tenant_id = ?', [req.params.id, req.tenantId]);
         res.status(204).send();
     } catch (error) {
         console.error('Client delete error:', error);
@@ -171,4 +165,3 @@ router.delete('/:id', async (req, res) => {
 });
 
 export default router;
-

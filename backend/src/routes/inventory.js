@@ -5,7 +5,6 @@ const router = Router();
 
 /**
  * GET /api/v1/inventory
- * List all properties in inventory (hot properties first)
  */
 router.get('/', async (req, res) => {
     try {
@@ -13,8 +12,9 @@ router.get('/', async (req, res) => {
             SELECT i.*, u.name as created_by_name 
             FROM inventory i
             LEFT JOIN users u ON i.created_by = u.id
+            WHERE i.tenant_id = ?
             ORDER BY i.is_hot DESC, i.created_at DESC
-        `);
+        `, [req.tenantId]);
         res.json(items);
     } catch (error) {
         console.error('Inventory list error:', error);
@@ -24,7 +24,6 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /api/v1/inventory/:id
- * Get single property details
  */
 router.get('/:id', async (req, res) => {
     try {
@@ -32,8 +31,8 @@ router.get('/:id', async (req, res) => {
             SELECT i.*, u.name as created_by_name 
             FROM inventory i
             LEFT JOIN users u ON i.created_by = u.id
-            WHERE i.id = ?
-        `, [req.params.id]);
+            WHERE i.id = ? AND i.tenant_id = ?
+        `, [req.params.id, req.tenantId]);
 
         if (!item) {
             return res.status(404).json({ error: 'Property not found' });
@@ -47,7 +46,6 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/v1/inventory
- * Add new property to inventory
  */
 router.post('/', async (req, res) => {
     try {
@@ -59,20 +57,13 @@ router.post('/', async (req, res) => {
         }
 
         const result = await run(`
-            INSERT INTO inventory (photo_link, location, size, demand, property_type, listing_type, status, is_hot, price, other_details, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO inventory (tenant_id, photo_link, location, size, demand, property_type, listing_type, status, is_hot, price, other_details, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-            photo_link || null,
-            location,
-            size || null,
-            demand || null,
-            property_type || null,
-            listing_type || 'sale',
-            status || 'available',
-            is_hot || false,
-            price || null,
-            other_details || null,
-            userId
+            req.tenantId,
+            photo_link || null, location, size || null, demand || null,
+            property_type || null, listing_type || 'sale', status || 'available',
+            is_hot || false, price || null, other_details || null, userId
         ]);
 
         res.status(201).json({ id: result.lastInsertRowid, message: 'Property added to inventory' });
@@ -84,7 +75,6 @@ router.post('/', async (req, res) => {
 
 /**
  * PUT /api/v1/inventory/:id
- * Update property in inventory
  */
 router.put('/:id', async (req, res) => {
     try {
@@ -97,19 +87,12 @@ router.put('/:id', async (req, res) => {
         await run(`
             UPDATE inventory 
             SET photo_link = ?, location = ?, size = ?, demand = ?, property_type = ?, listing_type = ?, status = ?, is_hot = ?, price = ?, other_details = ?
-            WHERE id = ?
+            WHERE id = ? AND tenant_id = ?
         `, [
-            photo_link || null,
-            location,
-            size || null,
-            demand || null,
-            property_type || null,
-            listing_type || 'sale',
-            status || 'available',
-            is_hot || false,
-            price || null,
-            other_details || null,
-            req.params.id
+            photo_link || null, location, size || null, demand || null,
+            property_type || null, listing_type || 'sale', status || 'available',
+            is_hot || false, price || null, other_details || null,
+            req.params.id, req.tenantId
         ]);
 
         res.json({ success: true, message: 'Property updated' });
@@ -121,7 +104,6 @@ router.put('/:id', async (req, res) => {
 
 /**
  * DELETE /api/v1/inventory/:id
- * Delete property from inventory (admin only)
  */
 router.delete('/:id', async (req, res) => {
     try {
@@ -129,7 +111,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(403).json({ error: 'Admin access required' });
         }
 
-        await run('DELETE FROM inventory WHERE id = ?', [req.params.id]);
+        await run('DELETE FROM inventory WHERE id = ? AND tenant_id = ?', [req.params.id, req.tenantId]);
         res.json({ success: true, message: 'Property deleted' });
     } catch (error) {
         console.error('Inventory delete error:', error);

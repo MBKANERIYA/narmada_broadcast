@@ -5,7 +5,6 @@ const router = Router();
 
 /**
  * GET /api/v1/visits
- * Get scheduled visits with optional date filtering
  */
 router.get('/', async (req, res) => {
     try {
@@ -16,10 +15,11 @@ router.get('/', async (req, res) => {
             FROM site_visits v
             LEFT JOIN leads l ON v.lead_id = l.id
             LEFT JOIN users u ON v.created_by = u.id
-            WHERE l.status NOT IN ('rejected', 'client')
+            WHERE v.tenant_id = ?
+            AND l.status NOT IN ('rejected', 'client')
             AND (v.status IS NULL OR v.status = 'scheduled')
         `;
-        const params = [];
+        const params = [req.tenantId];
 
         if (from_date) {
             sql += ' AND DATE(v.scheduled_at) >= ?';
@@ -43,7 +43,6 @@ router.get('/', async (req, res) => {
 
 /**
  * POST /api/v1/visits
- * Schedule a new site visit
  */
 router.post('/', async (req, res) => {
     try {
@@ -55,11 +54,11 @@ router.post('/', async (req, res) => {
         }
 
         const result = await run(`
-            INSERT INTO site_visits (lead_id, scheduled_at, location, notes, created_by)
-            VALUES (?, ?, ?, ?, ?)
-        `, [lead_id, scheduled_at, location || null, notes || null, userId]);
+            INSERT INTO site_visits (tenant_id, lead_id, scheduled_at, location, notes, created_by)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [req.tenantId, lead_id, scheduled_at, location || null, notes || null, userId]);
 
-        res.status(201).json({ id: result.insertId, message: 'Visit scheduled' });
+        res.status(201).json({ id: result.lastInsertRowid, message: 'Visit scheduled' });
     } catch (error) {
         console.error('Visit create error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -68,12 +67,11 @@ router.post('/', async (req, res) => {
 
 /**
  * PATCH /api/v1/visits/:id/status
- * Update visit status (scheduled, completed, cancelled)
  */
 router.patch('/:id/status', async (req, res) => {
     try {
         const { status } = req.body;
-        await run('UPDATE site_visits SET status = ? WHERE id = ?', [status, req.params.id]);
+        await run('UPDATE site_visits SET status = ? WHERE id = ? AND tenant_id = ?', [status, req.params.id, req.tenantId]);
         res.json({ success: true });
     } catch (error) {
         console.error('Visit status update error:', error);
