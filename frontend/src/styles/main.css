@@ -1000,3 +1000,32 @@ tr:last-child td { border-bottom: none; }
   font-weight: 600;
   display: inline-block;
 }
+
+
+/* ==================== BEM Status Badge Variants ==================== */
+
+.status-badge--success { background: rgba(16, 185, 129, 0.1); color: #059669; }
+.status-badge--warning { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+.status-badge--danger { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+.status-badge--info { background: rgba(59, 130, 246, 0.1); color: #2563eb; }
+
+
+/* ==================== Additional BEM Button Variants ==================== */
+
+.btn--success {
+  background: var(--accent-success);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn--success:hover { background: #059669; transform: translateY(-1px); }

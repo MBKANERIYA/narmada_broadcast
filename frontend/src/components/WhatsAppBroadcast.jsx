@@ -207,7 +207,7 @@ export default function WhatsAppBroadcast() {
                     { id: 'history', label: 'Campaign History' },
                     { id: 'templates', label: 'Templates' },
                 ].map(t => (
-                    <button key={t.id} className={`tab ${tab === t.id ? 'tab--active' : ''}`} onClick={() => setTab(t.id)}>
+                    <button key={t.id} className={`tab-btn ${tab === t.id ? 'active' : ''}`} onClick={() => setTab(t.id)}>
                         {t.label}
                     </button>
                 ))}
