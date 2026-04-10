@@ -23,17 +23,14 @@ export default function Sidebar({ isOpen, onClose }) {
             {/* Logo */}
             <div className="sidebar-logo">
                 <div style={{
-                    width: '36px', height: '36px',
-                    background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                    borderRadius: '10px',
+                    width: '34px', height: '34px',
+                    background: '#25D366',
+                    borderRadius: '8px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '16px', fontWeight: 800, color: 'white',
-                    boxShadow: '0 2px 12px rgba(37, 211, 102, 0.2)',
+                    fontSize: '15px', fontWeight: 800, color: 'white',
                     flexShrink: 0,
                 }}>W</div>
-                <span className="sidebar-logo-text" style={{
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>{firmName}</span>
+                <span className="sidebar-logo-text">{firmName}</span>
             </div>
 
             {/* Navigation */}
@@ -53,7 +50,7 @@ export default function Sidebar({ isOpen, onClose }) {
                                 borderRadius: '10px',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontSize: '11px', fontWeight: 700,
-                                background: '#ef4444', color: '#fff',
+                                background: '#EF4444', color: '#fff',
                                 padding: '0 6px',
                             }}>
                                 {totalUnread > 99 ? '99+' : totalUnread}
@@ -67,11 +64,10 @@ export default function Sidebar({ isOpen, onClose }) {
             <div className="sidebar-footer">
                 <div className="sidebar-user">
                     <div style={{
-                        width: '34px', height: '34px', borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                        color: '#fff',
+                        width: '32px', height: '32px', borderRadius: '50%',
+                        background: '#25D366', color: '#fff',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: 700, fontSize: '14px', flexShrink: 0,
+                        fontWeight: 700, fontSize: '13px', flexShrink: 0,
                     }}>
                         {(user?.name || 'U').charAt(0).toUpperCase()}
                     </div>
@@ -90,8 +86,7 @@ export default function Sidebar({ isOpen, onClose }) {
                             {user?.email || ''}
                         </div>
                     </div>
-                    <button className="btn-icon" onClick={logout} title="Logout"
-                        style={{ color: 'var(--text-muted)' }}>
+                    <button className="btn-icon" onClick={logout} title="Logout">
                         <Icon name="logout" size={18} />
                     </button>
                 </div>
