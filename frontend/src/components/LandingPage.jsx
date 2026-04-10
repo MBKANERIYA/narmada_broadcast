@@ -1,287 +1,213 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import Icon from './Icons';
+import '../styles/landing.css';
 
-const features = [
+const FEATURES = [
     {
-        icon: 'whatsapp',
-        title: 'Broadcast Campaigns',
-        desc: 'Send template messages to thousands of contacts with smart filtering by tags, location, and budget.',
+        icon: 'send',
+        title: 'Bulk Broadcasts',
+        desc: 'Send approved template messages to thousands of contacts instantly with smart tag and location filters.',
     },
     {
         icon: 'chat',
-        title: 'Chat Inbox',
-        desc: 'Two-way WhatsApp conversations with 24-hour window management and template fallback.',
+        title: 'Two-Way Chat Inbox',
+        desc: 'Respond to customer messages in a unified inbox with 24-hour window awareness and template fallback.',
     },
     {
-        icon: 'contacts',
-        title: 'Contact Management',
-        desc: 'Unified contacts with CSV import, tagging, location tracking, and smart segmentation.',
+        icon: 'users',
+        title: 'Smart Contact Manager',
+        desc: 'Import via CSV, segment by tags, location, and budget — then target the right audience every time.',
     },
     {
         icon: 'bar-chart',
-        title: 'Campaign Analytics',
-        desc: 'Track delivery, read rates, and failures for every broadcast campaign in real time.',
+        title: 'Delivery Analytics',
+        desc: 'Track sent, delivered, read, and failed counts for every campaign in real time.',
     },
     {
         icon: 'lock',
-        title: 'Multi-Tenant Isolation',
-        desc: 'Your data is completely isolated. Use your own Meta API credentials — we never touch your messages.',
+        title: 'Your API, Your Data',
+        desc: 'Use your own Meta credentials. We never access your messages — complete data sovereignty.',
     },
     {
-        icon: 'settings',
-        title: 'Easy Setup',
-        desc: 'Connect your WhatsApp Business API in minutes. No coding needed, just paste your credentials.',
+        icon: 'rocket',
+        title: '2-Minute Setup',
+        desc: 'Sign up, paste your WhatsApp Business API keys, import contacts, and start broadcasting.',
     },
 ];
 
-const steps = [
-    { num: '01', title: 'Sign Up', desc: 'Create your account in 30 seconds' },
-    { num: '02', title: 'Connect Meta API', desc: 'Paste your WhatsApp Business API credentials' },
-    { num: '03', title: 'Import Contacts', desc: 'Upload your contacts via CSV or add manually' },
-    { num: '04', title: 'Start Broadcasting', desc: 'Send campaigns and chat with customers' },
+const STEPS = [
+    { num: '01', title: 'Create Account', desc: 'Sign up in 30 seconds — no credit card needed' },
+    { num: '02', title: 'Connect WhatsApp', desc: 'Paste your Meta Business API credentials' },
+    { num: '03', title: 'Import Contacts', desc: 'Upload CSV or add contacts manually with tags' },
+    { num: '04', title: 'Go Live', desc: 'Send your first broadcast campaign today' },
+];
+
+const STATS = [
+    { value: '10K+', label: 'Messages Sent' },
+    { value: '500+', label: 'Active Businesses' },
+    { value: '99.9%', label: 'Delivery Rate' },
 ];
 
 export default function LandingPage({ onNavigate }) {
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
+
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 20);
+        window.addEventListener('scroll', onScroll);
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
 
     return (
-        <div style={{ background: '#0a0e1a', color: '#e2e8f0', minHeight: '100vh', overflow: 'hidden' }}>
-            {/* ── NAVBAR ── */}
-            <nav style={{
-                position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-                background: 'rgba(10, 14, 26, 0.85)', backdropFilter: 'blur(20px)',
-                borderBottom: '1px solid rgba(255,255,255,0.06)',
-                padding: '0 24px', height: '64px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{
-                        width: '36px', height: '36px',
-                        background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                        borderRadius: '10px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '18px', fontWeight: 800, color: 'white',
-                    }}>W</div>
-                    <span style={{ fontWeight: 700, fontSize: '18px', color: '#fff' }}>WhatsApp Broadcast</span>
-                </div>
+        <div className="landing">
+            {/* Background effects */}
+            <div className="landing-bg-orbs" />
+            <div className="landing-grid-overlay" />
 
-                {/* Desktop nav */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
-                     className="landing-nav-buttons">
-                    <button onClick={() => onNavigate('login')}
-                        style={{
-                            background: 'transparent', border: '1px solid rgba(255,255,255,0.15)',
-                            color: '#e2e8f0', padding: '8px 20px', borderRadius: '8px',
-                            cursor: 'pointer', fontSize: '14px', fontWeight: 600,
-                            transition: 'all 0.2s',
-                        }}
-                        onMouseEnter={e => { e.target.style.borderColor = '#25D366'; e.target.style.color = '#25D366'; }}
-                        onMouseLeave={e => { e.target.style.borderColor = 'rgba(255,255,255,0.15)'; e.target.style.color = '#e2e8f0'; }}
-                    >Sign In</button>
-                    <button onClick={() => onNavigate('register')}
-                        style={{
-                            background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                            border: 'none', color: '#fff', padding: '8px 20px',
-                            borderRadius: '8px', cursor: 'pointer', fontSize: '14px',
-                            fontWeight: 600, transition: 'all 0.2s',
-                        }}
-                        onMouseEnter={e => e.target.style.transform = 'translateY(-1px)'}
-                        onMouseLeave={e => e.target.style.transform = 'translateY(0)'}
-                    >Get Started Free</button>
+            {/* ── Navbar ── */}
+            <nav className={`landing-nav ${scrolled ? 'scrolled' : ''}`}>
+                <div className="landing-nav-inner">
+                    <div className="landing-logo">
+                        <div className="landing-logo-icon">W</div>
+                        <span className="landing-logo-text">WhatsApp Broadcast</span>
+                    </div>
+                    <div className="landing-nav-actions">
+                        <button className="landing-btn landing-btn-ghost"
+                            onClick={() => onNavigate('login')}>
+                            Sign In
+                        </button>
+                        <button className="landing-btn landing-btn-primary"
+                            onClick={() => onNavigate('register')}>
+                            Get Started Free
+                        </button>
+                    </div>
                 </div>
             </nav>
 
-            {/* ── HERO ── */}
-            <section style={{
-                paddingTop: '140px', paddingBottom: '80px',
-                textAlign: 'center', position: 'relative',
-                maxWidth: '900px', margin: '0 auto', padding: '140px 24px 80px',
-            }}>
-                {/* Glow */}
-                <div style={{
-                    position: 'absolute', top: '80px', left: '50%', transform: 'translateX(-50%)',
-                    width: '600px', height: '400px',
-                    background: 'radial-gradient(ellipse, rgba(37,211,102,0.12) 0%, transparent 70%)',
-                    pointerEvents: 'none', filter: 'blur(40px)',
-                }} />
-
-                <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '8px',
-                    background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.25)',
-                    borderRadius: '100px', padding: '6px 16px', marginBottom: '28px',
-                    fontSize: '13px', color: '#25D366', fontWeight: 600,
-                }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#25D366' }} />
+            {/* ── Hero ── */}
+            <section className="landing-hero">
+                <div className="landing-badge">
+                    <span className="landing-badge-dot" />
                     Powered by Meta Cloud API v21.0
                 </div>
 
-                <h1 style={{
-                    fontSize: 'clamp(32px, 5vw, 56px)', fontWeight: 800,
-                    lineHeight: 1.1, marginBottom: '24px', color: '#fff',
-                    position: 'relative',
-                }}>
-                    WhatsApp Marketing<br />
-                    <span style={{
-                        background: 'linear-gradient(135deg, #25D366, #00e676, #69f0ae)',
-                        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                    }}>Made Effortless</span>
+                <h1>
+                    WhatsApp Marketing{' '}
+                    <span className="landing-hero-gradient">Made Effortless</span>
                 </h1>
 
-                <p style={{
-                    fontSize: 'clamp(16px, 2vw, 20px)', color: '#94a3b8',
-                    maxWidth: '600px', margin: '0 auto 40px', lineHeight: 1.6,
-                }}>
-                    Broadcast to thousands, chat with everyone, track every delivery.
-                    Connect your own Meta API — you control the data, we provide the platform.
+                <p>
+                    Broadcast to thousands, chat with every customer, track every delivery — 
+                    all from one beautiful dashboard. Connect your own Meta API.
                 </p>
 
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <button onClick={() => onNavigate('register')}
-                        style={{
-                            background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                            border: 'none', color: '#fff', padding: '14px 32px',
-                            borderRadius: '12px', cursor: 'pointer', fontSize: '16px',
-                            fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px',
-                            boxShadow: '0 4px 24px rgba(37,211,102,0.3)',
-                            transition: 'all 0.3s',
-                        }}
-                        onMouseEnter={e => e.target.style.transform = 'translateY(-2px)'}
-                        onMouseLeave={e => e.target.style.transform = 'translateY(0)'}
-                    >
-                        Start Free →
+                <div className="landing-hero-actions">
+                    <button className="landing-btn landing-btn-primary landing-btn-lg"
+                        onClick={() => onNavigate('register')}>
+                        Start Free — No Card Required
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                            <path d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
                     </button>
-                    <button onClick={() => onNavigate('login')}
-                        style={{
-                            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
-                            color: '#e2e8f0', padding: '14px 32px', borderRadius: '12px',
-                            cursor: 'pointer', fontSize: '16px', fontWeight: 600,
-                            transition: 'all 0.2s',
-                        }}
-                        onMouseEnter={e => { e.target.style.background = 'rgba(255,255,255,0.1)'; }}
-                        onMouseLeave={e => { e.target.style.background = 'rgba(255,255,255,0.05)'; }}
-                    >
+                    <button className="landing-btn landing-btn-outline landing-btn-lg"
+                        onClick={() => onNavigate('login')}>
                         Sign In
                     </button>
                 </div>
             </section>
 
-            {/* ── FEATURES ── */}
-            <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '60px 24px 80px' }}>
-                <h2 style={{
-                    textAlign: 'center', fontSize: '28px', fontWeight: 700,
-                    marginBottom: '48px', color: '#fff',
-                }}>Everything you need to grow with WhatsApp</h2>
-
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                    gap: '20px',
-                }}>
-                    {features.map((f, i) => (
-                        <div key={i} style={{
-                            background: 'rgba(255,255,255,0.03)',
-                            border: '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: '16px', padding: '28px',
-                            transition: 'all 0.3s',
-                        }}
-                            onMouseEnter={e => {
-                                e.currentTarget.style.background = 'rgba(37,211,102,0.05)';
-                                e.currentTarget.style.borderColor = 'rgba(37,211,102,0.2)';
-                                e.currentTarget.style.transform = 'translateY(-4px)';
-                            }}
-                            onMouseLeave={e => {
-                                e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                            }}
-                        >
-                            <div style={{
-                                width: '44px', height: '44px',
-                                background: 'rgba(37,211,102,0.12)', borderRadius: '12px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                marginBottom: '16px', color: '#25D366',
-                            }}>
-                                <Icon name={f.icon} size={22} />
-                            </div>
-                            <h3 style={{ fontSize: '17px', fontWeight: 700, marginBottom: '8px', color: '#fff' }}>
-                                {f.title}
-                            </h3>
-                            <p style={{ fontSize: '14px', color: '#94a3b8', lineHeight: 1.6 }}>
-                                {f.desc}
-                            </p>
+            {/* ── Stats ── */}
+            <section className="landing-stats">
+                <div className="landing-stats-inner">
+                    {STATS.map((s, i) => (
+                        <div className="landing-stat" key={i}>
+                            <div className="landing-stat-value">{s.value}</div>
+                            <div className="landing-stat-label">{s.label}</div>
                         </div>
                     ))}
                 </div>
             </section>
 
-            {/* ── HOW IT WORKS ── */}
-            <section style={{
-                maxWidth: '900px', margin: '0 auto', padding: '60px 24px 80px',
-            }}>
-                <h2 style={{
-                    textAlign: 'center', fontSize: '28px', fontWeight: 700,
-                    marginBottom: '48px', color: '#fff',
-                }}>Get started in 4 simple steps</h2>
+            {/* ── Features ── */}
+            <section className="landing-section">
+                <div className="landing-container">
+                    <div className="landing-section-header">
+                        <div className="landing-section-tag">Features</div>
+                        <h2 className="landing-section-title">
+                            Everything you need to grow with WhatsApp
+                        </h2>
+                        <p className="landing-section-subtitle">
+                            From broadcasting to chatting — a complete toolkit
+                            built for speed, simplicity, and scale.
+                        </p>
+                    </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
-                    {steps.map((s, i) => (
-                        <div key={i} style={{ textAlign: 'center' }}>
-                            <div style={{
-                                fontSize: '40px', fontWeight: 800,
-                                background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                                marginBottom: '12px',
-                            }}>{s.num}</div>
-                            <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px', color: '#fff' }}>
-                                {s.title}
-                            </h3>
-                            <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: 1.5 }}>
-                                {s.desc}
-                            </p>
-                        </div>
-                    ))}
+                    <div className="landing-features-grid">
+                        {FEATURES.map((f, i) => (
+                            <div className="landing-feature-card" key={i}>
+                                <div className="landing-feature-icon">
+                                    <Icon name={f.icon} size={24} />
+                                </div>
+                                <div className="landing-feature-title">{f.title}</div>
+                                <div className="landing-feature-desc">{f.desc}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* ── How it works ── */}
+            <section className="landing-section">
+                <div className="landing-container">
+                    <div className="landing-section-header">
+                        <div className="landing-section-tag">How it works</div>
+                        <h2 className="landing-section-title">
+                            Live in 4 simple steps
+                        </h2>
+                        <p className="landing-section-subtitle">
+                            No complex setup. No developer needed. Just plug in and go.
+                        </p>
+                    </div>
+
+                    <div className="landing-steps">
+                        {STEPS.map((s, i) => (
+                            <div className="landing-step" key={i}>
+                                <div className="landing-step-num">{s.num}</div>
+                                <div className="landing-step-title">{s.title}</div>
+                                <div className="landing-step-desc">{s.desc}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </section>
 
             {/* ── CTA ── */}
-            <section style={{
-                maxWidth: '800px', margin: '0 auto', padding: '60px 24px 100px',
-                textAlign: 'center',
-            }}>
-                <div style={{
-                    background: 'linear-gradient(135deg, rgba(37,211,102,0.1), rgba(18,140,126,0.1))',
-                    border: '1px solid rgba(37,211,102,0.2)',
-                    borderRadius: '24px', padding: '48px 32px',
-                }}>
-                    <h2 style={{ fontSize: '28px', fontWeight: 700, marginBottom: '16px', color: '#fff' }}>
+            <section className="landing-cta">
+                <div className="landing-cta-card">
+                    <h2 className="landing-cta-title">
                         Ready to scale your WhatsApp marketing?
                     </h2>
-                    <p style={{ fontSize: '16px', color: '#94a3b8', marginBottom: '28px' }}>
-                        Free to start. No credit card needed. Connect your own Meta API.
+                    <p className="landing-cta-desc">
+                        Free 14-day trial. No credit card. Your own Meta API credentials.
                     </p>
-                    <button onClick={() => onNavigate('register')}
-                        style={{
-                            background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                            border: 'none', color: '#fff', padding: '14px 36px',
-                            borderRadius: '12px', cursor: 'pointer', fontSize: '16px',
-                            fontWeight: 700, boxShadow: '0 4px 24px rgba(37,211,102,0.3)',
-                            transition: 'all 0.3s',
-                        }}
-                        onMouseEnter={e => e.target.style.transform = 'translateY(-2px)'}
-                        onMouseLeave={e => e.target.style.transform = 'translateY(0)'}
-                    >
-                        Create Your Account →
+                    <button className="landing-btn landing-btn-primary landing-btn-lg"
+                        onClick={() => onNavigate('register')}
+                        style={{ position: 'relative' }}>
+                        Create Your Free Account
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                            <path d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
                     </button>
                 </div>
             </section>
 
-            {/* ── FOOTER ── */}
-            <footer style={{
-                borderTop: '1px solid rgba(255,255,255,0.06)',
-                padding: '24px', textAlign: 'center',
-                fontSize: '13px', color: '#64748b',
-            }}>
-                © {new Date().getFullYear()} WhatsApp Broadcast Platform — broadcast.innodify.in
+            {/* ── Footer ── */}
+            <footer className="landing-footer">
+                <p className="landing-footer-text">
+                    © {new Date().getFullYear()} WhatsApp Broadcast Platform · 
+                    <a href="https://broadcast.innodify.in" className="landing-footer-link"> broadcast.innodify.in</a>
+                </p>
             </footer>
         </div>
     );
