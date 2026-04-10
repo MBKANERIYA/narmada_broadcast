@@ -49,11 +49,11 @@ router.post('/signup', async (req, res) => {
         trialEnds.setDate(trialEnds.getDate() + 14);
 
         const tenantResult = await run(
-            `INSERT INTO tenants (name, slug, subscription_plan, subscription_status, trial_ends_at)
-             VALUES (?, ?, 'trial', 'active', ?)`,
-            [firmName, slug, trialEnds.toISOString()]
+            `INSERT INTO tenants (name, slug, email, subscription_plan, subscription_status, trial_ends_at)
+             VALUES (?, ?, ?, 'trial', 'active', ?)`,
+            [firmName, slug, email, trialEnds.toISOString()]
         );
-        const tenantId = tenantResult.insertId || tenantResult.lastInsertRowid;
+        const tenantId = tenantResult.lastInsertRowid;
 
         // Create admin user
         const passwordHash = bcrypt.hashSync(password, 10);
@@ -61,7 +61,7 @@ router.post('/signup', async (req, res) => {
             'INSERT INTO users (tenant_id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
             [tenantId, name, email, passwordHash, 'admin']
         );
-        const userId = userResult.insertId || userResult.lastInsertRowid;
+        const userId = userResult.lastInsertRowid;
 
         // Auto-login: generate token
         const token = generateToken(userId, email, 'admin', tenantId);
