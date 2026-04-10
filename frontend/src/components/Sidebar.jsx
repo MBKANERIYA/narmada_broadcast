@@ -16,15 +16,24 @@ export default function Sidebar({ isOpen, onClose }) {
         onClose?.();
     };
 
-    const logoUrl = tenant?.logo_url || null;
     const firmName = tenant?.name || 'WhatsApp Broadcast';
 
     return (
         <aside className={`sidebar ${isOpen ? 'sidebar--open' : ''}`}>
             {/* Logo */}
             <div className="sidebar-logo">
-                <img src={logoUrl} alt={firmName} style={{ height: '36px', width: 'auto', borderRadius: '8px' }} />
-                <span className="sidebar-logo-text">{firmName}</span>
+                <div style={{
+                    width: '36px', height: '36px',
+                    background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                    borderRadius: '10px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '16px', fontWeight: 800, color: 'white',
+                    boxShadow: '0 2px 12px rgba(37, 211, 102, 0.2)',
+                    flexShrink: 0,
+                }}>W</div>
+                <span className="sidebar-logo-text" style={{
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{firmName}</span>
             </div>
 
             {/* Navigation */}
@@ -35,21 +44,16 @@ export default function Sidebar({ isOpen, onClose }) {
                         className={`sidebar-nav-item ${currentView === item.id ? 'active' : ''}`}
                         onClick={() => handleNav(item.id)}
                     >
-                        <Icon name={item.icon} size={20} />
+                        <Icon name={item.icon} size={18} />
                         <span>{item.label}</span>
                         {item.id === 'chat' && totalUnread > 0 && (
-                            <span className="badge badge--danger" style={{
+                            <span style={{
                                 marginLeft: 'auto',
-                                minWidth: '20px',
-                                height: '20px',
+                                minWidth: '20px', height: '20px',
                                 borderRadius: '10px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                background: '#ef4444',
-                                color: '#fff',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '11px', fontWeight: 700,
+                                background: '#ef4444', color: '#fff',
                                 padding: '0 6px',
                             }}>
                                 {totalUnread > 99 ? '99+' : totalUnread}
@@ -62,23 +66,32 @@ export default function Sidebar({ isOpen, onClose }) {
             {/* User */}
             <div className="sidebar-footer">
                 <div className="sidebar-user">
-                    <div className="avatar" style={{
-                        width: '36px', height: '36px', borderRadius: '50%',
-                        background: 'var(--primary)', color: '#fff',
+                    <div style={{
+                        width: '34px', height: '34px', borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                        color: '#fff',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: 700, fontSize: '14px',
+                        fontWeight: 700, fontSize: '14px', flexShrink: 0,
                     }}>
                         {(user?.name || 'U').charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{
+                            fontWeight: 600, fontSize: '13px',
+                            color: 'var(--text-primary)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
                             {user?.name || 'User'}
                         </div>
-                        <div style={{ fontSize: '11px', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{
+                            fontSize: '11px', color: 'var(--text-muted)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
                             {user?.email || ''}
                         </div>
                     </div>
-                    <button className="btn-icon" onClick={logout} title="Logout">
+                    <button className="btn-icon" onClick={logout} title="Logout"
+                        style={{ color: 'var(--text-muted)' }}>
                         <Icon name="logout" size={18} />
                     </button>
                 </div>
