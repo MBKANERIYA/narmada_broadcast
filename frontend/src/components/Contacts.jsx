@@ -103,6 +103,22 @@ export default function Contacts() {
         return tags;
     };
 
+    const downloadTemplate = () => {
+        const csv = [
+            'name,phone,email,location,ticket_size,tags',
+            'Rahul Sharma,9876543210,rahul@example.com,Mumbai,5000000,buyer;premium',
+            'Priya Patel,8765432109,priya@example.com,Delhi,3000000,investor',
+        ].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'contacts_import_template.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Template downloaded — fill it and import');
+    };
+
     const formatTicket = (amount) => {
         if (!amount) return '—';
         const num = Number(amount);
@@ -120,6 +136,9 @@ export default function Contacts() {
                     <p className="page-subtitle">{contactsTotal} total contacts</p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="btn btn--outline" onClick={downloadTemplate}>
+                        <Icon name="download" size={16} /> Template
+                    </button>
                     <button className="btn btn--outline" onClick={() => setShowImport(true)}>
                         <Icon name="upload" size={16} /> Import
                     </button>
