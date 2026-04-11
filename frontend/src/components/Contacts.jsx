@@ -104,6 +104,8 @@ export default function Contacts() {
             const result = await importContacts(importPreview);
             showToast(`Imported ${result.imported} contacts (${result.skipped} skipped)`);
             setShowImport(false); setImportText(''); setImportFile(null); setImportPreview(null);
+            // Explicit refresh after import
+            await fetchContacts();
         } catch (err) {
             showToast(err.message, 'error');
         }

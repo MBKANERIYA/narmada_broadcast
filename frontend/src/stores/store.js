@@ -214,7 +214,7 @@ export const useStore = create(
 
             importContacts: async (contactsList) => {
                 const result = await api('/contacts/import', { method: 'POST', body: JSON.stringify({ contacts: contactsList }) });
-                get().fetchContacts();
+                await get().fetchContacts();
                 return result;
             },
 
