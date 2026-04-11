@@ -6,11 +6,17 @@ import { persist } from 'zustand/middleware';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
+const APP_SUBDOMAINS = ['broadcast', 'app', 'www', 'api', 'admin'];
+
 const getTenantSlug = () => {
     const storedSlug = localStorage.getItem('tenant_slug');
     if (storedSlug) return storedSlug;
     const parts = window.location.hostname.split('.');
-    if (parts.length >= 3) return parts[0];
+    // Only treat as tenant subdomain if it's a 4+ part hostname (e.g. firm.broadcast.innodify.in)
+    // For broadcast.innodify.in (3 parts), 'broadcast' is the app domain, not a tenant
+    if (parts.length >= 4 && !APP_SUBDOMAINS.includes(parts[0])) {
+        return parts[0];
+    }
     return 'default';
 };
 
