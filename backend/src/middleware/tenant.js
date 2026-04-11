@@ -23,14 +23,12 @@ export const resolveTenant = async (req, res, next) => {
       slug = req.headers['x-tenant-slug'] || null;
       if (!slug) {
         const parts = host.split('.');
-        if (parts.length >= 3) {
+        // Only use subdomain for 4+ part hostnames (firm.broadcast.innodify.in)
+        // broadcast.innodify.in is the app domain, not a tenant
+        if (parts.length >= 4) {
           slug = parts[0];
         }
       }
-    }
-
-    if (!slug) {
-      return res.status(400).json({ error: 'Tenant not identified. Please sign in again.' });
     }
 
     // Skip tenant resolution for super admin panel
@@ -40,11 +38,21 @@ export const resolveTenant = async (req, res, next) => {
       return next();
     }
 
+    // If no slug resolved, continue without tenant — JWT auth will set tenantId
+    if (!slug) {
+      req.tenant = null;
+      req.tenantId = null;
+      return next();
+    }
+
     // Look up tenant from cache/DB
     const tenant = await getTenantBySlug(slug);
 
     if (!tenant) {
-      return res.status(404).json({ error: 'Account not found. Check your URL.' });
+      // Don't block — JWT auth middleware will resolve tenantId from token
+      req.tenant = null;
+      req.tenantId = null;
+      return next();
     }
 
     // Check subscription status

@@ -1,12 +1,13 @@
 import jwt from 'jsonwebtoken';
 import config from '../config.js';
+import { getTenantById } from '../database.js';
 
 /**
  * JWT Authentication Middleware
  * Extracts user from token and adds to req.user
  * Token payload includes: userId, email, role, tenantId
  */
-export const auth = (req, res, next) => {
+export const auth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -24,10 +25,18 @@ export const auth = (req, res, next) => {
         const decoded = jwt.verify(token, config.jwtSecret);
         req.user = decoded;
 
-        // Also set tenantId from JWT if not already set by tenant middleware
-        // This ensures tenantId is available even without subdomain resolution
-        if (decoded.tenantId && !req.tenantId) {
+        // If tenant middleware didn't resolve, use JWT's tenantId
+        if (!req.tenantId && decoded.tenantId) {
             req.tenantId = decoded.tenantId;
+            // Load tenant object if not already loaded
+            if (!req.tenant) {
+                req.tenant = await getTenantById(decoded.tenantId);
+            }
+        }
+
+        // Final check — tenantId must be set
+        if (!req.tenantId) {
+            return res.status(401).json({ error: 'Session expired. Please sign in again.' });
         }
 
         next();
