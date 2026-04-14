@@ -17,6 +17,8 @@ if (!process.env.DB_USER) {
     dotenv.config({ path: path.join(process.cwd(), '.env') });
 }
 
+console.log(`[CONFIG] envPath=${envPath} NODE_ENV=${process.env.NODE_ENV} SUPER_ADMIN_EMAILS="${process.env.SUPER_ADMIN_EMAILS}"`);
+
 export default {
     port: process.env.PORT || 3000,
     nodeEnv: process.env.NODE_ENV || 'development',
