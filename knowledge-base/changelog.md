@@ -4,6 +4,18 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-04-14 — Admin Panel for Tenant Management
+**What**: Added super admin panel to manage user accounts (temporary dev tool)
+**Why**: Need to upgrade/suspend/delete tenants during development without direct DB access
+**Files Changed**: `backend/src/routes/admin.js` [NEW], `frontend/src/components/AdminPanel.jsx` [NEW], `backend/src/app.js`, `frontend/src/App.jsx`, `frontend/src/components/Sidebar.jsx`
+**Commit**: `b958740`
+- Backend: GET/PUT/DELETE /api/v1/admin/tenants endpoints protected by `superAdminOnly` middleware
+- Frontend: Card-based UI with inline edit for plan/status, suspend toggle, delete with confirmation
+- View users per tenant in expandable section
+- Sidebar shows "Admin Panel" link only for users with `role === 'admin'`
+- Backend enforces `SUPER_ADMIN_EMAILS` env var — must be set on server
+- Default tenant (id=1) cannot be deleted
+
 ## 2026-04-11 — MySQL LIMIT/OFFSET Prepared Statement Fix
 **What**: Fixed contacts GET endpoint crashing with `ER_WRONG_ARGUMENTS` (errno 1210)
 **Why**: MySQL `pool.execute()` uses server-side prepared statements which don't support `LIMIT ?` or `OFFSET ?` as placeholders
