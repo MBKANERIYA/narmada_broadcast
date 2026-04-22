@@ -143,9 +143,13 @@ app.post('/api/v1/whatsapp-webhook', async (req, res) => {
  */
 async function processIncomingMessage(msg, contacts, phoneNumberId) {
     const fromPhone = normalizePhone(msg.from);
-    if (!fromPhone) return;
+    if (!fromPhone) {
+        console.warn(`[Webhook] Could not normalize phone: ${msg.from}`);
+        return;
+    }
 
     const senderProfile = contacts?.[0]?.profile?.name || null;
+    console.log(`[Webhook] Processing incoming message from ${fromPhone} (raw: ${msg.from}), type=${msg.type}, phone_number_id=${phoneNumberId}`);
 
     // Find the tenant by their phone_number_id
     const tenant = await get(
@@ -153,10 +157,11 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         [phoneNumberId]
     );
     if (!tenant) {
-        console.log(`[Webhook] No tenant found for phone_number_id: ${phoneNumberId}`);
+        console.warn(`[Webhook] No tenant found for phone_number_id: ${phoneNumberId}. Check tenant WhatsApp settings.`);
         return;
     }
     const tenantId = tenant.id;
+    console.log(`[Webhook] Matched tenant_id=${tenantId}`);
 
     // Find or create conversation
     let conversation = await get(
@@ -241,13 +246,13 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     }
 
     // Insert chat message
-    await run(
+    const insertResult = await run(
         `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, media_id, media_mime_type, provider_message_id, status)
          VALUES (?, ?, 'inbound', ?, ?, ?, ?, ?, 'delivered')`,
         [tenantId, conversation.id, messageType, body, mediaId, mediaMime, msg.id]
     );
 
-    console.log(`[Chat] Incoming from ${fromPhone}: "${previewText}" (tenant: ${tenantId})`);
+    console.log(`[Chat] ✅ Incoming from ${fromPhone}: "${previewText}" (tenant: ${tenantId}, conv: ${conversation.id}, msg_id: ${insertResult.lastInsertRowid})`);
 }
 
 // ============================================================

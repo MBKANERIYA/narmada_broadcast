@@ -244,6 +244,8 @@ router.get('/conversations/:id/messages', async (req, res) => {
             [req.params.id, req.tenantId]
         );
 
+        console.log(`[Chat API] Fetched ${messages.length} messages for conv=${req.params.id}, tenant=${req.tenantId}, total=${total?.count || 0}`);
+
         res.json({
             conversation: {
                 ...conversation,

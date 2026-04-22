@@ -32,19 +32,28 @@ export default function WhatsAppChat() {
     const [newChatSending, setNewChatSending] = useState(false);
     const [newChatStep, setNewChatStep] = useState(1);
 
-    // Initial load + polling
+    // Keep refs in sync so polling always uses latest values
+    const selectedConvIdRef = useRef(selectedConvId);
+    const searchRef = useRef(search);
+    useEffect(() => { selectedConvIdRef.current = selectedConvId; }, [selectedConvId]);
+    useEffect(() => { searchRef.current = search; }, [search]);
+
+    // Initial load
     useEffect(() => {
         fetchConversations();
         fetchWhatsAppTemplates();
         fetchContacts();
+    }, []);
 
+    // Polling — restart whenever selectedConvId changes so we immediately poll the right conversation
+    useEffect(() => {
         pollRef.current = setInterval(() => {
-            fetchConversations(search);
-            if (selectedConvId) fetchChatMessages(selectedConvId);
+            fetchConversations(searchRef.current);
+            if (selectedConvIdRef.current) fetchChatMessages(selectedConvIdRef.current);
         }, 8000);
 
         return () => clearInterval(pollRef.current);
-    }, []);
+    }, [selectedConvId]);
 
     useEffect(() => {
         const timer = setTimeout(() => fetchConversations(search), 300);

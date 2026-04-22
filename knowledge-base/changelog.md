@@ -4,6 +4,18 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-04-22 — Fix: Messages & Replies Not Showing in Chat Inbox
+**What**: Fixed chat inbox not displaying new messages or customer replies
+**Why**: Stale JavaScript closure bug — the polling setInterval captured the initial null value of selectedConvId, so message polling NEVER ran after the initial click
+**Files Changed**: `frontend/src/components/WhatsAppChat.jsx`, `backend/src/app.js`, `backend/src/routes/whatsapp-chat.js`
+- Root Cause: `useEffect` with `[]` dependency meant `selectedConvId` was always `null` inside the interval callback (React stale closure)
+- Fix: Use refs (`selectedConvIdRef`, `searchRef`) that stay in sync with state, so the interval always reads current values
+- Polling now restarts when conversation changes for immediate responsiveness
+- Added detailed webhook logging to trace incoming message processing
+- Added messages API endpoint logging to help debug empty message responses
+
+---
+
 ## 2026-04-17 — Feature: Rich Template Cards in Chat Inbox
 **What**: Template messages now display as full WhatsApp-style cards with header image, body, footer, and buttons
 **Why**: Previously showed only `[Template: n1]` or plain body text — users couldn't see the complete message sent to customers
