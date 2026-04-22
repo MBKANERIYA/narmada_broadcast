@@ -61,9 +61,15 @@ app.get('/api/v1/whatsapp-webhook', (req, res) => {
     }
 });
 
+// In-memory webhook event log for diagnostics (keeps last 20)
+const webhookLog = [];
+
 app.post('/api/v1/whatsapp-webhook', async (req, res) => {
     try {
         const body = req.body;
+        const logEntry = { time: new Date().toISOString(), object: body.object, entries: body.entry?.length || 0 };
+        webhookLog.push(logEntry);
+        if (webhookLog.length > 20) webhookLog.shift();
 
         console.log(`[Webhook] Received event: object=${body.object}`);
 
@@ -299,6 +305,7 @@ app.get('/api/v1/debug/chat-status', async (req, res) => {
             },
             recent_conversations: conversations,
             recent_messages: messages,
+            webhook_event_log: webhookLog,
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
