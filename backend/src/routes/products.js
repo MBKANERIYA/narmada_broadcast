@@ -30,16 +30,22 @@ router.post('/', async (req, res) => {
 
         const productId = result.lastInsertRowid;
         
+        let syncError = null;
         try {
             const metaProductId = await syncProductToMeta(req.tenant, { id: productId, ...req.body });
             if (metaProductId) {
                 await run('UPDATE products SET meta_product_id = ? WHERE id = ?', [metaProductId, productId]);
             }
         } catch (syncErr) {
+            syncError = syncErr.message;
             console.error('Product created but Meta sync failed:', syncErr.message);
         }
 
-        res.status(201).json({ message: 'Product added successfully', id: productId });
+        if (syncError) {
+            res.status(201).json({ message: 'Product added locally, but Facebook Sync Failed: ' + syncError, id: productId });
+        } else {
+            res.status(201).json({ message: 'Product added successfully & synced to Meta!', id: productId });
+        }
     } catch (error) {
         console.error('Error adding product:', error);
         res.status(500).json({ error: 'Failed to add product' });
@@ -62,6 +68,7 @@ router.put('/:id', async (req, res) => {
 
         if (result.changes === 0) return res.status(404).json({ error: 'Product not found' });
 
+        let syncError = null;
         const [prod] = await query('SELECT * FROM products WHERE id = ? AND tenant_id = ?', [id, req.tenant.id]);
         if (prod) {
             try {
@@ -70,11 +77,16 @@ router.put('/:id', async (req, res) => {
                     await run('UPDATE products SET meta_product_id = ? WHERE id = ?', [metaProductId, id]);
                 }
             } catch (syncErr) {
+                syncError = syncErr.message;
                 console.error('Product updated but Meta sync failed:', syncErr.message);
             }
         }
 
-        res.json({ message: 'Product updated successfully' });
+        if (syncError) {
+            res.json({ message: 'Product updated locally, but Facebook Sync Failed: ' + syncError });
+        } else {
+            res.json({ message: 'Product updated successfully & synced to Meta!' });
+        }
     } catch (error) {
         console.error('Error updating product:', error);
         res.status(500).json({ error: 'Failed to update product' });
