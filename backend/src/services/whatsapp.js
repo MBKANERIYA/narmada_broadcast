@@ -500,6 +500,7 @@ export async function syncProductToMeta(tenant, product) {
     
     // Create an items batch request for upserting
     const payload = {
+        item_type: 'PRODUCT_ITEM',
         requests: [
             {
                 method: "UPDATE",
