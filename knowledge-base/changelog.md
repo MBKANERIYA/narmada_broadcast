@@ -4,6 +4,15 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-11 — Feature: Meta Commerce Catalog Integration
+**What**: Automatically syncs locally created products to Meta Commerce Catalog via Graph API
+**Why**: Ensures products added via the SaaS UI appear on the tenant's actual WhatsApp Business Profile in the WhatsApp app
+**Files Changed**: `backend/src/database.js`, `backend/src/routes/tenant-settings.js`, `frontend/src/components/Settings.jsx`, `backend/src/services/whatsapp.js`, `backend/src/routes/products.js`
+- Added `whatsapp_catalog_id` to tenants table and `meta_product_id` to products table
+- Updated UI in Settings to allow entering Commerce Catalog ID
+- Built `syncProductToMeta` to upsert products via `POST /<CATALOG_ID>/items_batch`
+- Wired product create/update/delete API routes to sync to Meta in real-time
+
 ## 2026-06-11 — Feature: Product Catalogue
 **What**: Added Product Catalogue functionality to allow tenants to manage products.
 **Why**: Tenants need a way to manage their product catalogue before creating WhatsApp catalog messages or broadcast templates involving products.
