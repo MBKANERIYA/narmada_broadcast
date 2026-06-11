@@ -4,6 +4,16 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-11 — Feature: Product Catalogue
+**What**: Added Product Catalogue functionality to allow tenants to manage products.
+**Why**: Tenants need a way to manage their product catalogue before creating WhatsApp catalog messages or broadcast templates involving products.
+**Files Changed**: `backend/src/routes/products.js`, `backend/src/database.js`, `backend/src/app.js`, `frontend/src/App.jsx`, `frontend/src/components/Sidebar.jsx`, `frontend/src/components/Catalogue.jsx`
+- Backend: Added `products` table migration in `database.js`
+- Backend: Added full CRUD API (`GET`, `POST`, `PUT`, `DELETE` on `/api/v1/products`) scoped by `tenant_id`
+- Frontend: Added `Catalogue.jsx` component with a responsive grid layout
+- Frontend: Added modal for creating/editing products with fields for Name, Description, MRP, Selling Price, Category, SKU, and Image URL
+- Frontend: Added new 'Catalogue' item to `Sidebar.jsx` and registered route in `App.jsx`
+
 ## 2026-04-27 — Feature: Template Edit Functionality
 **What**: Added ability to edit existing WhatsApp templates from the Templates tab
 **Why**: Users previously had to delete and recreate templates to make changes — now they can edit body, footer, buttons, and header image directly

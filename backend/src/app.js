@@ -18,6 +18,7 @@ import tenantSettingsRoutes from './routes/tenant-settings.js';
 import leadsRoutes from './routes/leads.js';
 import publicRoutes from './routes/public.js';
 import adminRoutes from './routes/admin.js';
+import productsRoutes from './routes/products.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -332,6 +333,7 @@ app.use('/api/v1/contacts', auth, contactsRoutes);
 app.use('/api/v1/whatsapp', auth, whatsappRoutes);
 app.use('/api/v1/whatsapp/chat', auth, whatsappChatRoutes);
 app.use('/api/v1/tenant-settings', auth, tenantSettingsRoutes);
+app.use('/api/v1/products', auth, productsRoutes);
 
 // Super admin routes (auth + super admin check)
 app.use('/api/v1/admin', auth, superAdminOnly, adminRoutes);

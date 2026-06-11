@@ -7,6 +7,7 @@ import Sidebar from './components/Sidebar';
 import Contacts from './components/Contacts';
 import WhatsAppBroadcast from './components/WhatsAppBroadcast';
 import WhatsAppChat from './components/WhatsAppChat';
+import Catalogue from './components/Catalogue';
 import Settings from './components/Settings';
 import AdminPanel from './components/AdminPanel';
 import Toast from './components/Toast';
@@ -23,6 +24,7 @@ export default function App() {
                 case 'contacts': return <Contacts />;
                 case 'broadcast': return <WhatsAppBroadcast />;
                 case 'chat': return <WhatsAppChat />;
+                case 'catalogue': return <Catalogue />;
                 case 'settings': return <Settings />;
                 case 'admin': return <AdminPanel />;
                 default: return <Contacts />;

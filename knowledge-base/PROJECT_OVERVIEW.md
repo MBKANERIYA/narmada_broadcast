@@ -20,7 +20,7 @@ A **multi-tenant SaaS platform** that lets businesses send WhatsApp broadcast me
 - **Self-service credentials**: Customers enter their own Meta API token, phone_number_id, and WABA ID in Settings
 - **No Razorpay/payment gateway needed**: Billing is manual or future integration
 
-## Core Features (4 Views)
+## Core Features (5 Views)
 
 ### 1. Contacts
 - Unified contact list (no leads/clients separation)
@@ -44,7 +44,12 @@ A **multi-tenant SaaS platform** that lets businesses send WhatsApp broadcast me
 - Incoming messages matched to contacts by phone number
 - Polls every 8 seconds for new messages
 
-### 4. Settings
+### 4. Product Catalogue
+- Manage products available for WhatsApp sharing
+- Tracks MRP, selling price, category, and SKU
+- Stores product image URLs
+
+### 5. Settings
 - Firm profile (name, email, phone, logo, brand color)
 - WhatsApp credentials (access token, phone_number_id, WABA ID) — verified with Meta API on save
 - Subscription plan display

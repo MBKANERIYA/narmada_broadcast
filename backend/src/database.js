@@ -233,6 +233,23 @@ const migrate = async () => {
       INDEX idx_conversation (conversation_id, created_at),
       INDEX idx_provider_msg (provider_message_id)
     )`,
+
+    // Products (Catalogue)
+    `CREATE TABLE IF NOT EXISTS products (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      mrp DECIMAL(10,2),
+      selling_price DECIMAL(10,2),
+      category VARCHAR(100),
+      sku VARCHAR(100),
+      image_url TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      INDEX idx_tenant (tenant_id)
+    )`,
   ];
 
   for (const sql of coreMigrations) {
