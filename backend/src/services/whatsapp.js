@@ -505,14 +505,15 @@ export async function syncProductToMeta(tenant, product) {
                 method: "UPDATE",
                 data: {
                     id: product.sku || `PROD-${product.id}`,
-                    name: product.name,
+                    title: product.name,
                     description: product.description || product.name,
                     price: price,
                     currency: 'INR',
-                    url: fallbackUrl,
-                    image_url: product.image_url || 'https://via.placeholder.com/600x600.png?text=No+Image',
+                    link: fallbackUrl,
+                    image_link: product.image_url || 'https://via.placeholder.com/600x600.png?text=No+Image',
                     brand: tenant.name || 'Brand',
-                    condition: 'new'
+                    condition: 'new',
+                    availability: 'in stock'
                 }
             }
         ]
