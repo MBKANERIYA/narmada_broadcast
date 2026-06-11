@@ -495,7 +495,8 @@ export async function deleteTemplate(templateName, tenant) {
 export async function syncProductToMeta(tenant, product) {
     if (!tenant.whatsapp_catalog_id || !tenant.whatsapp_access_token) return product.meta_product_id || null;
 
-    const price = parseInt((parseFloat(product.selling_price || product.mrp || 0) * 100).toFixed(0));
+    const priceValue = parseFloat(product.selling_price || product.mrp || 0).toFixed(2);
+    const priceString = `${priceValue} INR`;
     const fallbackUrl = `https://wa.me/${tenant.phone || ''}?text=Inquiry+about+${encodeURIComponent(product.name)}`;
     
     // Create an items batch request for upserting
@@ -508,8 +509,7 @@ export async function syncProductToMeta(tenant, product) {
                     id: product.sku || `PROD-${product.id}`,
                     title: product.name,
                     description: product.description || product.name,
-                    price: price,
-                    currency: 'INR',
+                    price: priceString,
                     link: fallbackUrl,
                     image_link: product.image_url || 'https://via.placeholder.com/600x600.png?text=No+Image',
                     brand: tenant.name || 'Brand',
