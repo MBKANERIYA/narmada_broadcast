@@ -9,7 +9,7 @@ export default function Catalogue() {
     const [showModal, setShowModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
     const [submitting, setSubmitting] = useState(false);
-    
+
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -86,19 +86,26 @@ export default function Catalogue() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            let response;
             if (editingProduct) {
-                await api(`/products/${editingProduct.id}`, {
+                response = await api(`/products/${editingProduct.id}`, {
                     method: 'PUT',
                     body: JSON.stringify(formData)
                 });
-                showToast('Product updated successfully');
             } else {
-                await api('/products', {
+                response = await api('/products', {
                     method: 'POST',
                     body: JSON.stringify(formData)
                 });
-                showToast('Product added successfully');
             }
+            
+            // Check if there was a sync error warning in the message
+            if (response && response.message && response.message.includes('Facebook Sync Failed')) {
+                showToast(response.message, 'error');
+            } else {
+                showToast(response?.message || 'Product saved successfully');
+            }
+            
             setShowModal(false);
             fetchProducts();
         } catch (err) {
@@ -136,7 +143,7 @@ export default function Catalogue() {
                 <div>
                     <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                         <Icon name="tag" size={22} style={{ marginRight: '8px' }} />
-                        Product Catalogue
+                        Products Catalogue
                     </h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '4px 0 0' }}>
                         Manage your products for WhatsApp sharing
@@ -159,9 +166,9 @@ export default function Catalogue() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                     {products.map(product => (
                         <div key={product.id} className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ 
-                                height: '200px', 
-                                background: 'var(--bg-secondary)', 
+                            <div style={{
+                                height: '200px',
+                                background: 'var(--bg-secondary)',
                                 backgroundImage: product.image_url ? `url(${product.image_url})` : 'none',
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center',
