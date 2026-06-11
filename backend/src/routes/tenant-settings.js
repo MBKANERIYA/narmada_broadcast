@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
         const tenant = await get(
             `SELECT id, name, slug, email, phone, logo_url, primary_color,
                     subscription_plan, subscription_status, trial_ends_at,
-                    whatsapp_phone_number_id, whatsapp_business_account_id, whatsapp_configured,
+                    whatsapp_phone_number_id, whatsapp_business_account_id, whatsapp_catalog_id, whatsapp_configured,
                     max_users, created_at
              FROM tenants WHERE id = ?`,
             [req.tenantId]
@@ -84,7 +84,7 @@ router.put('/profile', async (req, res) => {
  */
 router.put('/whatsapp', async (req, res) => {
     try {
-        const { whatsapp_access_token, whatsapp_phone_number_id, whatsapp_business_account_id } = req.body;
+        const { whatsapp_access_token, whatsapp_phone_number_id, whatsapp_business_account_id, whatsapp_catalog_id } = req.body;
 
         if (!whatsapp_access_token || !whatsapp_phone_number_id || !whatsapp_business_account_id) {
             return res.status(400).json({
@@ -113,9 +113,9 @@ router.put('/whatsapp', async (req, res) => {
 
         await run(`
             UPDATE tenants 
-            SET whatsapp_access_token = ?, whatsapp_phone_number_id = ?, whatsapp_business_account_id = ?, whatsapp_configured = TRUE
+            SET whatsapp_access_token = ?, whatsapp_phone_number_id = ?, whatsapp_business_account_id = ?, whatsapp_catalog_id = ?, whatsapp_configured = TRUE
             WHERE id = ?
-        `, [whatsapp_access_token, whatsapp_phone_number_id, whatsapp_business_account_id, req.tenantId]);
+        `, [whatsapp_access_token, whatsapp_phone_number_id, whatsapp_business_account_id, whatsapp_catalog_id || null, req.tenantId]);
 
         invalidateTenantCache(req.tenant.slug);
 

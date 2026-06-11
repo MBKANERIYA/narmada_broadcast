@@ -59,6 +59,7 @@ const migrate = async () => {
       whatsapp_access_token TEXT,
       whatsapp_phone_number_id VARCHAR(50),
       whatsapp_business_account_id VARCHAR(50),
+      whatsapp_catalog_id VARCHAR(50),
       whatsapp_configured BOOLEAN DEFAULT FALSE,
       max_users INT DEFAULT 5,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -245,6 +246,7 @@ const migrate = async () => {
       category VARCHAR(100),
       sku VARCHAR(100),
       image_url TEXT,
+      meta_product_id VARCHAR(100),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
@@ -269,6 +271,8 @@ const migrate = async () => {
 
   const alterMigrations = [
     `ALTER TABLE whatsapp_templates ADD COLUMN buttons_json TEXT AFTER footer_text`,
+    `ALTER TABLE tenants ADD COLUMN whatsapp_catalog_id VARCHAR(50) AFTER whatsapp_business_account_id`,
+    `ALTER TABLE products ADD COLUMN meta_product_id VARCHAR(100) AFTER image_url`
   ];
   for (const sql of alterMigrations) {
     try {

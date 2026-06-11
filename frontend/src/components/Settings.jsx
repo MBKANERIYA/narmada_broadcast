@@ -22,11 +22,11 @@ export default function Settings() {
         name: '', email: '', phone: '', logo_url: '', primary_color: '#25D366',
     });
 
-    // WhatsApp form
     const [waForm, setWaForm] = useState({
         whatsapp_access_token: '',
         whatsapp_phone_number_id: '',
         whatsapp_business_account_id: '',
+        whatsapp_catalog_id: '',
     });
 
     useEffect(() => {
@@ -64,7 +64,7 @@ export default function Settings() {
         try {
             await updateWhatsAppConfig(waForm);
             showToast('WhatsApp configured! Credentials verified with Meta.', 'success');
-            setWaForm({ whatsapp_access_token: '', whatsapp_phone_number_id: '', whatsapp_business_account_id: '' });
+            setWaForm({ whatsapp_access_token: '', whatsapp_phone_number_id: '', whatsapp_business_account_id: '', whatsapp_catalog_id: '' });
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
@@ -209,6 +209,7 @@ export default function Settings() {
                             }}>
                                 <div><strong>Phone Number ID:</strong> {tenantSettings.whatsapp_phone_number_id}</div>
                                 <div><strong>Business Account ID:</strong> {tenantSettings.whatsapp_business_account_id}</div>
+                                {tenantSettings.whatsapp_catalog_id && <div><strong>Commerce Catalog ID:</strong> {tenantSettings.whatsapp_catalog_id}</div>}
                                 <div><strong>Access Token:</strong> ••••••{tenantSettings.whatsapp_access_token?.slice(-6)}</div>
                             </div>
                         )}
@@ -248,6 +249,13 @@ export default function Settings() {
                                     value={waForm.whatsapp_business_account_id}
                                     onInput={e => setWaForm(f => ({ ...f, whatsapp_business_account_id: e.target.value }))}
                                     placeholder="123456789012345" required />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Commerce Catalog ID (Optional for Products)</label>
+                                <input className="form-input"
+                                    value={waForm.whatsapp_catalog_id}
+                                    onInput={e => setWaForm(f => ({ ...f, whatsapp_catalog_id: e.target.value }))}
+                                    placeholder="e.g. 543210987654321" />
                             </div>
 
                             <div className="info-box" style={{ marginBottom: '16px' }}>

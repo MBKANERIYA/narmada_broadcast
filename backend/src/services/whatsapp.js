@@ -489,8 +489,92 @@ export async function deleteTemplate(templateName, tenant) {
     return data;
 }
 
+/**
+ * Sync product to Meta Commerce Catalog
+ */
+export async function syncProductToMeta(tenant, product) {
+    if (!tenant.whatsapp_catalog_id || !tenant.whatsapp_access_token) return product.meta_product_id || null;
+
+    const price = parseInt((parseFloat(product.selling_price || product.mrp || 0) * 100).toFixed(0));
+    const fallbackUrl = `https://wa.me/${tenant.phone || ''}?text=Inquiry+about+${encodeURIComponent(product.name)}`;
+    
+    // Create an items batch request for upserting
+    const payload = {
+        requests: [
+            {
+                method: "UPDATE",
+                data: {
+                    id: product.sku || `PROD-${product.id}`,
+                    name: product.name,
+                    description: product.description || product.name,
+                    price: price,
+                    currency: 'INR',
+                    url: fallbackUrl,
+                    image_url: product.image_url || 'https://via.placeholder.com/600x600.png?text=No+Image',
+                    brand: tenant.name || 'Brand',
+                    condition: 'new'
+                }
+            }
+        ]
+    };
+
+    const url = `${WHATSAPP_API_URL}/${tenant.whatsapp_catalog_id}/items_batch`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${tenant.whatsapp_access_token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (data.error) {
+        throw new Error(`Meta Commerce API Error: ${data.error.message}`);
+    }
+
+    // items_batch doesn't necessarily return a meta_product_id if it's async,
+    // but we use the retailer_id (sku or PROD-id) as our primary sync key.
+    return product.sku || `PROD-${product.id}`;
+}
+
+/**
+ * Delete product from Meta Commerce Catalog
+ */
+export async function deleteProductFromMeta(tenant, metaProductId) {
+    if (!tenant.whatsapp_catalog_id || !tenant.whatsapp_access_token || !metaProductId) return;
+
+    // Use items_batch DELETE method
+    const payload = {
+        requests: [
+            {
+                method: "DELETE",
+                data: {
+                    id: metaProductId
+                }
+            }
+        ]
+    };
+
+    const url = `${WHATSAPP_API_URL}/${tenant.whatsapp_catalog_id}/items_batch`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${tenant.whatsapp_access_token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (data.error) {
+        console.error('Meta API Delete Error:', data.error.message);
+    }
+}
+
 export default {
     normalizePhone, sendTemplateMessage, sendTextMessage, sendMediaMessage,
     getMediaUrl, sendBulkMessages, uploadMediaForTemplate, createTemplate,
     editTemplate, fetchTemplates, deleteTemplate, getTemplateDefinition,
+    syncProductToMeta, deleteProductFromMeta,
 };
