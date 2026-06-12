@@ -4,6 +4,21 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-12 — UI Redesign: Smart Knowledge Base FAQ Dashboard
+**What**: Completely redesigned and overhauled the Smart Knowledge Base FAQ dashboard layout and styling.
+**Why**: The previous UI had severe form field misalignment and squished inputs, making it look unprofessional.
+**Impact**: Clean, premium aesthetic and fully responsive grid split-pane on desktop.
+**Files Changed**: `frontend/src/components/KnowledgeBase.jsx`, `frontend/src/styles/main.css`, `frontend/package-lock.json`, `knowledge-base/active-context.md`, `knowledge-base/decisions.md`, `knowledge-base/known-issues.md`
+**Tests**: Verified frontend builds successfully locally (`npm run build`). No automated test suites currently exist.
+**Commit**: `93756b0`
+
+- Implemented responsive split-column grid: Form on the left (max 480px), FAQ list on the right.
+- Restructured form fields with `<div className="form-group">` wrappers, aligning labels and textareas vertically.
+- Added interactive text input icons (magnifying glass, chat icons) and focus transition rings.
+- Integrated a live horizontal Statistics panel showing Total FAQs, AI Status, and NLP Model metrics.
+- Added dynamic search filtering in the Active FAQs list.
+- Redesigned FAQ item cards with green brand left-accent, hover shadows, slide translation, and hover-triggered delete actions.
+
 ## 2026-06-12 — Feature: Send Media in WhatsApp Chat
 **What**: Added the ability to send images and documents from the platform to WhatsApp users.
 **Why**: Enhances the chat experience by allowing agents to send product images, invoices, and other media directly from the dashboard.
