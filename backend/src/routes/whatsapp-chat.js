@@ -338,7 +338,20 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
         }
 
         // 1. Upload media to Meta
-        const metaMediaId = await uploadMediaForMessage(req.file.buffer, req.file.mimetype, req.file.originalname, req.tenant);
+        let uploadMime = req.file.mimetype;
+        let uploadName = req.file.originalname;
+
+        // Meta Cloud API does not support audio/webm. Since browser-recorded webm
+        // uses the Opus audio codec, we can safely override the mimetype and filename to
+        // audio/ogg and .ogg, which Meta validates and WhatsApp clients decode natively.
+        if (uploadMime === 'audio/webm' || uploadName.endsWith('.webm')) {
+            uploadMime = 'audio/ogg';
+            uploadName = uploadName.replace(/\.webm$/, '.ogg');
+            req.file.mimetype = 'audio/ogg';
+            req.file.originalname = uploadName;
+        }
+
+        const metaMediaId = await uploadMediaForMessage(req.file.buffer, uploadMime, uploadName, req.tenant);
         
         // 2. Send media message using the Meta ID
         const isImage = req.file.mimetype.startsWith('image/');
