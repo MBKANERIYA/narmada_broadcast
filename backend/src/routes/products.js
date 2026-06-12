@@ -1,6 +1,7 @@
 import express from 'express';
 import { query, run, get } from '../database.js';
 import { syncProductToMeta, deleteProductFromMeta } from '../services/whatsapp.js';
+import { generateEmbedding } from '../services/smartResponder.js';
 
 const router = express.Router();
 
@@ -22,10 +23,13 @@ router.post('/', async (req, res) => {
         
         if (!name) return res.status(400).json({ error: 'Product name is required' });
 
+        const searchString = `Product: ${name}\nCategory: ${category || 'General'}\nDescription: ${description || ''}\nPrice: ${selling_price || mrp || ''}`;
+        const vector = await generateEmbedding(searchString);
+
         const result = await run(
-            `INSERT INTO products (tenant_id, name, description, mrp, selling_price, category, sku, image_url) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [req.tenant.id, name, description || '', mrp || 0, selling_price || 0, category || '', sku || '', image_url || '']
+            `INSERT INTO products (tenant_id, name, description, mrp, selling_price, category, sku, image_url, product_vector) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.tenant.id, name, description || '', mrp || 0, selling_price || 0, category || '', sku || '', image_url || '', JSON.stringify(vector)]
         );
 
         const productId = result.lastInsertRowid;
@@ -60,10 +64,13 @@ router.put('/:id', async (req, res) => {
 
         if (!name) return res.status(400).json({ error: 'Product name is required' });
 
+        const searchString = `Product: ${name}\nCategory: ${category || 'General'}\nDescription: ${description || ''}\nPrice: ${selling_price || mrp || ''}`;
+        const vector = await generateEmbedding(searchString);
+
         const result = await run(
-            `UPDATE products SET name = ?, description = ?, mrp = ?, selling_price = ?, category = ?, sku = ?, image_url = ?
+            `UPDATE products SET name = ?, description = ?, mrp = ?, selling_price = ?, category = ?, sku = ?, image_url = ?, product_vector = ?
              WHERE id = ? AND tenant_id = ?`,
-            [name, description || '', mrp || 0, selling_price || 0, category || '', sku || '', image_url || '', id, req.tenant.id]
+            [name, description || '', mrp || 0, selling_price || 0, category || '', sku || '', image_url || '', JSON.stringify(vector), id, req.tenant.id]
         );
 
         if (result.changes === 0) return res.status(404).json({ error: 'Product not found' });

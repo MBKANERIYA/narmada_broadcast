@@ -56,40 +56,72 @@ export async function handleSmartReply(tenantId, messageBody) {
             [tenantId]
         );
 
-        if (!faqs || faqs.length === 0) {
-            return null; // No knowledge base configured
+        // 2. Fetch Tenant's Products
+        const products = await query(
+            'SELECT id, name, description, mrp, selling_price, image_url, product_vector FROM products WHERE tenant_id = ?',
+            [tenantId]
+        );
+
+        if ((!faqs || faqs.length === 0) && (!products || products.length === 0)) {
+            return null; // No knowledge base or products configured
         }
 
         // 2. Generate embedding for the incoming message
         const messageVector = await generateEmbedding(messageBody);
 
-        let bestMatch = null;
-        let highestScore = -1;
+        let bestFaqMatch = null;
+        let highestFaqScore = -1;
 
         // 3. Find the semantically closest FAQ
-        for (const faq of faqs) {
-            if (!faq.question_vector) continue;
-            
-            let faqVector;
-            try {
-                faqVector = typeof faq.question_vector === 'string' ? JSON.parse(faq.question_vector) : faq.question_vector;
-            } catch (e) {
-                continue;
-            }
+        if (faqs && faqs.length > 0) {
+            for (const faq of faqs) {
+                if (!faq.question_vector) continue;
+                
+                let faqVector;
+                try {
+                    faqVector = typeof faq.question_vector === 'string' ? JSON.parse(faq.question_vector) : faq.question_vector;
+                } catch (e) { continue; }
 
-            const score = cosineSimilarity(messageVector, faqVector);
-            
-            if (score > highestScore) {
-                highestScore = score;
-                bestMatch = faq;
+                const score = cosineSimilarity(messageVector, faqVector);
+                if (score > highestFaqScore) {
+                    highestFaqScore = score;
+                    bestFaqMatch = faq;
+                }
             }
         }
 
-        // 4. Threshold Check (0.45 is a balanced baseline for MiniLM conversational queries)
-        console.log(`[SmartResponder] Best match for "${messageBody}": "${bestMatch?.question}" (Score: ${highestScore.toFixed(2)})`);
+        let bestProductMatch = null;
+        let highestProductScore = -1;
+
+        // 4. Find the semantically closest Product
+        if (products && products.length > 0) {
+            for (const product of products) {
+                if (!product.product_vector) continue;
+                
+                let prodVector;
+                try {
+                    prodVector = typeof product.product_vector === 'string' ? JSON.parse(product.product_vector) : product.product_vector;
+                } catch (e) { continue; }
+
+                const score = cosineSimilarity(messageVector, prodVector);
+                if (score > highestProductScore) {
+                    highestProductScore = score;
+                    bestProductMatch = product;
+                }
+            }
+        }
+
+        // 5. Determine the winner (Threshold Check 0.45)
+        const THRESHOLD = 0.45;
         
-        if (highestScore >= 0.45 && bestMatch) {
-            return bestMatch.answer;
+        console.log(`[SmartResponder] Message: "${messageBody}"`);
+        console.log(`  - Best FAQ: ${bestFaqMatch?.question || 'None'} (Score: ${highestFaqScore.toFixed(2)})`);
+        console.log(`  - Best Product: ${bestProductMatch?.name || 'None'} (Score: ${highestProductScore.toFixed(2)})`);
+
+        if (highestProductScore >= THRESHOLD && highestProductScore > highestFaqScore) {
+            return { type: 'product', data: bestProductMatch };
+        } else if (highestFaqScore >= THRESHOLD) {
+            return { type: 'faq', text: bestFaqMatch.answer };
         }
 
         return null;

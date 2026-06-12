@@ -271,26 +271,48 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             const botReply = await handleSmartReply(tenantId, body);
 
             if (botReply) {
-                const { sendTextMessage } = await import('./services/whatsapp.js');
+                const { sendTextMessage, sendMediaMessage } = await import('./services/whatsapp.js');
+                
+                let result;
+                let textToSave = '';
+                let typeToSave = 'text';
 
-                // Send the message via Meta API
-                const result = await sendTextMessage(fromPhone, botReply, tenant);
+                if (botReply.type === 'faq') {
+                    // Send FAQ as text
+                    result = await sendTextMessage(fromPhone, botReply.text, tenant);
+                    textToSave = botReply.text;
+                } else if (botReply.type === 'product') {
+                    // Send Product as image (if available) + text
+                    const product = botReply.data;
+                    const caption = `*${product.name}*\n${product.description ? product.description + '\n' : ''}\nPrice: ₹${product.selling_price || product.mrp}`;
+                    
+                    if (product.image_url) {
+                        result = await sendMediaMessage(fromPhone, 'image', { link: product.image_url }, caption, tenant);
+                        textToSave = caption;
+                        typeToSave = 'image';
+                    } else {
+                        result = await sendTextMessage(fromPhone, caption, tenant);
+                        textToSave = caption;
+                    }
+                }
 
-                // Save outbound message to DB
-                const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                await run(
-                    `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
-                     VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent', NULL)`,
-                    [tenantId, conversation.id, botReply, result.messageId]
-                );
+                if (result && result.messageId) {
+                    // Save outbound message to DB
+                    const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                    await run(
+                        `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
+                         VALUES (?, ?, 'outbound', ?, ?, ?, 'sent', NULL)`,
+                        [tenantId, conversation.id, typeToSave, textToSave, result.messageId]
+                    );
 
-                // Update conversation last message & mark unread as 0 since bot handled it
-                await run(
-                    `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
-                    [botReply.substring(0, 100), nowStr, conversation.id]
-                );
+                    // Update conversation last message & mark unread as 0 since bot handled it
+                    await run(
+                        `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
+                        [textToSave.substring(0, 100), nowStr, conversation.id]
+                    );
 
-                console.log(`[Bot] 🤖 Smart Auto-Responder replied to ${fromPhone}`);
+                    console.log(`[Bot] 🤖 Smart Auto-Responder replied to ${fromPhone} with ${botReply.type}`);
+                }
             }
         } catch (botErr) {
             console.error('[Bot] Failed to run Smart Responder:', botErr.message);
