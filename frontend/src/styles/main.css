@@ -1118,3 +1118,115 @@ tr:last-child td { border-bottom: none; }
 }
 
 .btn--success:hover { background: #059669; transform: translateY(-1px); }
+
+/* ==================== Smart FAQ Cards & Layout ==================== */
+.faq-grid-container {
+  display: flex;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.faq-form-column {
+  flex: 1 1 380px;
+  max-width: 480px;
+  width: 100%;
+  position: sticky;
+  top: 24px;
+}
+
+.faq-list-column {
+  flex: 1.5 1 420px;
+  width: 100%;
+}
+
+.faq-item-card {
+  padding: var(--space-5);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  transition: all var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  position: relative;
+  overflow: hidden;
+}
+
+.faq-item-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.faq-item-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent-primary);
+  opacity: 0.8;
+}
+
+.faq-question-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.faq-question-text {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.faq-answer-text {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  padding-left: 2px;
+}
+
+.faq-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -2px;
+  margin-right: -4px;
+}
+
+.faq-delete-btn:hover {
+  color: var(--accent-danger);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.faq-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--bg-tertiary);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.faq-footer-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
