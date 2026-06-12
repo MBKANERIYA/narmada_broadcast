@@ -340,18 +340,26 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
         // 1. Upload media to Meta
         let uploadMime = req.file.mimetype;
         let uploadName = req.file.originalname;
+        let uploadBuffer = req.file.buffer;
 
-        // Meta Cloud API does not support audio/webm. Since browser-recorded webm
-        // uses the Opus audio codec, we can safely override the mimetype and filename to
-        // audio/ogg and .ogg, which Meta validates and WhatsApp clients decode natively.
-        if (uploadMime === 'audio/webm' || uploadName.endsWith('.webm')) {
-            uploadMime = 'audio/ogg';
-            uploadName = uploadName.replace(/\.webm$/, '.ogg');
-            req.file.mimetype = 'audio/ogg';
-            req.file.originalname = uploadName;
+        // Meta Cloud API does not support audio/webm. If webm audio is received,
+        // we transcode the binary WebM buffer to native OGG Opus container using FFmpeg.
+        if (uploadMime.includes('webm') || uploadName.endsWith('.webm')) {
+            try {
+                const { transcodeWebmToOgg } = await import('../services/transcoder.js');
+                uploadBuffer = await transcodeWebmToOgg(req.file.buffer);
+                uploadMime = 'audio/ogg';
+                uploadName = uploadName.replace(/\.webm$/, '.ogg');
+                req.file.mimetype = 'audio/ogg';
+                req.file.originalname = uploadName;
+                req.file.buffer = uploadBuffer; // update in file object too
+            } catch (transcodeErr) {
+                console.error('[Transcoder] WebM to OGG transcoding failed:', transcodeErr.message);
+                return res.status(400).json({ error: 'Failed to process voice note audio format: ' + transcodeErr.message });
+            }
         }
 
-        const metaMediaId = await uploadMediaForMessage(req.file.buffer, uploadMime, uploadName, req.tenant);
+        const metaMediaId = await uploadMediaForMessage(uploadBuffer, uploadMime, uploadName, req.tenant);
         
         // 2. Send media message using the Meta ID
         const isImage = req.file.mimetype.startsWith('image/');
