@@ -11,6 +11,7 @@ import Catalogue from './components/Catalogue';
 import Settings from './components/Settings';
 import AdminPanel from './components/AdminPanel';
 import Toast from './components/Toast';
+import KnowledgeBase from './components/KnowledgeBase';
 
 export default function App() {
     const { isAuthenticated, currentView, tenant } = useStore();
@@ -25,6 +26,7 @@ export default function App() {
                 case 'broadcast': return <WhatsAppBroadcast />;
                 case 'chat': return <WhatsAppChat />;
                 case 'catalogue': return <Catalogue />;
+                case 'knowledge': return <KnowledgeBase />;
                 case 'settings': return <Settings />;
                 case 'admin': return <AdminPanel />;
                 default: return <Contacts />;

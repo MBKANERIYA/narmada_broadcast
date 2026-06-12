@@ -19,6 +19,7 @@ import leadsRoutes from './routes/leads.js';
 import publicRoutes from './routes/public.js';
 import adminRoutes from './routes/admin.js';
 import productsRoutes from './routes/products.js';
+import knowledgeBaseRoutes from './routes/knowledge-base.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -266,8 +267,8 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     // ============================================================
     if (messageType === 'text' && body) {
         try {
-            const { generateChatbotReply } = await import('./services/openai.js');
-            const botReply = await generateChatbotReply(tenantId, conversation.id, body);
+            const { handleSmartReply } = await import('./services/smartResponder.js');
+            const botReply = await handleSmartReply(tenantId, body);
 
             if (botReply) {
                 const { sendTextMessage } = await import('./services/whatsapp.js');
@@ -283,16 +284,16 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                     [tenantId, conversation.id, botReply, result.messageId]
                 );
 
-                // Update conversation last message
+                // Update conversation last message & mark unread as 0 since bot handled it
                 await run(
-                    `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?`,
+                    `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
                     [botReply.substring(0, 100), nowStr, conversation.id]
                 );
 
-                console.log(`[Bot] 🤖 AI replied to ${fromPhone}`);
+                console.log(`[Bot] 🤖 Smart Auto-Responder replied to ${fromPhone}`);
             }
         } catch (botErr) {
-            console.error('[Bot] Failed to run AI chatbot:', botErr.message);
+            console.error('[Bot] Failed to run Smart Responder:', botErr.message);
         }
     }
 }
@@ -369,6 +370,7 @@ app.use('/api/v1/whatsapp', auth, whatsappRoutes);
 app.use('/api/v1/whatsapp/chat', auth, whatsappChatRoutes);
 app.use('/api/v1/tenant-settings', auth, tenantSettingsRoutes);
 app.use('/api/v1/products', auth, productsRoutes);
+app.use('/api/v1/knowledge-base', auth, knowledgeBaseRoutes);
 
 // Super admin routes (auth + super admin check)
 app.use('/api/v1/admin', auth, superAdminOnly, adminRoutes);

@@ -108,6 +108,19 @@ const migrate = async () => {
       INDEX idx_tenant (tenant_id)
     )`,
 
+    // Knowledge Base (Semantic Search / Auto-Replies)
+    `CREATE TABLE IF NOT EXISTS whatsapp_knowledge_base (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      question TEXT NOT NULL,
+      answer TEXT NOT NULL,
+      question_vector JSON,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      INDEX idx_tenant (tenant_id)
+    )`,
+
     // Contacts (unified — replaces leads + clients)
     `CREATE TABLE IF NOT EXISTS contacts (
       id INT AUTO_INCREMENT PRIMARY KEY,
