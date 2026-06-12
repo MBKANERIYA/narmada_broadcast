@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 import { query, run, get } from '../database.js';
 import { sendTextMessage, sendMediaMessage, sendTemplateMessage, normalizePhone, getTemplateDefinition, uploadMediaForMessage } from '../services/whatsapp.js';
 import { checkWhatsAppEnabled } from '../middleware/limits.js';
@@ -336,20 +338,30 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
         }
 
         // 1. Upload media to Meta
-        const mediaId = await uploadMediaForMessage(req.file.buffer, req.file.mimetype, req.file.originalname, req.tenant);
+        const metaMediaId = await uploadMediaForMessage(req.file.buffer, req.file.mimetype, req.file.originalname, req.tenant);
         
-        // 2. Send media message
+        // 2. Send media message using the Meta ID
         const isImage = req.file.mimetype.startsWith('image/');
         const mediaType = isImage ? 'image' : 'document';
-        const result = await sendMediaMessage(conversation.phone, mediaType, { id: mediaId }, req.body.caption || '', req.tenant);
+        const result = await sendMediaMessage(conversation.phone, mediaType, { id: metaMediaId }, req.body.caption || '', req.tenant);
+
+        // 3. Save media locally so we can display it in the chat interface 
+        // (Meta doesn't allow downloading outbound media via API)
+        const uploadDir = path.join(process.cwd(), 'uploads');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+        
+        const safeFilename = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const localFileName = `${Date.now()}_${safeFilename}`;
+        fs.writeFileSync(path.join(uploadDir, localFileName), req.file.buffer);
+        const localMediaId = `local_media:${localFileName}`;
 
         const nowStr = now.toISOString().slice(0, 19).replace('T', ' ');
 
-        // 3. Save to database
+        // 4. Save to database using the localMediaId
         await run(
             `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, media_id, media_mime_type, provider_message_id, status, sent_by)
              VALUES (?, ?, 'outbound', ?, ?, ?, ?, ?, 'sent', ?)`,
-            [req.tenantId, conversation.id, req.body.caption || '', mediaType, mediaId, req.file.mimetype, result.messageId, req.user.userId]
+            [req.tenantId, conversation.id, req.body.caption || '', mediaType, localMediaId, req.file.mimetype, result.messageId, req.user.userId]
         );
 
         // Update conversation
@@ -465,6 +477,23 @@ router.get('/media/:media_id', async (req, res) => {
         );
         if (!msg) return res.status(404).json({ error: 'Media not found or unauthorized' });
 
+        // Handle local outbound media
+        if (media_id.startsWith('local_media:')) {
+            const fileName = media_id.replace('local_media:', '');
+            // Prevent directory traversal
+            const safeName = path.basename(fileName);
+            const filePath = path.join(process.cwd(), 'uploads', safeName);
+            
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).json({ error: 'Local media file not found on disk' });
+            }
+            
+            res.setHeader('Content-Type', msg.media_mime_type || 'application/octet-stream');
+            res.setHeader('Cache-Control', 'public, max-age=31536000');
+            return fs.createReadStream(filePath).pipe(res);
+        }
+
+        // Handle inbound media from Meta
         const tenant = await get('SELECT whatsapp_access_token FROM tenants WHERE id = ?', [req.tenantId]);
         if (!tenant || !tenant.whatsapp_access_token) return res.status(400).json({ error: 'WhatsApp not configured' });
 
