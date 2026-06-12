@@ -28,8 +28,18 @@ This document logs the architectural choices made during the development of the 
 
 ## Decision: Free AI Chatbot Integration using Google Gemini API via OpenAI SDK
 **Date**: 2026-06-12
-**Status**: Accepted
+**Status**: Superseded
 **Context**: We need a smart auto-responder bot without requiring a paid OpenAI account.
 **Decision**: Integrate Google's `gemini-1.5-flash` model utilizing the OpenAI compatibility layer by setting the base URL to `generativelanguage.googleapis.com/v1beta/openai/`.
 **Alternatives Considered**: Paid OpenAI API, locally-hosted LLM (too resource-heavy for the VPS).
 **Consequences**: High-quality, low-latency, and free chatbot responses. Outgoing message formats must align with Gemini constraints.
+**Superseded By**: [Pure Local NLP Model Chatbot](#decision-pure-local-nlp-model-chatbot-superseding-gemini-api-integration)
+
+## Decision: Pure Local NLP Model Chatbot (Superseding Gemini API Integration)
+**Date**: 2026-06-12
+**Status**: Accepted
+**Context**: The project pivoted away from third-party remote AI APIs (Google Gemini API via OpenAI SDK) to guarantee offline reliability, eliminate external API key configuration requirements, and ensure responses are strictly aligned with the merchant's FAQ/product dataset.
+**Decision**: Use a local feature-extraction pipeline via `@xenova/transformers` with the `all-MiniLM-L6-v2` model running directly on the CPU. Match incoming messages to existing FAQs and products using cosine similarity.
+**Alternatives Considered**: Google Gemini API (requires external API keys, internet connectivity, and can generate off-topic conversational text).
+**Consequences**: The system is completely self-contained with zero external API key requirements. Responses are strictly bounded by active FAQs and products.
+

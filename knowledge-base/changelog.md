@@ -4,6 +4,17 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-12 — Remove Google Gemini / OpenAI SDK and Finalize Local NLP Model Chatbot
+**What**: Removed unused OpenAI SDK and Google Gemini API integration files and package dependencies.
+**Why**: Pivoted to using the pure local semantic NLP model (`smartResponder.js`) running on the CPU using `@xenova/transformers`.
+**Impact**: Removed third-party dependency `openai` and deprecated unused code, making the app fully self-contained.
+**Files Changed**: `backend/package.json`, `backend/package-lock.json`, `backend/src/services/openai.js`, `knowledge-base/decisions.md`
+**Tests**: Verified backend starts up cleanly and local NLP model remains fully operational.
+
+- Deleted `backend/src/services/openai.js`.
+- Uninstalled `openai` package and updated `package-lock.json`.
+- Updated decisions documentation to reflect deprecation of Gemini API in favor of the local CPU-bound semantic NLP model.
+
 ## 2026-06-12 — Hotfix: Meta API audio/webm Content-Type Binary Validation Rejection
 **What**: Integrated an FFmpeg-based transcoding pipeline on the backend to convert browser-recorded `audio/webm` buffers to native `audio/ogg` (Opus) containers.
 **Why**: Meta's Graph API performs binary file structure validation. Renaming metadata MIME types is rejected as `application/octet-stream` if the binary structure is still WebM (EBML).
