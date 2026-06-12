@@ -42,8 +42,23 @@ const MediaMessage = ({ mediaId, type }) => {
             </a>
         );
     }
+
+    if (type === 'audio') {
+        return (
+            <div style={{ padding: '6px 0', minWidth: '220px' }}>
+                <audio controls src={mediaUrl} style={{ width: '100%' }} />
+            </div>
+        );
+    }
+
+    if (type === 'video') {
+        return (
+            <div style={{ padding: '6px 0' }}>
+                <video controls src={mediaUrl} style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '6px' }} />
+            </div>
+        );
+    }
     
-    // For video/audio/document if needed later, but right now we focus on images
     return <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>📎 {type}</div>;
 };
 
@@ -71,6 +86,108 @@ export default function WhatsAppChat() {
     const messagesEndRef = useRef(null);
     const pollRef = useRef(null);
     const [mobileShowChat, setMobileShowChat] = useState(false);
+
+    // Voice Recording states
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const timerRef = useRef(null);
+
+    const formatDuration = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioChunksRef.current = [];
+            
+            const options = { mimeType: 'audio/webm' };
+            let mediaRecorder;
+            try {
+                mediaRecorder = new MediaRecorder(stream, options);
+            } catch (e) {
+                // Fallback for Safari/iOS
+                mediaRecorder = new MediaRecorder(stream);
+            }
+            
+            mediaRecorderRef.current = mediaRecorder;
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.start(250);
+            setIsRecording(true);
+            setRecordingTime(0);
+
+            timerRef.current = setInterval(() => {
+                setRecordingTime(t => t + 1);
+            }, 1000);
+        } catch (err) {
+            console.error('Failed to start recording:', err);
+            showToast('Microphone access is required to record voice notes.', 'error');
+        }
+    };
+
+    const cancelRecording = () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+        if (mediaRecorderRef.current && mediaRecorderRef.current.stream) {
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        }
+        setIsRecording(false);
+        setRecordingTime(0);
+        audioChunksRef.current = [];
+    };
+
+    const stopAndSendRecording = () => {
+        if (!selectedConvId) return;
+        
+        if (timerRef.current) clearInterval(timerRef.current);
+        
+        if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+            return;
+        }
+
+        mediaRecorderRef.current.onstop = async () => {
+            try {
+                const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm';
+                const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+                const extension = mimeType.includes('ogg') ? 'ogg' : 'webm';
+                const file = new File([audioBlob], `voice_note_${Date.now()}.${extension}`, { type: mimeType });
+                
+                setSending(true);
+                await sendChatMedia(selectedConvId, file, '');
+                showToast('Voice note sent!');
+            } catch (err) {
+                showToast(err.message || 'Failed to send voice note', 'error');
+            } finally {
+                setSending(false);
+                setIsRecording(false);
+                setRecordingTime(0);
+                audioChunksRef.current = [];
+            }
+        };
+
+        mediaRecorderRef.current.stop();
+        if (mediaRecorderRef.current.stream) {
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, []);
 
     // New Chat modal state
     const [showNewChat, setShowNewChat] = useState(false);
