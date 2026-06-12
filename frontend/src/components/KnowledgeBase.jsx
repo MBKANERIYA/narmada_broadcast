@@ -17,7 +17,10 @@ export default function KnowledgeBase() {
         setIsLoading(true);
         try {
             const res = await fetch('/api/v1/knowledge-base', {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('whatsapp_saas_token')}` }
+                headers: { 
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default'
+                }
             });
             if (res.ok) {
                 const data = await res.json();
@@ -44,7 +47,8 @@ export default function KnowledgeBase() {
             const res = await fetch('/api/v1/knowledge-base', {
                 method: 'POST',
                 headers: { 
-                    'Authorization': `Bearer ${localStorage.getItem('whatsapp_saas_token')}`,
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ question, answer })
@@ -75,7 +79,10 @@ export default function KnowledgeBase() {
         try {
             const res = await fetch(`/api/v1/knowledge-base/${id}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('whatsapp_saas_token')}` }
+                headers: { 
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default'
+                }
             });
             if (res.ok) {
                 setFaqs(faqs.filter(f => f.id !== id));
