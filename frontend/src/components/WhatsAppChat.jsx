@@ -617,57 +617,107 @@ export default function WhatsAppChat() {
                             <div style={{
                                 padding: '12px 16px', background: '#fff',
                                 borderTop: '1px solid var(--border, #e2e8f0)',
-                                display: 'flex', gap: '8px', alignItems: 'flex-end',
+                                display: 'flex', gap: '8px', alignItems: 'center',
                             }}>
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={!isWindowOpen || sending}
-                                    style={{
-                                        width: '42px', height: '42px', borderRadius: '50%',
-                                        background: 'transparent', color: '#64748b', border: 'none', cursor: 'pointer',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        flexShrink: 0, transition: 'color 0.2s',
-                                    }}
-                                >
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-                                    </svg>
-                                </button>
-                                <input 
-                                    type="file" 
-                                    accept="image/*,application/pdf" 
-                                    ref={fileInputRef} 
-                                    onChange={handleFileChange} 
-                                    style={{ display: 'none' }} 
-                                />
-                                <textarea
-                                    value={messageText}
-                                    onInput={e => setMessageText(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    placeholder={isWindowOpen ? (selectedFile ? "Add a caption..." : "Type a message...") : "Window expired \u2014 use template"}
-                                    disabled={!isWindowOpen || sending}
-                                    style={{
-                                        flex: 1, resize: 'none', border: '1px solid var(--border, #e2e8f0)',
-                                        borderRadius: '20px', padding: '10px 16px', fontSize: '14px',
-                                        maxHeight: '100px', minHeight: '42px', outline: 'none',
-                                        fontFamily: 'inherit', lineHeight: '1.4',
-                                        background: isWindowOpen ? '#fff' : '#f5f5f5',
-                                    }}
-                                    rows={1}
-                                />
-                                <button
-                                    onClick={handleSend}
-                                    disabled={(!messageText.trim() && !selectedFile) || sending || !isWindowOpen}
-                                    style={{
-                                        width: '42px', height: '42px', borderRadius: '50%',
-                                        background: (messageText.trim() || selectedFile) && isWindowOpen ? '#25d366' : '#ccc',
-                                        color: '#fff', border: 'none', cursor: 'pointer',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        flexShrink: 0, transition: 'background 0.2s',
-                                    }}
-                                >
-                                    <Icon name="send" size={20} />
-                                </button>
+                                {isRecording ? (
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', gap: '12px', flex: 1,
+                                        background: '#f8fafc', padding: '6px 16px', borderRadius: '20px',
+                                        border: '1px solid #ef4444'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                                            <span className="blink-dot" style={{
+                                                width: '10px', height: '10px', borderRadius: '50%',
+                                                background: '#ef4444', display: 'inline-block'
+                                            }} />
+                                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#ef4444' }}>Recording Voice Note...</span>
+                                            <span style={{ fontSize: '14px', fontFamily: 'monospace', marginLeft: 'auto', color: 'var(--text-secondary)' }}>
+                                                {formatDuration(recordingTime)}
+                                            </span>
+                                        </div>
+                                        <button onClick={cancelRecording} className="btn-icon" style={{ color: 'var(--text-secondary)', padding: '6px' }} title="Cancel">
+                                            <Icon name="x" size={20} />
+                                        </button>
+                                        <button onClick={stopAndSendRecording} style={{
+                                            width: '32px', height: '32px', borderRadius: '50%',
+                                            background: '#25d366', color: '#fff', border: 'none', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }} title="Send Voice Note">
+                                            <Icon name="check" size={16} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={!isWindowOpen || sending}
+                                            style={{
+                                                width: '42px', height: '42px', borderRadius: '50%',
+                                                background: 'transparent', color: '#64748b', border: 'none', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                flexShrink: 0, transition: 'color 0.2s',
+                                            }}
+                                        >
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                            </svg>
+                                        </button>
+                                        <input 
+                                            type="file" 
+                                            accept="image/*,application/pdf" 
+                                            ref={fileInputRef} 
+                                            onChange={handleFileChange} 
+                                            style={{ display: 'none' }} 
+                                        />
+                                        <textarea
+                                            value={messageText}
+                                            onInput={e => setMessageText(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder={isWindowOpen ? (selectedFile ? "Add a caption..." : "Type a message...") : "Window expired \u2014 use template"}
+                                            disabled={!isWindowOpen || sending}
+                                            style={{
+                                                flex: 1, resize: 'none', border: '1px solid var(--border, #e2e8f0)',
+                                                borderRadius: '20px', padding: '10px 16px', fontSize: '14px',
+                                                maxHeight: '100px', minHeight: '42px', outline: 'none',
+                                                fontFamily: 'inherit', lineHeight: '1.4',
+                                                background: isWindowOpen ? '#fff' : '#f5f5f5',
+                                            }}
+                                            rows={1}
+                                        />
+                                        
+                                        {(!messageText.trim() && !selectedFile) ? (
+                                            <button
+                                                onClick={startRecording}
+                                                disabled={!isWindowOpen || sending}
+                                                style={{
+                                                    width: '42px', height: '42px', borderRadius: '50%',
+                                                    background: isWindowOpen ? '#64748b' : '#ccc',
+                                                    color: '#fff', border: 'none', cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    flexShrink: 0, transition: 'background 0.2s',
+                                                }}
+                                                title="Record Voice Note"
+                                            >
+                                                <Icon name="mic" size={20} />
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={handleSend}
+                                                disabled={sending || !isWindowOpen}
+                                                style={{
+                                                    width: '42px', height: '42px', borderRadius: '50%',
+                                                    background: isWindowOpen ? '#25d366' : '#ccc',
+                                                    color: '#fff', border: 'none', cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    flexShrink: 0, transition: 'background 0.2s',
+                                                }}
+                                                title="Send Message"
+                                            >
+                                                <Icon name="send" size={20} />
+                                            </button>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         </>
                     )}

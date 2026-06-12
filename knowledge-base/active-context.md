@@ -1,6 +1,6 @@
 ## Current Status
 **Last Updated**: 2026-06-12
-**Last Agent Session**: Redesigned and overhauled the "Smart FAQs" Knowledge Base UI, staging and pushing changes successfully.
+**Last Agent Session**: Completed voice recording in Chat Inbox and chatbot hours settings (all files modified, verified, and compiling successfully).
 **Test Suite Status**: Not-run (No automated test framework exists).
 
 ## In Progress
@@ -13,5 +13,6 @@
 - None.
 
 ## Next Steps
-1. Merchant will run deployment commands on the Hostinger VPS to pull and rebuild the frontend.
-2. Verify the layout and search functionality.
+1. Push local changes from `new-main` to `origin/main`.
+2. Run deployment commands on the Hostinger VPS to pull and rebuild the frontend/backend services.
+3. Manually verify the chatbot timezone restrictions, away responses, and microphone recording workflows.

@@ -147,6 +147,50 @@ app.post('/api/v1/whatsapp-webhook', async (req, res) => {
 });
 
 /**
+ * Check if the current time is outside the business store hours in the specified timezone
+ */
+function isAfterHours(botSettings) {
+    if (!botSettings || !botSettings.store_hours || !botSettings.store_hours.enabled) {
+        return false; // Not enabled or no settings -> business is always open
+    }
+
+    const { start, end, days, timezone } = botSettings.store_hours;
+    if (!start || !end || !days || !Array.isArray(days) || days.length === 0) {
+        return false;
+    }
+
+    try {
+        const tz = timezone || 'Asia/Kolkata';
+        const tzDateStr = new Date().toLocaleString('en-US', { timeZone: tz });
+        const localDate = new Date(tzDateStr);
+
+        const currentDay = localDate.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+        const currentHour = localDate.getHours();
+        const currentMin = localDate.getMinutes();
+
+        if (!days.includes(currentDay)) {
+            return true; // Not open today
+        }
+
+        const [startHour, startMin] = start.split(':').map(Number);
+        const [endHour, endMin] = end.split(':').map(Number);
+
+        const currentTimeMinutes = currentHour * 60 + currentMin;
+        const startTimeMinutes = startHour * 60 + startMin;
+        const endTimeMinutes = endHour * 60 + endMin;
+
+        if (currentTimeMinutes < startTimeMinutes || currentTimeMinutes > endTimeMinutes) {
+            return true; // Outside store hours
+        }
+
+        return false; // Within store hours
+    } catch (e) {
+        console.error('[Bot] Error in isAfterHours calculation:', e);
+        return false; // Fail safe: assume open
+    }
+}
+
+/**
  * Process an incoming WhatsApp message and store it in the chat system
  */
 async function processIncomingMessage(msg, contacts, phoneNumberId) {
@@ -267,51 +311,91 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     // ============================================================
     if (messageType === 'text' && body) {
         try {
-            const { handleSmartReply } = await import('./services/smartResponder.js');
-            const botReply = await handleSmartReply(tenantId, body);
+            // Parse chatbot and store timings settings
+            let botSettings = {};
+            if (tenant.bot_settings) {
+                try {
+                    botSettings = typeof tenant.bot_settings === 'string'
+                        ? JSON.parse(tenant.bot_settings)
+                        : tenant.bot_settings;
+                } catch (parseErr) {
+                    console.error('[Bot] Failed to parse tenant bot_settings:', parseErr.message);
+                }
+            }
 
-            if (botReply) {
-                const { sendTextMessage, sendMediaMessage } = await import('./services/whatsapp.js');
-                
-                let result;
-                let textToSave = '';
-                let typeToSave = 'text';
+            // Check if chatbot is enabled overall
+            let shouldReply = botSettings.enabled !== false; // Default to true if not set
+            let awayReplyText = null;
 
-                if (botReply.type === 'faq') {
-                    // Send FAQ as text
-                    result = await sendTextMessage(fromPhone, botReply.text, tenant);
-                    textToSave = botReply.text;
-                } else if (botReply.type === 'product') {
-                    // Send Product as image (if available) + text
-                    const product = botReply.data;
-                    const caption = `*${product.name}*\n${product.description ? product.description + '\n' : ''}\nPrice: ₹${product.selling_price || product.mrp}`;
-                    
-                    if (product.image_url) {
-                        result = await sendMediaMessage(fromPhone, 'image', { link: product.image_url }, caption, tenant);
-                        textToSave = caption;
-                        typeToSave = 'image';
+            if (shouldReply) {
+                const afterHours = isAfterHours(botSettings);
+                if (afterHours) {
+                    const action = botSettings.after_hours_action || 'respond_normally';
+                    if (action === 'remain_silent') {
+                        shouldReply = false;
+                        console.log(`[Bot] Closed (After Hours). Action: remain_silent. Skipping reply to ${fromPhone}.`);
+                    } else if (action === 'send_away_message') {
+                        shouldReply = true;
+                        awayReplyText = botSettings.away_message || "Thanks for contacting us! We are currently closed. We will get back to you during business hours.";
+                        console.log(`[Bot] Closed (After Hours). Action: send_away_message. Sending out-of-office message to ${fromPhone}.`);
                     } else {
-                        result = await sendTextMessage(fromPhone, caption, tenant);
-                        textToSave = caption;
+                        console.log(`[Bot] Closed (After Hours). Action: respond_normally. Running normal semantic reply.`);
                     }
                 }
+            }
 
-                if (result && result.messageId) {
-                    // Save outbound message to DB
-                    const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                    await run(
-                        `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
-                         VALUES (?, ?, 'outbound', ?, ?, ?, 'sent', NULL)`,
-                        [tenantId, conversation.id, typeToSave, textToSave, result.messageId]
-                    );
+            if (shouldReply) {
+                let botReply = null;
+                if (awayReplyText) {
+                    botReply = { type: 'faq', text: awayReplyText };
+                } else {
+                    const { handleSmartReply } = await import('./services/smartResponder.js');
+                    botReply = await handleSmartReply(tenantId, body);
+                }
 
-                    // Update conversation last message & mark unread as 0 since bot handled it
-                    await run(
-                        `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
-                        [textToSave.substring(0, 100), nowStr, conversation.id]
-                    );
+                if (botReply) {
+                    const { sendTextMessage, sendMediaMessage } = await import('./services/whatsapp.js');
+                    
+                    let result;
+                    let textToSave = '';
+                    let typeToSave = 'text';
 
-                    console.log(`[Bot] 🤖 Smart Auto-Responder replied to ${fromPhone} with ${botReply.type}`);
+                    if (botReply.type === 'faq') {
+                        // Send FAQ as text
+                        result = await sendTextMessage(fromPhone, botReply.text, tenant);
+                        textToSave = botReply.text;
+                    } else if (botReply.type === 'product') {
+                        // Send Product as image (if available) + text
+                        const product = botReply.data;
+                        const caption = `*${product.name}*\n${product.description ? product.description + '\n' : ''}\nPrice: ₹${product.selling_price || product.mrp}`;
+                        
+                        if (product.image_url) {
+                            result = await sendMediaMessage(fromPhone, 'image', { link: product.image_url }, caption, tenant);
+                            textToSave = caption;
+                            typeToSave = 'image';
+                        } else {
+                            result = await sendTextMessage(fromPhone, caption, tenant);
+                            textToSave = caption;
+                        }
+                    }
+
+                    if (result && result.messageId) {
+                        // Save outbound message to DB
+                        const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(
+                            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
+                             VALUES (?, ?, 'outbound', ?, ?, ?, 'sent', NULL)`,
+                            [tenantId, conversation.id, typeToSave, textToSave, result.messageId]
+                        );
+
+                        // Update conversation last message & mark unread as 0 since bot handled it
+                        await run(
+                            `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
+                            [textToSave.substring(0, 100), nowStr, conversation.id]
+                        );
+
+                        console.log(`[Bot] 🤖 Smart Auto-Responder replied to ${fromPhone} with ${botReply.type}`);
+                    }
                 }
             }
         } catch (botErr) {

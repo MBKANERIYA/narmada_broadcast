@@ -184,6 +184,11 @@ export const useStore = create(
                 get().fetchTenantSettings();
             },
 
+            updateChatbotSettings: async (botSettings) => {
+                await api('/tenant-settings/chatbot', { method: 'PUT', body: JSON.stringify({ bot_settings: botSettings }) });
+                get().fetchTenantSettings();
+            },
+
             // ============================================================
             // CONTACTS
             // ============================================================

@@ -342,7 +342,13 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
         
         // 2. Send media message using the Meta ID
         const isImage = req.file.mimetype.startsWith('image/');
-        const mediaType = isImage ? 'image' : 'document';
+        const isAudio = req.file.mimetype.startsWith('audio/');
+        const isVideo = req.file.mimetype.startsWith('video/');
+        let mediaType = 'document';
+        if (isImage) mediaType = 'image';
+        else if (isAudio) mediaType = 'audio';
+        else if (isVideo) mediaType = 'video';
+        
         const result = await sendMediaMessage(conversation.phone, mediaType, { id: metaMediaId }, req.body.caption || '', req.tenant);
 
         // 3. Save media locally so we can display it in the chat interface 
@@ -365,7 +371,11 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
         );
 
         // Update conversation
-        const preview = isImage ? `📷 Image` : `📎 Document`;
+        let preview = `📎 Document`;
+        if (isImage) preview = `📷 Image`;
+        else if (isAudio) preview = `🎤 Voice Note`;
+        else if (isVideo) preview = `🎥 Video`;
+
         await run(
             `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?`,
             [req.body.caption || preview, nowStr, conversation.id]

@@ -4,6 +4,19 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-12 — Audio Recording and Store Timings Bot Control
+**What**: Implemented voice note recording in Chat Inbox and store hours chatbot settings.
+**Why**: Customers wanted to be able to record and send audio messages directly, and firms wanted to configure chatbot behaviors when customers message after-hours.
+**Impact**: Chat inbox can now record and play voice messages; incoming after-hours messages trigger away actions like away message or silence based on configured hours.
+**Files Changed**: `backend/src/app.js`, `backend/src/database.js`, `backend/src/routes/tenant-settings.js`, `backend/src/routes/whatsapp-chat.js`, `backend/src/services/whatsapp.js`, `frontend/src/components/Icons.jsx`, `frontend/src/components/Settings.jsx`, `frontend/src/components/WhatsAppChat.jsx`, `frontend/src/stores/store.js`
+**Tests**: Verified frontend builds successfully (`npm run build`), backend syntax check (`node --check`) passes.
+**Commit**: `c4e5d6a` (local changes to be committed)
+
+- Added a new "Chatbot & Hours" settings tab to manage smart chatbot status, business hours timezone, open days, hours, and after-hours auto-responses.
+- Updated incoming webhook message processor to intercept after-hours text messages and execute "Respond Normally", "Send Away Message", or "Remain Silent" rules.
+- Added support for recording voice notes from the browser utilizing the MediaRecorder API, dispatches recorded audio blob to Meta's API, and displays native audio player controls in the Chat Inbox thread.
+- Omitted caption parameter for audio media messages to satisfy Meta API schema validation constraints.
+
 ## 2026-06-12 — UI Redesign: Smart Knowledge Base FAQ Dashboard
 **What**: Completely redesigned and overhauled the Smart Knowledge Base FAQ dashboard layout and styling.
 **Why**: The previous UI had severe form field misalignment and squished inputs, making it look unprofessional.

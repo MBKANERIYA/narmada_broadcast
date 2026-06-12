@@ -13,11 +13,11 @@ A registry of active bugs, limitations, and workarounds.
 **Fix**: Inline parsed integer variables into the query strings directly.
 
 ## ISSUE-002: Smart FAQs Layout Misalignment
-**Status**: Open
+**Status**: Resolved
 **Severity**: Medium
 **Discovered**: 2026-06-12
-**Resolved**: 
+**Resolved**: 2026-06-12
 **Symptom**: In the Smart Knowledge Base view, the "Add New FAQ" form layout is misaligned. Labels are placed inline next to input fields, inputs are squished, textareas overlap, and buttons float awkwardly.
 **Root Cause**: The component uses generic `<div>` wrappers instead of `<div className="form-group">`, and does not follow the flexbox structure defined in `main.css`.
 **Workaround**: Users can still interact with the form, but it looks unprofessional.
-**Fix**: Overhaul the form and FAQ cards styling in `KnowledgeBase.jsx` to use proper layout groups and premium UI.
+**Fix**: Overhauled the form and FAQ cards styling in `KnowledgeBase.jsx` to use proper layout groups, flex containers, and aligned elements.

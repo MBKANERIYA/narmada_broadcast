@@ -236,7 +236,7 @@ export async function sendMediaMessage(phone, mediaType, mediaData, caption, ten
 
     // mediaData can be a URL string or an object { id: 'meta_media_id' }
     const mediaPayload = typeof mediaData === 'string' ? { link: mediaData } : { id: mediaData.id };
-    if (caption) mediaPayload.caption = caption;
+    if (caption && mediaType !== 'audio') mediaPayload.caption = caption;
 
     const payload = {
         messaging_product: "whatsapp",

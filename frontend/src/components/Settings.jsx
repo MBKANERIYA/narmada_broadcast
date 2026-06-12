@@ -11,6 +11,7 @@ export default function Settings() {
         tenantSettings,
         fetchTenantSettings,
         updateTenantProfile, updateWhatsAppConfig, disconnectWhatsApp,
+        updateChatbotSettings,
         showToast, tenant
     } = useStore();
 
@@ -29,6 +30,20 @@ export default function Settings() {
         whatsapp_catalog_id: '',
     });
 
+    // Chatbot settings form
+    const [botForm, setBotForm] = useState({
+        enabled: true,
+        after_hours_action: 'respond_normally',
+        away_message: '',
+        store_hours: {
+            enabled: false,
+            timezone: 'Asia/Kolkata',
+            start: '09:00',
+            end: '18:00',
+            days: [1, 2, 3, 4, 5],
+        }
+    });
+
     useEffect(() => {
         fetchTenantSettings();
     }, []);
@@ -42,8 +57,53 @@ export default function Settings() {
                 logo_url: tenantSettings.logo_url || '',
                 primary_color: tenantSettings.primary_color || '#25D366',
             });
+
+            let parsedBotSettings = {};
+            if (tenantSettings.bot_settings) {
+                try {
+                    parsedBotSettings = typeof tenantSettings.bot_settings === 'string'
+                        ? JSON.parse(tenantSettings.bot_settings)
+                        : tenantSettings.bot_settings;
+                } catch (e) {
+                    console.error('Error parsing bot_settings:', e);
+                }
+            }
+
+            setBotForm({
+                enabled: parsedBotSettings.enabled !== false,
+                after_hours_action: parsedBotSettings.after_hours_action || 'respond_normally',
+                away_message: parsedBotSettings.away_message || '',
+                store_hours: {
+                    enabled: parsedBotSettings.store_hours?.enabled || false,
+                    timezone: parsedBotSettings.store_hours?.timezone || 'Asia/Kolkata',
+                    start: parsedBotSettings.store_hours?.start || '09:00',
+                    end: parsedBotSettings.store_hours?.end || '18:00',
+                    days: Array.isArray(parsedBotSettings.store_hours?.days)
+                        ? parsedBotSettings.store_hours.days
+                        : [1, 2, 3, 4, 5],
+                }
+            });
         }
     }, [tenantSettings]);
+
+    const handleDayToggle = (dayNum) => {
+        setBotForm(prev => {
+            const currentDays = prev.store_hours.days || [];
+            let newDays;
+            if (currentDays.includes(dayNum)) {
+                newDays = currentDays.filter(d => d !== dayNum);
+            } else {
+                newDays = [...currentDays, dayNum].sort();
+            }
+            return {
+                ...prev,
+                store_hours: {
+                    ...prev.store_hours,
+                    days: newDays
+                }
+            };
+        });
+    };
 
     const handleProfileSave = async (e) => {
         e.preventDefault();
@@ -51,6 +111,19 @@ export default function Settings() {
         try {
             await updateTenantProfile(profileForm);
             showToast('Firm profile updated!', 'success');
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleChatbotSave = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            await updateChatbotSettings(botForm);
+            showToast('Chatbot settings updated!', 'success');
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
@@ -85,6 +158,7 @@ export default function Settings() {
     const tabs = [
         { id: 'profile', label: 'Firm Profile', icon: 'briefcase' },
         { id: 'whatsapp', label: 'WhatsApp', icon: 'whatsapp' },
+        { id: 'chatbot', label: 'Chatbot & Hours', icon: 'message-circle' },
         { id: 'subscription', label: 'Subscription', icon: 'settings' },
     ];
 
@@ -267,6 +341,168 @@ export default function Settings() {
                             </button>
                         </form>
                     </div>
+                </div>
+            )}
+
+            {/* ── Chatbot & Hours Tab ── */}
+            {activeTab === 'chatbot' && (
+                <div className="card" style={{ maxWidth: '600px' }}>
+                    <h2 style={{ marginBottom: '16px' }}>Chatbot & Business Hours</h2>
+                    <form onSubmit={handleChatbotSave}>
+                        {/* Enabled Toggle */}
+                        <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                            <input
+                                type="checkbox"
+                                id="bot-enabled"
+                                checked={botForm.enabled}
+                                onChange={e => setBotForm(f => ({ ...f, enabled: e.target.checked }))}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <label htmlFor="bot-enabled" className="form-label" style={{ margin: 0, cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}>
+                                Enable Smart Auto-Responder Bot
+                            </label>
+                        </div>
+
+                        {/* Store Hours section */}
+                        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px', marginTop: '20px' }}>
+                            <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>Business Hours & Timezone</h3>
+                            
+                            <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                                <input
+                                    type="checkbox"
+                                    id="hours-enabled"
+                                    checked={botForm.store_hours.enabled}
+                                    onChange={e => setBotForm(f => ({
+                                        ...f,
+                                        store_hours: { ...f.store_hours, enabled: e.target.checked }
+                                    }))}
+                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                />
+                                <label htmlFor="hours-enabled" className="form-label" style={{ margin: 0, cursor: 'pointer', fontWeight: 600 }}>
+                                    Restrict chatbot during store hours
+                                </label>
+                            </div>
+
+                            {botForm.store_hours.enabled && (
+                                <div style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
+                                    {/* Timezone Select */}
+                                    <div className="form-group">
+                                        <label className="form-label">Timezone</label>
+                                        <select
+                                            className="form-select"
+                                            value={botForm.store_hours.timezone}
+                                            onChange={e => setBotForm(f => ({
+                                                ...f,
+                                                store_hours: { ...f.store_hours, timezone: e.target.value }
+                                            }))}
+                                        >
+                                            <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                                            <option value="UTC">UTC / GMT</option>
+                                            <option value="America/New_York">America/New_York (EST/EDT)</option>
+                                            <option value="Europe/London">Europe/London (GMT/BST)</option>
+                                            <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+                                            <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                                            <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Start & End Times */}
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label className="form-label">Opening Time</label>
+                                            <input
+                                                type="time"
+                                                className="form-input"
+                                                value={botForm.store_hours.start}
+                                                onChange={e => setBotForm(f => ({
+                                                    ...f,
+                                                    store_hours: { ...f.store_hours, start: e.target.value }
+                                                }))}
+                                                required
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Closing Time</label>
+                                            <input
+                                                type="time"
+                                                className="form-input"
+                                                value={botForm.store_hours.end}
+                                                onChange={e => setBotForm(f => ({
+                                                    ...f,
+                                                    store_hours: { ...f.store_hours, end: e.target.value }
+                                                }))}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Weekdays Checkboxes */}
+                                    <div className="form-group" style={{ marginTop: '12px' }}>
+                                        <label className="form-label" style={{ marginBottom: '8px' }}>Open Weekdays</label>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px' }}>
+                                            {[
+                                                { label: 'Sun', value: 0 },
+                                                { label: 'Mon', value: 1 },
+                                                { label: 'Tue', value: 2 },
+                                                { label: 'Wed', value: 3 },
+                                                { label: 'Thu', value: 4 },
+                                                { label: 'Fri', value: 5 },
+                                                { label: 'Sat', value: 6 }
+                                            ].map(day => (
+                                                <label key={day.value} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={botForm.store_hours.days.includes(day.value)}
+                                                        onChange={() => handleDayToggle(day.value)}
+                                                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                                    />
+                                                    {day.label}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* After Hours Action & Away Message */}
+                        {botForm.store_hours.enabled && (
+                            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px', marginTop: '20px' }}>
+                                <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>After-Hours Action</h3>
+
+                                <div className="form-group">
+                                    <label className="form-label">When messaging after store hours</label>
+                                    <select
+                                        className="form-select"
+                                        value={botForm.after_hours_action}
+                                        onChange={e => setBotForm(f => ({ ...f, after_hours_action: e.target.value }))}
+                                    >
+                                        <option value="respond_normally">Respond Normally (Use AI chatbot)</option>
+                                        <option value="send_away_message">Send Away Message (Instant auto-reply)</option>
+                                        <option value="remain_silent">Remain Silent (Do not auto-reply)</option>
+                                    </select>
+                                </div>
+
+                                {botForm.after_hours_action === 'send_away_message' && (
+                                    <div className="form-group">
+                                        <label className="form-label">Away Message</label>
+                                        <textarea
+                                            className="form-textarea"
+                                            rows={4}
+                                            value={botForm.away_message}
+                                            onChange={e => setBotForm(f => ({ ...f, away_message: e.target.value }))}
+                                            placeholder="We are currently closed. Our team will get back to you when we are back online. Thank you!"
+                                            required
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <button type="submit" className="btn btn-primary" disabled={saving} style={{ marginTop: '20px', width: '100%' }}>
+                            {saving ? 'Saving Settings...' : 'Save Settings'}
+                        </button>
+                    </form>
                 </div>
             )}
 

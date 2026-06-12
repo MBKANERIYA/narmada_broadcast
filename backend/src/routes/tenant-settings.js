@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
             `SELECT id, name, slug, email, phone, logo_url, primary_color,
                     subscription_plan, subscription_status, trial_ends_at,
                     whatsapp_phone_number_id, whatsapp_business_account_id, whatsapp_catalog_id, whatsapp_configured,
-                    max_users, created_at
+                    max_users, created_at, bot_settings
              FROM tenants WHERE id = ?`,
             [req.tenantId]
         );
@@ -190,6 +190,29 @@ router.get('/subscription', async (req, res) => {
         });
     } catch (error) {
         console.error('Subscription info error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+/**
+ * PUT /api/v1/tenant-settings/chatbot
+ * Update chatbot and store hours settings
+ */
+router.put('/chatbot', async (req, res) => {
+    try {
+        const { bot_settings } = req.body;
+        const settingsStr = typeof bot_settings === 'string' ? bot_settings : JSON.stringify(bot_settings);
+
+        await run(
+            'UPDATE tenants SET bot_settings = ? WHERE id = ?',
+            [settingsStr, req.tenantId]
+        );
+
+        invalidateTenantCache(req.tenant.slug);
+
+        res.json({ success: true, message: 'Chatbot settings updated' });
+    } catch (error) {
+        console.error('Chatbot settings update error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
