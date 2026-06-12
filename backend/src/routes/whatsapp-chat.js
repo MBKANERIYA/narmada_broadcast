@@ -361,7 +361,7 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
         await run(
             `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, media_id, media_mime_type, provider_message_id, status, sent_by)
              VALUES (?, ?, 'outbound', ?, ?, ?, ?, ?, 'sent', ?)`,
-            [req.tenantId, conversation.id, req.body.caption || '', mediaType, localMediaId, req.file.mimetype, result.messageId, req.user.userId]
+            [req.tenantId, conversation.id, mediaType, req.body.caption || '', localMediaId, req.file.mimetype, result.messageId, req.user.userId]
         );
 
         // Update conversation
