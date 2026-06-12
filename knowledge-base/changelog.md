@@ -4,6 +4,17 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-12 — Hotfix: Meta API audio/webm Validation Rejection
+**What**: Automatically override inbound/outbound browser recorded audio mimetype `audio/webm` to `audio/ogg` on the backend.
+**Why**: Meta's Graph API does not support the `audio/webm` mime-type (which is Chrome's default recording format), throwing validation error `#100`.
+**Impact**: Voice note sending now succeeds from Chrome/Firefox directly without validation rejections.
+**Files Changed**: `backend/src/routes/whatsapp-chat.js`
+**Tests**: Syntax checked with node compiler.
+**Commit**: `3b81130`
+
+- Intercepted `.webm` and `audio/webm` media uploads in the backend `send-media` route.
+- Mapped metadata to `.ogg` and `audio/ogg` MIME format (which WhatsApp natively plays as Opus codec).
+
 ## 2026-06-12 — Hotfix: WhatsApp Chat Inbox Reference Errors
 **What**: Restored browser voice recording states and handlers, and added native audio rendering to MediaMessage in Chat Inbox.
 **Why**: The previous implementation was missing critical Javascript variable/handler definitions inside the `WhatsAppChat` component body and native audio tags in `MediaMessage`, causing runtime reference crashes that blocked opening chats.
