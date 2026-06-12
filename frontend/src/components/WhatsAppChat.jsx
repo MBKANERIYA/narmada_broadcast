@@ -2,6 +2,51 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { useStore } from '../stores/store';
 import Icon from './Icons';
 
+const MediaMessage = ({ mediaId, type }) => {
+    const { fetchMediaUrl } = useStore();
+    const [mediaUrl, setMediaUrl] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+        if (!mediaId) {
+            setLoading(false);
+            setError(true);
+            return;
+        }
+        let isMounted = true;
+        fetchMediaUrl(mediaId)
+            .then(url => {
+                if (isMounted) {
+                    setMediaUrl(url);
+                    setLoading(false);
+                }
+            })
+            .catch(err => {
+                console.error('Failed to load media:', err);
+                if (isMounted) {
+                    setError(true);
+                    setLoading(false);
+                }
+            });
+        return () => { isMounted = false; };
+    }, [mediaId, fetchMediaUrl]);
+
+    if (loading) return <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5, fontSize: '12px' }}>Loading {type}...</div>;
+    if (error) return <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>{type === 'image' ? '📷' : '🎥'} {type} (failed to load)</div>;
+
+    if (type === 'image') {
+        return (
+            <a href={mediaUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: '4px' }}>
+                <img src={mediaUrl} alt="WhatsApp Image" style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '6px', objectFit: 'contain' }} />
+            </a>
+        );
+    }
+    
+    // For video/audio/document if needed later, but right now we focus on images
+    return <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>📎 {type}</div>;
+};
+
 export default function WhatsAppChat() {
     const {
         conversations, totalUnread, activeConversation, chatMessages,
@@ -474,17 +519,23 @@ export default function WhatsAppChat() {
                                             {msg.message_type === 'template' && (
                                                 <div style={{ fontSize: '10px', opacity: 0.5, marginBottom: '4px', fontStyle: 'italic' }}>Template</div>
                                             )}
-                                            {msg.message_type === 'image' && (
-                                                <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>{'\uD83D\uDCF7'} Image</div>
-                                            )}
-                                            {msg.message_type === 'video' && (
-                                                <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>{'\uD83C\uDFA5'} Video</div>
-                                            )}
-                                            {msg.message_type === 'document' && (
-                                                <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>{'\uD83D\uDCC4'} Document</div>
-                                            )}
-                                            {msg.message_type === 'audio' && (
-                                                <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>{'\uD83C\uDFB5'} Audio</div>
+                                            {['image', 'video', 'document', 'audio'].includes(msg.message_type) && msg.media_id ? (
+                                                <MediaMessage mediaId={msg.media_id} type={msg.message_type} />
+                                            ) : (
+                                                <>
+                                                    {msg.message_type === 'image' && (
+                                                        <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>{'\uD83D\uDCF7'} Image</div>
+                                                    )}
+                                                    {msg.message_type === 'video' && (
+                                                        <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>{'\uD83C\uDFA5'} Video</div>
+                                                    )}
+                                                    {msg.message_type === 'document' && (
+                                                        <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>{'\uD83D\uDCC4'} Document</div>
+                                                    )}
+                                                    {msg.message_type === 'audio' && (
+                                                        <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>{'\uD83C\uDFB5'} Audio</div>
+                                                    )}
+                                                </>
                                             )}
                                             <div style={{ fontSize: '14px', lineHeight: '1.4', wordBreak: 'break-word' }}>
                                                 {msg.body || ''}

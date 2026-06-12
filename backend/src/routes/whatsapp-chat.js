@@ -396,8 +396,54 @@ router.patch('/conversations/:id/archive', async (req, res) => {
     }
 });
 
-export default router;
+/**
+ * GET /api/v1/whatsapp/chat/media/:media_id
+ * Proxy endpoint to fetch media from Meta API and serve to frontend
+ */
+router.get('/media/:media_id', async (req, res) => {
+    try {
+        const { media_id } = req.params;
 
+        // Verify the media belongs to the tenant
+        const msg = await get(
+            'SELECT media_mime_type FROM whatsapp_chat_messages WHERE media_id = ? AND tenant_id = ? LIMIT 1',
+            [media_id, req.tenantId]
+        );
+        if (!msg) return res.status(404).json({ error: 'Media not found or unauthorized' });
+
+        const tenant = await get('SELECT whatsapp_access_token FROM tenants WHERE id = ?', [req.tenantId]);
+        if (!tenant || !tenant.whatsapp_access_token) return res.status(400).json({ error: 'WhatsApp not configured' });
+
+        // 1. Get media URL from Meta
+        const metaRes = await fetch(`https://graph.facebook.com/v21.0/${media_id}`, {
+            headers: { Authorization: `Bearer ${tenant.whatsapp_access_token}` }
+        });
+        const metaData = await metaRes.json();
+        if (!metaData.url) throw new Error('Failed to get media URL from Meta: ' + JSON.stringify(metaData));
+
+        // 2. Download media binary
+        const mediaRes = await fetch(metaData.url, {
+            headers: { Authorization: `Bearer ${tenant.whatsapp_access_token}` }
+        });
+
+        if (!mediaRes.ok) throw new Error('Failed to download media binary');
+
+        // Set Content-Type from database or meta response
+        res.setHeader('Content-Type', metaData.mime_type || msg.media_mime_type || 'application/octet-stream');
+        res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+
+        // 3. Pipe binary to response
+        const arrayBuffer = await mediaRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        res.send(buffer);
+
+    } catch (error) {
+        console.error('Media download error:', error.message);
+        res.status(500).json({ error: 'Failed to download media' });
+    }
+});
+
+export default router;
 
 
 

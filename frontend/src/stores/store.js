@@ -338,6 +338,23 @@ export const useStore = create(
                 }
             },
 
+            fetchMediaUrl: async (mediaId) => {
+                const token = localStorage.getItem('token');
+                const slug = getTenantSlug();
+                const url = `${API_BASE_URL}/api/v1/whatsapp/chat/media/${mediaId}`;
+                
+                const headers = {
+                    ...(token && { Authorization: `Bearer ${token}` }),
+                    ...(slug && { 'x-tenant-slug': slug }),
+                };
+
+                const res = await fetch(url, { headers });
+                if (!res.ok) throw new Error('Failed to fetch media');
+                
+                const blob = await res.blob();
+                return URL.createObjectURL(blob);
+            },
+
             sendChatReply: async (conversationId, text) => {
                 const result = await api(`/whatsapp/chat/conversations/${conversationId}/send`, {
                     method: 'POST',

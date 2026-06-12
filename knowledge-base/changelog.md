@@ -4,6 +4,14 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-12 — Fix: WhatsApp Media Message Display
+**What**: Added secure backend proxy to fetch and render image messages sent from WhatsApp users to the SaaS Inbox.
+**Why**: Meta requires authentication to fetch media URLs. The frontend could not directly display `<img>` tags without a bearer token, resulting in grey "📷 Image" placeholders.
+**Files Changed**: `backend/src/routes/whatsapp-chat.js`, `frontend/src/stores/store.js`, `frontend/src/components/WhatsAppChat.jsx`
+- Added `GET /api/v1/whatsapp/chat/media/:media_id` proxy endpoint in backend to securely download binary media from Meta API.
+- Created `fetchMediaUrl` utility in frontend store to handle authenticated blob fetching.
+- Added `MediaMessage` component to dynamically load and display images securely via `URL.createObjectURL`.
+
 ## 2026-06-12 — Feature: AI Chatbot Integration
 **What**: Integrated an advanced AI auto-reply bot using Google Gemini's free `gemini-1.5-flash` model via the OpenAI SDK.
 **Why**: Allows the platform to automatically respond to incoming customer messages for completely free without needing a paid OpenAI account.
