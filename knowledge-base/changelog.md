@@ -4,6 +4,14 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-12 — Feature: Send Media in WhatsApp Chat
+**What**: Added the ability to send images and documents from the platform to WhatsApp users.
+**Why**: Enhances the chat experience by allowing agents to send product images, invoices, and other media directly from the dashboard.
+**Files Changed**: `backend/src/services/whatsapp.js`, `backend/src/routes/whatsapp-chat.js`, `frontend/src/stores/store.js`, `frontend/src/components/WhatsAppChat.jsx`
+- Created `uploadMediaForMessage` service to proxy local file uploads to the Meta Graph API's `/media` endpoint.
+- Added `POST /conversations/:id/send-media` endpoint using `multer` to handle `multipart/form-data` uploads.
+- Updated `WhatsAppChat` UI with an attachment button (paperclip), image preview area, and caption support.
+
 ## 2026-06-12 — Fix: WhatsApp Media Message Display
 **What**: Added secure backend proxy to fetch and render image messages sent from WhatsApp users to the SaaS Inbox.
 **Why**: Meta requires authentication to fetch media URLs. The frontend could not directly display `<img>` tags without a bearer token, resulting in grey "📷 Image" placeholders.

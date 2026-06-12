@@ -366,6 +366,19 @@ export const useStore = create(
                 return result;
             },
 
+            sendChatMedia: async (conversationId, file, caption) => {
+                const formData = new FormData();
+                formData.append('media', file);
+                if (caption) formData.append('caption', caption);
+                
+                const result = await apiUpload(`/whatsapp/chat/conversations/${conversationId}/send-media`, formData);
+                
+                // Refresh messages
+                await get().fetchChatMessages(conversationId);
+                await get().fetchConversations();
+                return result;
+            },
+
             sendChatTemplate: async (conversationId, templateName, templateParams = [], languageCode) => {
                 const result = await api(`/whatsapp/chat/conversations/${conversationId}/send-template`, {
                     method: 'POST',

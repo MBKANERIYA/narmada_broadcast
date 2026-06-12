@@ -271,7 +271,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
 
             if (botReply) {
                 const { sendTextMessage } = await import('./services/whatsapp.js');
-                
+
                 // Send the message via Meta API
                 const result = await sendTextMessage(fromPhone, botReply, tenant);
 
@@ -282,13 +282,13 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                      VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent', NULL)`,
                     [tenantId, conversation.id, botReply, result.messageId]
                 );
-                
+
                 // Update conversation last message
                 await run(
                     `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?`,
                     [botReply.substring(0, 100), nowStr, conversation.id]
                 );
-                
+
                 console.log(`[Bot] 🤖 AI replied to ${fromPhone}`);
             }
         } catch (botErr) {
@@ -391,3 +391,16 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
+
+
+
+
+
+
+
+
+
+
+
+
+

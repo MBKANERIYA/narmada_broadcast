@@ -203,22 +203,46 @@ export async function sendTextMessage(phone, text, tenant) {
 }
 
 /**
+ * Upload binary buffer directly to Meta API to get a media ID for messaging
+ */
+export async function uploadMediaForMessage(buffer, mimeType, filename, tenant) {
+    const { token, phoneId } = getCredentials(tenant);
+
+    const blob = new Blob([buffer], { type: mimeType });
+    const formData = new FormData();
+    formData.append('file', blob, filename || 'image.jpg');
+    formData.append('type', mimeType);
+    formData.append('messaging_product', 'whatsapp');
+
+    const uploadRes = await fetch(`${WHATSAPP_API_URL}/${phoneId}/media`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+    });
+
+    const uploadData = await uploadRes.json();
+    if (!uploadRes.ok) throw new Error(uploadData.error?.message || 'Failed to upload media to Meta');
+    return uploadData.id;
+}
+
+/**
  * Send a media message (image/document/video within 24h window)
  */
-export async function sendMediaMessage(phone, mediaType, mediaUrl, caption, tenant) {
+export async function sendMediaMessage(phone, mediaType, mediaData, caption, tenant) {
     const normalizedPhone = normalizePhone(phone);
     if (!normalizedPhone) throw new Error(`Invalid phone number: ${phone}`);
 
     const { token, phoneId } = getCredentials(tenant);
 
+    // mediaData can be a URL string or an object { id: 'meta_media_id' }
+    const mediaPayload = typeof mediaData === 'string' ? { link: mediaData } : { id: mediaData.id };
+    if (caption) mediaPayload.caption = caption;
+
     const payload = {
         messaging_product: "whatsapp",
         to: normalizedPhone,
         type: mediaType,
-        [mediaType]: {
-            link: mediaUrl,
-            ...(caption && { caption })
-        }
+        [mediaType]: mediaPayload
     };
 
     const response = await fetch(`${WHATSAPP_API_URL}/${phoneId}/messages`, {

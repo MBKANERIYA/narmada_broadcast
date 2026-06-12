@@ -50,7 +50,7 @@ const MediaMessage = ({ mediaId, type }) => {
 export default function WhatsAppChat() {
     const {
         conversations, totalUnread, activeConversation, chatMessages,
-        fetchConversations, fetchChatMessages, sendChatReply, sendChatTemplate,
+        fetchConversations, fetchChatMessages, sendChatReply, sendChatTemplate, sendChatMedia,
         markConversationRead, archiveConversation, startNewConversation,
         showToast, fetchWhatsAppTemplates, whatsappTemplates,
         contacts, fetchContacts,
@@ -60,6 +60,11 @@ export default function WhatsAppChat() {
     const [selectedConvId, setSelectedConvId] = useState(null);
     const [messageText, setMessageText] = useState('');
     const [sending, setSending] = useState(false);
+    
+    // File attachment states
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+    const fileInputRef = useRef(null);
     const [showTemplatePicker, setShowTemplatePicker] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState('');
     const [templateParams, setTemplateParams] = useState(['', '', '']);
@@ -116,11 +121,34 @@ export default function WhatsAppChat() {
         await markConversationRead(convId);
     };
 
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('File must be less than 5MB', 'error');
+            return;
+        }
+        setSelectedFile(file);
+        setFilePreviewUrl(URL.createObjectURL(file));
+    };
+
+    const clearFile = () => {
+        setSelectedFile(null);
+        if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+        setFilePreviewUrl(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     const handleSend = async () => {
-        if (!messageText.trim() || !selectedConvId) return;
+        if ((!messageText.trim() && !selectedFile) || !selectedConvId) return;
         setSending(true);
         try {
-            await sendChatReply(selectedConvId, messageText.trim());
+            if (selectedFile) {
+                await sendChatMedia(selectedConvId, selectedFile, messageText.trim());
+                clearFile();
+            } else {
+                await sendChatReply(selectedConvId, messageText.trim());
+            }
             setMessageText('');
         } catch (err) {
             if (err.message?.includes('24-hour') || err.message?.includes('window')) {
@@ -576,16 +604,47 @@ export default function WhatsAppChat() {
                             )}
 
                             {/* Input Area */}
+                            {filePreviewUrl && (
+                                <div style={{ padding: '12px 16px', background: '#f8fafc', borderTop: '1px solid var(--border, #e2e8f0)', position: 'relative' }}>
+                                    <div style={{ display: 'inline-block', position: 'relative' }}>
+                                        <img src={filePreviewUrl} alt="Preview" style={{ maxHeight: '100px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                                        <button onClick={clearFile} style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Icon name="close" size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                             <div style={{
                                 padding: '12px 16px', background: '#fff',
                                 borderTop: '1px solid var(--border, #e2e8f0)',
                                 display: 'flex', gap: '8px', alignItems: 'flex-end',
                             }}>
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={!isWindowOpen || sending}
+                                    style={{
+                                        width: '42px', height: '42px', borderRadius: '50%',
+                                        background: 'transparent', color: '#64748b', border: 'none', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        flexShrink: 0, transition: 'color 0.2s',
+                                    }}
+                                >
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                                    </svg>
+                                </button>
+                                <input 
+                                    type="file" 
+                                    accept="image/*,application/pdf" 
+                                    ref={fileInputRef} 
+                                    onChange={handleFileChange} 
+                                    style={{ display: 'none' }} 
+                                />
                                 <textarea
                                     value={messageText}
                                     onInput={e => setMessageText(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder={isWindowOpen ? "Type a message..." : "Window expired \u2014 use template"}
+                                    placeholder={isWindowOpen ? (selectedFile ? "Add a caption..." : "Type a message...") : "Window expired \u2014 use template"}
                                     disabled={!isWindowOpen || sending}
                                     style={{
                                         flex: 1, resize: 'none', border: '1px solid var(--border, #e2e8f0)',
@@ -598,10 +657,10 @@ export default function WhatsAppChat() {
                                 />
                                 <button
                                     onClick={handleSend}
-                                    disabled={!messageText.trim() || sending || !isWindowOpen}
+                                    disabled={(!messageText.trim() && !selectedFile) || sending || !isWindowOpen}
                                     style={{
                                         width: '42px', height: '42px', borderRadius: '50%',
-                                        background: messageText.trim() && isWindowOpen ? '#25d366' : '#ccc',
+                                        background: (messageText.trim() || selectedFile) && isWindowOpen ? '#25d366' : '#ccc',
                                         color: '#fff', border: 'none', cursor: 'pointer',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         flexShrink: 0, transition: 'background 0.2s',

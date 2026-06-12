@@ -1,7 +1,10 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { query, run, get } from '../database.js';
-import { sendTextMessage, sendMediaMessage, sendTemplateMessage, normalizePhone, getTemplateDefinition } from '../services/whatsapp.js';
+import { sendTextMessage, sendMediaMessage, sendTemplateMessage, normalizePhone, getTemplateDefinition, uploadMediaForMessage } from '../services/whatsapp.js';
 import { checkWhatsAppEnabled } from '../middleware/limits.js';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -309,6 +312,57 @@ router.post('/conversations/:id/send', async (req, res) => {
     } catch (error) {
         console.error('Send chat message error:', error);
         res.status(500).json({ error: error.message || 'Failed to send message' });
+    }
+});
+
+/**
+ * POST /api/v1/whatsapp/chat/conversations/:id/send-media
+ * Send an image or document (within 24h window)
+ */
+router.post('/conversations/:id/send-media', upload.single('media'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No media file provided' });
+        
+        const conversation = await get(
+            'SELECT * FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
+            [req.params.id, req.tenantId]
+        );
+        if (!conversation) return res.status(404).json({ error: 'Conversation not found' });
+
+        const now = new Date();
+        const windowExpires = conversation.window_expires_at ? new Date(conversation.window_expires_at) : new Date(0);
+        if (now > windowExpires) {
+            return res.status(400).json({ error: '24-hour service window has expired. You can only send template messages.' });
+        }
+
+        // 1. Upload media to Meta
+        const mediaId = await uploadMediaForMessage(req.file.buffer, req.file.mimetype, req.file.originalname, req.tenant);
+        
+        // 2. Send media message
+        const isImage = req.file.mimetype.startsWith('image/');
+        const mediaType = isImage ? 'image' : 'document';
+        const result = await sendMediaMessage(conversation.phone, mediaType, { id: mediaId }, req.body.caption || '', req.tenant);
+
+        const nowStr = now.toISOString().slice(0, 19).replace('T', ' ');
+
+        // 3. Save to database
+        await run(
+            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, media_id, media_mime_type, provider_message_id, status, sent_by)
+             VALUES (?, ?, 'outbound', ?, ?, ?, ?, ?, 'sent', ?)`,
+            [req.tenantId, conversation.id, req.body.caption || '', mediaType, mediaId, req.file.mimetype, result.messageId, req.user.userId]
+        );
+
+        // Update conversation
+        const preview = isImage ? `📷 Image` : `📎 Document`;
+        await run(
+            `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?`,
+            [req.body.caption || preview, nowStr, conversation.id]
+        );
+
+        res.json({ success: true, messageId: result.messageId });
+    } catch (error) {
+        console.error('Send media message error:', error);
+        res.status(500).json({ error: error.message || 'Failed to send media' });
     }
 });
 
