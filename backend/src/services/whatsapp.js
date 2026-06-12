@@ -514,7 +514,8 @@ export async function syncProductToMeta(tenant, product) {
                     image_link: product.image_url || 'https://via.placeholder.com/600x600.png?text=No+Image',
                     brand: tenant.name || 'Brand',
                     condition: 'new',
-                    availability: 'in stock'
+                    availability: 'in stock',
+                    origin_country: 'IN'
                 }
             }
         ]

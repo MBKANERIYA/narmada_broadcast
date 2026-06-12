@@ -160,7 +160,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
 
     // Find the tenant by their phone_number_id
     const tenant = await get(
-        'SELECT id FROM tenants WHERE whatsapp_phone_number_id = ? AND whatsapp_configured = TRUE',
+        'SELECT * FROM tenants WHERE whatsapp_phone_number_id = ? AND whatsapp_configured = TRUE',
         [phoneNumberId]
     );
     if (!tenant) {
@@ -260,6 +260,41 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     );
 
     console.log(`[Chat] ✅ Incoming from ${fromPhone}: "${previewText}" (tenant: ${tenantId}, conv: ${conversation.id}, msg_id: ${insertResult.lastInsertRowid})`);
+
+    // ============================================================
+    // AI CHATBOT LOGIC
+    // ============================================================
+    if (messageType === 'text' && body) {
+        try {
+            const { generateChatbotReply } = await import('./services/openai.js');
+            const botReply = await generateChatbotReply(tenantId, conversation.id, body);
+
+            if (botReply) {
+                const { sendTextMessage } = await import('./services/whatsapp.js');
+                
+                // Send the message via Meta API
+                const result = await sendTextMessage(fromPhone, botReply, tenant);
+
+                // Save outbound message to DB
+                const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                await run(
+                    `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
+                     VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent', NULL)`,
+                    [tenantId, conversation.id, botReply, result.messageId]
+                );
+                
+                // Update conversation last message
+                await run(
+                    `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?`,
+                    [botReply.substring(0, 100), nowStr, conversation.id]
+                );
+                
+                console.log(`[Bot] 🤖 AI replied to ${fromPhone}`);
+            }
+        } catch (botErr) {
+            console.error('[Bot] Failed to run AI chatbot:', botErr.message);
+        }
+    }
 }
 
 // ============================================================

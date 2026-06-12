@@ -4,6 +4,21 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-12 — Feature: AI Chatbot Integration
+**What**: Integrated an advanced AI auto-reply bot using Google Gemini's free `gemini-1.5-flash` model via the OpenAI SDK.
+**Why**: Allows the platform to automatically respond to incoming customer messages for completely free without needing a paid OpenAI account.
+**Files Changed**: `backend/src/services/openai.js`, `backend/src/app.js`, `backend/package.json`
+- Installed `openai` npm package.
+- Created `generateChatbotReply()` in `openai.js` that pulls the last 10 messages from the database to build conversation context and generates an AI response.
+- Switched the SDK Base URL to `generativelanguage.googleapis.com/v1beta/openai/` to use Google's generous free tier.
+- Integrated AI logic into `processIncomingMessage()` inside `app.js` to automatically reply to incoming text messages if `AI_API_KEY` is present.
+
+## 2026-06-12 — Fix: Meta Commerce Catalog Sync for India
+**What**: Added `origin_country` to the Meta Commerce API product sync payload
+**Why**: Meta requires `origin_country` for catalogs in India. Without this field, products sync to the catalog but are hidden/rejected and do not display on the WhatsApp Business profile.
+**Files Changed**: `backend/src/services/whatsapp.js`
+- Added `origin_country: 'IN'` to the `PRODUCT_ITEM` `items_batch` payload.
+
 ## 2026-06-11 — Feature: Meta Commerce Catalog Integration
 **What**: Automatically syncs locally created products to Meta Commerce Catalog via Graph API
 **Why**: Ensures products added via the SaaS UI appear on the tenant's actual WhatsApp Business Profile in the WhatsApp app
