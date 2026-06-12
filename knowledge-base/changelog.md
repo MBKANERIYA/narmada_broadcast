@@ -4,6 +4,19 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-12 — Hotfix: WhatsApp Chat Inbox Reference Errors
+**What**: Restored browser voice recording states and handlers, and added native audio rendering to MediaMessage in Chat Inbox.
+**Why**: The previous implementation was missing critical Javascript variable/handler definitions inside the `WhatsAppChat` component body and native audio tags in `MediaMessage`, causing runtime reference crashes that blocked opening chats.
+**Impact**: Chat Inbox and conversation selection are fully operational again.
+**Files Changed**: `frontend/src/components/WhatsAppChat.jsx`
+**Tests**: Verified frontend builds successfully (`npm run build`).
+**Commit**: `f2312e6`
+
+- Implemented state variables (`isRecording`, `recordingTime`) and refs (`mediaRecorderRef`, `audioChunksRef`, `timerRef`) in `WhatsAppChat`.
+- Added `startRecording`, `cancelRecording`, `stopAndSendRecording` handlers using the browser `MediaRecorder` API.
+- Integrated standard `formatDuration(seconds)` utility for recording time representation.
+- Added native `<audio>` element rendering to `MediaMessage` to correctly play sent voice notes.
+
 ## 2026-06-12 — Audio Recording and Store Timings Bot Control
 **What**: Implemented voice note recording in Chat Inbox and store hours chatbot settings.
 **Why**: Customers wanted to be able to record and send audio messages directly, and firms wanted to configure chatbot behaviors when customers message after-hours.
