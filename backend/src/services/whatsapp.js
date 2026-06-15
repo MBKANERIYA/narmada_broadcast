@@ -530,7 +530,7 @@ export async function syncProductToMeta(tenant, product) {
             {
                 method: "UPDATE",
                 data: {
-                    id: product.sku || `PROD-${product.id}`,
+                    id: product.sku || String(product.id),
                     title: product.name,
                     description: product.description || product.name,
                     price: priceString,
@@ -561,8 +561,8 @@ export async function syncProductToMeta(tenant, product) {
     }
 
     // items_batch doesn't necessarily return a meta_product_id if it's async,
-    // but we use the retailer_id (sku or PROD-id) as our primary sync key.
-    return product.sku || `PROD-${product.id}`;
+    // but we use the retailer_id (sku or id) as our primary sync key.
+    return product.sku || String(product.id);
 }
 
 /**

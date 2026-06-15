@@ -4,6 +4,14 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-15 — Fix: Meta Commerce Catalog SKU Match Rate
+**What**: Removed `PROD-` prefix from Meta Catalog product ID sync and clarified SKU label.
+**Why**: Meta Pixel tracks events using the website's native product ID or SKU. The `PROD-` prefix was causing a "Products not matching ad events" error because `PROD-123` doesn't match the pixel's `123`.
+**Files Changed**: `backend/src/services/whatsapp.js`, `frontend/src/components/Catalogue.jsx`
+**Tests**: Verified syntax and logic changes.
+- Changed fallback product ID in `syncProductToMeta` from `` `PROD-${product.id}` `` to `String(product.id)`.
+- Updated the SKU label in the Catalogue component to explicitly remind users it must match the "Meta Pixel Content ID".
+
 ## 2026-06-12 — Remove Google Gemini / OpenAI SDK and Finalize Local NLP Model Chatbot
 **What**: Removed unused OpenAI SDK and Google Gemini API integration files and package dependencies.
 **Why**: Pivoted to using the pure local semantic NLP model (`smartResponder.js`) running on the CPU using `@xenova/transformers`.

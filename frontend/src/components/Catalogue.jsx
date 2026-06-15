@@ -242,8 +242,8 @@ export default function Catalogue() {
                                         <input type="text" className="form-input" name="category" value={formData.category} onChange={handleInputChange} placeholder="e.g. Electronics, Clothing" />
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label">SKU</label>
-                                        <input type="text" className="form-input" name="sku" value={formData.sku} onChange={handleInputChange} />
+                                        <label className="form-label">SKU (Meta Pixel Content ID)</label>
+                                        <input type="text" className="form-input" name="sku" value={formData.sku} onChange={handleInputChange} placeholder="Must match website Pixel ID" />
                                     </div>
                                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                         <label className="form-label">Image URL</label>
