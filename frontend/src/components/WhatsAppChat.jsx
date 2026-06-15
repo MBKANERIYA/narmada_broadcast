@@ -102,7 +102,7 @@ export default function WhatsAppChat() {
     const [selectedTemplate, setSelectedTemplate] = useState('');
     const [templateParams, setTemplateParams] = useState(['', '', '']);
     const messagesEndRef = useRef(null);
-    const pollRef = useRef(null);
+
     const [mobileShowChat, setMobileShowChat] = useState(false);
 
     // Voice Recording states
@@ -230,15 +230,7 @@ export default function WhatsAppChat() {
         fetchContacts();
     }, []);
 
-    // Polling — restart whenever selectedConvId changes so we immediately poll the right conversation
-    useEffect(() => {
-        pollRef.current = setInterval(() => {
-            fetchConversations(searchRef.current);
-            if (selectedConvIdRef.current) fetchChatMessages(selectedConvIdRef.current);
-        }, 8000);
-
-        return () => clearInterval(pollRef.current);
-    }, [selectedConvId]);
+    // Polling removed in favor of WebSockets managed in store.js
 
     useEffect(() => {
         const timer = setTimeout(() => fetchConversations(search), 300);

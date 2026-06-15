@@ -8,6 +8,7 @@ import { auth } from './middleware/auth.js';
 import { resolveTenant, superAdminOnly } from './middleware/tenant.js';
 import { run, get, query } from './database.js';
 import { normalizePhone } from './services/whatsapp.js';
+import { emitToTenant } from './services/websocket.js';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -20,6 +21,7 @@ import publicRoutes from './routes/public.js';
 import adminRoutes from './routes/admin.js';
 import productsRoutes from './routes/products.js';
 import knowledgeBaseRoutes from './routes/knowledge-base.js';
+import ordersRoutes from './routes/orders.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -117,6 +119,11 @@ app.post('/api/v1/whatsapp-webhook', async (req, res) => {
                                     await run('UPDATE whatsapp_chat_messages SET status = ? WHERE provider_message_id = ?', ['read', messageId]);
                                 } else if (currentStatus === 'failed') {
                                     await run('UPDATE whatsapp_chat_messages SET status = ?, error_message = ? WHERE provider_message_id = ?', ['failed', errorDetail || 'Unknown failure', messageId]);
+                                }
+                                // Emit status update to connected clients
+                                const tenant = await get('SELECT id FROM tenants WHERE whatsapp_phone_number_id = ?', [phoneNumberId]);
+                                if (tenant) {
+                                    emitToTenant(tenant.id, 'chat_updated', { type: 'status_update', messageId, status: currentStatus });
                                 }
                             } catch (dbErr) {
                                 console.error('Webhook DB update error:', dbErr.message);
@@ -276,6 +283,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         const items = order.product_items || [];
         let totalAmount = 0;
         let currency = 'INR';
+        const parsedItems = [];
         
         let text = '🛒 *New Order Received*\n\n';
         for (const item of items) {
@@ -284,22 +292,46 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             totalAmount += price * qty;
             currency = item.currency || currency;
             
+            let productId = null;
+            let itemName = `Item #${item.product_retailer_id}`;
             try {
-                const product = await get('SELECT name, image_url FROM products WHERE tenant_id = ? AND sku = ?', [tenantId, item.product_retailer_id]);
-                const itemName = product ? product.name : `Item #${item.product_retailer_id}`;
-                text += `${qty}x ${itemName} — ${price.toFixed(2)} ${currency}\n`;
-                if (product && product.image_url && !mediaId) {
-                    mediaId = product.image_url;
+                const product = await get('SELECT id, name, image_url FROM products WHERE tenant_id = ? AND sku = ?', [tenantId, item.product_retailer_id]);
+                if (product) {
+                    productId = product.id;
+                    itemName = product.name;
+                    if (product.image_url && !mediaId) {
+                        mediaId = product.image_url;
+                    }
                 }
             } catch(e) {
-                text += `${qty}x Item #${item.product_retailer_id} — ${price.toFixed(2)} ${currency}\n`;
+                console.error('[Order] Product lookup error:', e.message);
             }
+            
+            text += `${qty}x ${itemName} — ${price.toFixed(2)} ${currency}\n`;
+            parsedItems.push({ product_id: productId, sku: item.product_retailer_id, item_name: itemName, quantity: qty, price });
         }
         text += `\n*Total: ${totalAmount.toFixed(2)} ${currency}*`;
         if (order.text) {
             text += `\n\nNotes: ${order.text}`;
         }
         body = text;
+
+        try {
+            const orderResult = await run(
+                `INSERT INTO orders (tenant_id, contact_id, phone, total_amount, currency, notes) VALUES (?, ?, ?, ?, ?, ?)`,
+                [tenantId, contactId, fromPhone, totalAmount, currency, order.text || null]
+            );
+            const orderId = orderResult.lastInsertRowid;
+            for (const pi of parsedItems) {
+                await run(
+                    `INSERT INTO order_items (order_id, product_id, sku, item_name, quantity, price) VALUES (?, ?, ?, ?, ?, ?)`,
+                    [orderId, pi.product_id, pi.sku, pi.item_name, pi.quantity, pi.price]
+                );
+            }
+            console.log(`[Order] ✅ Created order #${orderId} (${parsedItems.length} items, ${totalAmount.toFixed(2)} ${currency}) for ${fromPhone}`);
+        } catch (omsErr) {
+            console.error('[Order] Failed to save to OMS:', omsErr.message);
+        }
     } else {
         body = `[${msg.type}]`;
     }
@@ -336,22 +368,60 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
 
     console.log(`[Chat] ✅ Incoming from ${fromPhone}: "${previewText}" (tenant: ${tenantId}, conv: ${conversation.id}, msg_id: ${insertResult.lastInsertRowid})`);
 
+    // Emit real-time update
+    emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+
+    // ============================================================
+    // PARSE BOT SETTINGS (shared by order auto-reply + AI chatbot)
+    // ============================================================
+    let botSettings = {};
+    if (tenant.bot_settings) {
+        try {
+            botSettings = typeof tenant.bot_settings === 'string'
+                ? JSON.parse(tenant.bot_settings)
+                : tenant.bot_settings;
+        } catch (parseErr) {
+            console.error('[Bot] Failed to parse tenant bot_settings:', parseErr.message);
+        }
+    }
+
+    // ============================================================
+    // ORDER AUTO-PAYMENT REPLY
+    // ============================================================
+    if (messageType === 'order' && botSettings.auto_payment_link) {
+        try {
+            const paymentLink = botSettings.auto_payment_link;
+            const paymentMessage = botSettings.payment_message_template
+                ? botSettings.payment_message_template
+                : `Thank you for your order! Please complete your payment using this link:\n${paymentLink}`;
+
+            const { sendTextMessage } = await import('./services/whatsapp.js');
+            const result = await sendTextMessage(fromPhone, paymentMessage, tenant);
+
+            if (result && result.messageId) {
+                const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                await run(
+                    `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
+                     VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent', NULL)`,
+                    [tenantId, conversation.id, paymentMessage, result.messageId]
+                );
+                await run(
+                    `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
+                    [paymentMessage.substring(0, 100), outNow, conversation.id]
+                );
+                emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                console.log(`[Order] 💳 Auto-payment link sent to ${fromPhone}`);
+            }
+        } catch (payErr) {
+            console.error('[Order] Failed to send auto-payment reply:', payErr.message);
+        }
+    }
+
     // ============================================================
     // AI CHATBOT LOGIC
     // ============================================================
     if (messageType === 'text' && body) {
         try {
-            // Parse chatbot and store timings settings
-            let botSettings = {};
-            if (tenant.bot_settings) {
-                try {
-                    botSettings = typeof tenant.bot_settings === 'string'
-                        ? JSON.parse(tenant.bot_settings)
-                        : tenant.bot_settings;
-                } catch (parseErr) {
-                    console.error('[Bot] Failed to parse tenant bot_settings:', parseErr.message);
-                }
-            }
 
             // Check if chatbot is enabled overall
             let shouldReply = botSettings.enabled !== false; // Default to true if not set
@@ -425,6 +495,9 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                         );
 
                         console.log(`[Bot] 🤖 Smart Auto-Responder replied to ${fromPhone} with ${botReply.type}`);
+
+                        // Emit real-time update for bot reply
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
                     }
                 }
             }
@@ -507,6 +580,7 @@ app.use('/api/v1/whatsapp/chat', auth, whatsappChatRoutes);
 app.use('/api/v1/tenant-settings', auth, tenantSettingsRoutes);
 app.use('/api/v1/products', auth, productsRoutes);
 app.use('/api/v1/knowledge-base', auth, knowledgeBaseRoutes);
+app.use('/api/v1/orders', auth, ordersRoutes);
 
 // Super admin routes (auth + super admin check)
 app.use('/api/v1/admin', auth, superAdminOnly, adminRoutes);

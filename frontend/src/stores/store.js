@@ -3,8 +3,12 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { io } from 'socket.io-client';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+let socket = null;
+
 
 const APP_SUBDOMAINS = ['broadcast', 'app', 'www', 'api', 'admin'];
 
@@ -105,6 +109,44 @@ export const useStore = create(
             setCurrentView: (view) => set({ currentView: view }),
             clearError: () => set({ error: null }),
 
+            initSocket: () => {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                if (socket) socket.disconnect();
+
+                socket = io(API_BASE_URL || window.location.origin, {
+                    path: '/api/socket.io',
+                    auth: { token },
+                    transports: ['websocket', 'polling']
+                });
+
+                socket.on('connect', () => {
+                    console.log('[WebSocket] Connected');
+                });
+
+                socket.on('chat_updated', (data) => {
+                    const state = get();
+                    // Refresh conversations list
+                    state.fetchConversations();
+                    
+                    // If viewing the specific conversation, refresh messages
+                    if (state.activeConversation && state.activeConversation.id === data.conversation_id) {
+                        state.fetchChatMessages(data.conversation_id);
+                    }
+                });
+
+                socket.on('disconnect', () => {
+                    console.log('[WebSocket] Disconnected');
+                });
+            },
+
+            disconnectSocket: () => {
+                if (socket) {
+                    socket.disconnect();
+                    socket = null;
+                }
+            },
+
             login: async (email, password) => {
                 try {
                     const data = await api('/auth/login', {
@@ -127,6 +169,7 @@ export const useStore = create(
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 localStorage.removeItem('tenant_slug');
+                get().disconnectSocket();
                 set({ user: null, tenant: null, isAuthenticated: false, contacts: [], currentView: 'contacts' });
             },
 

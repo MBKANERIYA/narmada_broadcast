@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { query, run, get } from '../database.js';
 import { sendTextMessage, sendMediaMessage, sendTemplateMessage, normalizePhone, getTemplateDefinition, uploadMediaForMessage } from '../services/whatsapp.js';
+import { emitToTenant } from '../services/websocket.js';
 import { checkWhatsAppEnabled } from '../middleware/limits.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -159,6 +160,8 @@ router.post('/conversations/new', async (req, res) => {
             [getTemplatePlainText(resolvedBody).substring(0, 100), conversation.id]
         );
 
+        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+
         res.json({ success: true, conversationId: conversation.id, messageId: result.messageId });
     } catch (error) {
         console.error('Start new conversation error:', error);
@@ -310,6 +313,8 @@ router.post('/conversations/:id/send', async (req, res) => {
             [text.trim().substring(0, 100), now, conversation.id]
         );
 
+        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+
         res.json({ success: true, messageId: result.messageId });
     } catch (error) {
         console.error('Send chat message error:', error);
@@ -402,6 +407,8 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
             [req.body.caption || preview, nowStr, conversation.id]
         );
 
+        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+
         res.json({ success: true, messageId: result.messageId });
     } catch (error) {
         console.error('Send media message error:', error);
@@ -447,6 +454,8 @@ router.post('/conversations/:id/send-template', async (req, res) => {
             `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?`,
             [getTemplatePlainText(resolvedBody).substring(0, 100), now, conversation.id]
         );
+
+        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
 
         res.json({ success: true, messageId: result.messageId });
     } catch (error) {

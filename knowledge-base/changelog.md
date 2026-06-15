@@ -4,6 +4,16 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-15 — Feature: Order Management System (OMS) Frontend Dashboard
+**What**: Created a fully featured Orders Dashboard and auto-payment settings configuration screen on the frontend.
+**Why**: Allows merchants to view orders placed via WhatsApp in a tabular format, filter by payment and fulfillment statuses, view granular line items and customer info, update statuses, and configure auto-payment links for automatic replies.
+**Files Changed**:
+- `frontend/src/components/Orders.jsx`: Created new Orders page with status filters, detail modals, and status update controls.
+- `frontend/src/components/Sidebar.jsx`: Integrated the Orders link into navigation.
+- `frontend/src/App.jsx`: Added routing and rendering switcher for the Orders view.
+- `frontend/src/components/Settings.jsx`: Integrated state variables and UI fields for the Auto-Payment Link and dynamic template configuration in chatbot settings.
+**Tests**: Verified that the frontend builds successfully without any errors.
+
 ## 2026-06-15 — Feature: WhatsApp Text Formatting in UI
 **What**: Added support for rendering WhatsApp-style markdown (bold, italic, strikethrough, monospace) in the Chat Inbox.
 **Why**: When users or customers sent messages with WhatsApp formatting like `*bold*` or `_italic_`, the platform displayed the raw symbols instead of actual formatted text. This update adds a robust regex parser that converts WhatsApp markdown into safe HTML elements, perfectly mimicking the native WhatsApp visual experience.
@@ -44,6 +54,34 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - Changed fallback product ID in `syncProductToMeta` from `` `PROD-${product.id}` `` to `String(product.id)`.
 - Updated the SKU label in the Catalogue component to explicitly remind users it must match the "Meta Pixel Content ID".
 - Added `item_type: 'PRODUCT_ITEM'` to `deleteProductFromMeta` and configured the route to bubble up Meta deletion errors as toast warnings in the frontend.
+
+## 2026-06-12 — Frontend Optimizations: WebSockets & FAQ Editing UI
+**What**: Implemented `socket.io-client` in the React frontend for real-time chat updates, removing the old HTTP polling system. Added UI capabilities to edit existing FAQs in the Knowledge Base dashboard.
+**Why**: Completes the frontend counterpart to the backend real-time and semantic search improvements. Polling was inefficient, and FAQ editing is a better user experience than deleting/re-creating.
+**Impact**: Chat updates immediately without delay. Less backend load from polling. Users can now edit FAQs with a dedicated UI that triggers backend vector re-calculation.
+**Files Changed**: `frontend/package.json`, `frontend/src/App.jsx`, `frontend/src/stores/store.js`, `frontend/src/components/WhatsAppChat.jsx`, `frontend/src/components/KnowledgeBase.jsx`, `backend/src/services/websocket.js`
+**Tests**: Verified Socket.io connection initializes upon login, handles disconnects upon logout, and chat polling is removed. Verified the FAQ edit form submits `PUT` requests successfully.
+
+- Installed `socket.io-client`.
+- Added `initSocket()` to the Zustand `store.js` that triggers on `isAuthenticated` in `App.jsx`.
+- Cleaned up `pollRef` and `setInterval` logic from `WhatsAppChat.jsx`.
+- Extended `KnowledgeBase.jsx` form to handle `PUT` requests when an `editingId` is active, and added an edit button to the active FAQs list.
+- Configured Socket.io to use the `/api/socket.io` path to ensure compatibility with existing Nginx proxy configurations on the VPS.
+
+---
+
+## 2026-06-12 — Backend Optimizations: WebSockets, NLP Pre-warming, & FAQ Editing
+**What**: Implemented Socket.io for real-time chat updates, pre-warmed local NLP models, improved tenant cache invalidation, and added FAQ editing support.
+**Why**: Ensures the frontend chat inbox updates instantly without polling, improves first-reply speed of the NLP model, fixes cache collision risks, and allows users to edit FAQs without deleting and recreating them.
+**Impact**: Chat updates are now event-driven and immediate. Local NLP model responses are faster. FAQ edits now correctly recalculate and store semantic vector embeddings.
+**Files Changed**: `backend/package.json`, `backend/src/server.js`, `backend/src/app.js`, `backend/src/database.js`, `backend/src/services/smartResponder.js`, `backend/src/services/websocket.js`, `backend/src/routes/whatsapp-chat.js`, `backend/src/routes/knowledge-base.js`
+**Tests**: Verified Socket.io connection and authentication locally. Verified `initModel` executes without errors. Verified `PUT` updates successfully recalculate embeddings.
+
+- Installed `socket.io` and created `websocket.js` for JWT-authenticated real-time events.
+- Integrated `initWebSocket` and NLP `initModel` into `server.js` startup lifecycle.
+- Replaced HTTP polling reliance by emitting `chat_updated` via `emitToTenant` in webhooks and API routes.
+- Modified `getTenantBySlug` to perform DB fallback on cache miss and improved `invalidateTenantCache` for granular invalidation.
+- Updated `PUT /api/v1/knowledge-base/:id` to accept question/answer edits and re-calculate the `question_vector`.
 
 ## 2026-06-12 — Remove Google Gemini / OpenAI SDK and Finalize Local NLP Model Chatbot
 **What**: Removed unused OpenAI SDK and Google Gemini API integration files and package dependencies.

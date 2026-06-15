@@ -265,6 +265,38 @@ const migrate = async () => {
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
       INDEX idx_tenant (tenant_id)
     )`,
+
+    // Orders (OMS)
+    `CREATE TABLE IF NOT EXISTS orders (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      contact_id INT,
+      phone VARCHAR(20) NOT NULL,
+      total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+      currency VARCHAR(10) DEFAULT 'INR',
+      payment_status ENUM('pending', 'paid', 'failed') DEFAULT 'pending',
+      fulfillment_status ENUM('pending', 'processing', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending',
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+      FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE SET NULL,
+      INDEX idx_tenant (tenant_id),
+      INDEX idx_status (payment_status, fulfillment_status)
+    )`,
+
+    // Order line items
+    `CREATE TABLE IF NOT EXISTS order_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      product_id INT,
+      sku VARCHAR(100),
+      item_name VARCHAR(255) NOT NULL,
+      quantity INT NOT NULL DEFAULT 1,
+      price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+    )`,
   ];
 
   for (const sql of coreMigrations) {
@@ -348,7 +380,14 @@ export const getTenantBySlug = async (slug) => {
   if (Date.now() - tenantCacheTime > TENANT_CACHE_TTL) {
     await refreshTenantCache();
   }
-  return tenantCache.get(slug) || null;
+  let tenant = tenantCache.get(slug);
+  if (!tenant) {
+    tenant = await get('SELECT * FROM tenants WHERE slug = ?', [slug]);
+    if (tenant) {
+      tenantCache.set(slug, tenant);
+    }
+  }
+  return tenant || null;
 };
 
 export const getTenantById = async (id) => {
@@ -368,9 +407,17 @@ const refreshTenantCache = async () => {
   }
 };
 
-export const invalidateTenantCache = (slug) => {
-  if (slug) tenantCache.delete(slug);
-  else tenantCacheTime = 0;
+export const invalidateTenantCache = async (slug) => {
+  if (slug) {
+    const tenant = await get('SELECT * FROM tenants WHERE slug = ?', [slug]);
+    if (tenant) {
+      tenantCache.set(slug, tenant);
+    } else {
+      tenantCache.delete(slug);
+    }
+  } else {
+    tenantCacheTime = 0;
+  }
 };
 
 // ============================================================

@@ -6,6 +6,7 @@ const NAV_ITEMS = [
     { id: 'broadcast', label: 'Broadcast', icon: 'whatsapp' },
     { id: 'chat', label: 'Chat Inbox', icon: 'chat' },
     { id: 'catalogue', label: 'Catalogue', icon: 'tag' },
+    { id: 'orders', label: 'Orders', icon: 'clipboard' },
     { id: 'knowledge', label: 'Smart FAQs', icon: 'message' },
     { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
