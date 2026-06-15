@@ -317,6 +317,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     let body = null;
     let mediaId = null;
     let mediaMime = null;
+    let parsedOrderTotal = 0;
 
     if (msg.type === 'text') {
         body = msg.text?.body || '';
@@ -381,6 +382,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             text += `\n\nNotes: ${order.text}`;
         }
         body = text;
+        parsedOrderTotal = totalAmount;
 
         try {
             const orderResult = await run(
@@ -458,7 +460,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         try {
             if (botSettings.razorpay_key_id && botSettings.razorpay_key_secret) {
                 // Ask for address instead of sending link directly
-                const addressPrompt = `Great! Your total is ₹${totalAmount.toFixed(2)}.\n\nPlease reply with your full *delivery address* to proceed.`;
+                const addressPrompt = `Great! Your total is ₹${parsedOrderTotal.toFixed(2)}.\n\nPlease reply with your full *delivery address* to proceed.`;
                 const { sendTextMessage } = await import('./services/whatsapp.js');
                 const result = await sendTextMessage(fromPhone, addressPrompt, tenant);
 
@@ -478,7 +480,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             } else if (botSettings.auto_payment_link) {
                 const paymentLink = botSettings.auto_payment_link;
                 const paymentMessage = botSettings.payment_message_template
-                    ? botSettings.payment_message_template.replace('{total}', totalAmount.toFixed(2)).replace('{link}', paymentLink)
+                    ? botSettings.payment_message_template.replace('{total}', parsedOrderTotal.toFixed(2)).replace('{link}', paymentLink)
                     : `Thank you for your order! Please complete your payment using this link:\n${paymentLink}`;
 
                 const { sendTextMessage } = await import('./services/whatsapp.js');
