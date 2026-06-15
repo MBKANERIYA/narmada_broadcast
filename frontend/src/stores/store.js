@@ -357,10 +357,11 @@ export const useStore = create(
             chatMessages: [],
             chatMessagesTotal: 0,
 
-            fetchConversations: async (search = '') => {
+            fetchConversations: async (search = '', filter = 'all') => {
                 try {
                     let url = '/whatsapp/chat/conversations?';
-                    if (search) url += `search=${encodeURIComponent(search)}`;
+                    if (search) url += `search=${encodeURIComponent(search)}&`;
+                    if (filter === 'paid') url += `paid=1&`;
 
                     const data = await api(url);
                     set({

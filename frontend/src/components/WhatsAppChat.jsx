@@ -90,6 +90,7 @@ export default function WhatsAppChat() {
     } = useStore();
 
     const [search, setSearch] = useState('');
+    const [activeTab, setActiveTab] = useState('all'); // 'all', 'unread', 'paid'
     const [selectedConvId, setSelectedConvId] = useState(null);
     const [messageText, setMessageText] = useState('');
     const [sending, setSending] = useState(false);
@@ -233,9 +234,9 @@ export default function WhatsAppChat() {
     // Polling removed in favor of WebSockets managed in store.js
 
     useEffect(() => {
-        const timer = setTimeout(() => fetchConversations(search), 300);
+        const timer = setTimeout(() => fetchConversations(search, activeTab), 300);
         return () => clearTimeout(timer);
-    }, [search]);
+    }, [search, activeTab]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -531,21 +532,43 @@ export default function WhatsAppChat() {
                         </button>
                     </div>
 
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border, #e2e8f0)', background: '#f8fafc' }}>
+                        <button 
+                            style={{ flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600, border: 'none', background: 'transparent', cursor: 'pointer', borderBottom: activeTab === 'all' ? '2px solid #25d366' : '2px solid transparent', color: activeTab === 'all' ? '#1e293b' : '#64748b' }}
+                            onClick={() => setActiveTab('all')}
+                        >
+                            All
+                        </button>
+                        <button 
+                            style={{ flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600, border: 'none', background: 'transparent', cursor: 'pointer', borderBottom: activeTab === 'unread' ? '2px solid #25d366' : '2px solid transparent', color: activeTab === 'unread' ? '#1e293b' : '#64748b' }}
+                            onClick={() => setActiveTab('unread')}
+                        >
+                            Unread
+                        </button>
+                        <button 
+                            style={{ flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600, border: 'none', background: 'transparent', cursor: 'pointer', borderBottom: activeTab === 'paid' ? '2px solid #25d366' : '2px solid transparent', color: activeTab === 'paid' ? '#1e293b' : '#64748b' }}
+                            onClick={() => setActiveTab('paid')}
+                        >
+                            Paid Orders
+                        </button>
+                    </div>
+
                     {/* Conversation List */}
                     <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {conversations.length === 0 ? (
+                        {conversations.filter(c => activeTab === 'unread' ? c.unread_count > 0 : true).length === 0 ? (
                             <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '13px' }}>
                                 <div style={{ opacity: 0.3, marginBottom: '16px' }}>
                                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                                         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
                                     </svg>
                                 </div>
-                                <div style={{ opacity: 0.5, marginBottom: '12px' }}>No conversations yet</div>
+                                <div style={{ opacity: 0.5, marginBottom: '12px' }}>No conversations found</div>
                                 <button className="btn btn--success" style={{ fontSize: '13px', padding: '8px 16px' }} onClick={openNewChatModal}>
                                     + Start New Chat
                                 </button>
                             </div>
-                        ) : conversations.map(c => (
+                        ) : conversations.filter(c => activeTab === 'unread' ? c.unread_count > 0 : true).map(c => (
                             <div
                                 key={c.id}
                                 onClick={() => openConversation(c.id)}
@@ -559,9 +582,14 @@ export default function WhatsAppChat() {
                                 onMouseLeave={e => { if (selectedConvId !== c.id) e.currentTarget.style.background = 'transparent'; }}
                             >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                    <span style={{ fontWeight: c.unread_count > 0 ? 700 : 500, fontSize: '14px' }}>
-                                        {c.display_name}
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={{ fontWeight: c.unread_count > 0 ? 700 : 500, fontSize: '14px' }}>
+                                            {c.display_name}
+                                        </span>
+                                        {activeTab === 'paid' && (
+                                            <span style={{ fontSize: '10px', background: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '10px', fontWeight: 600 }}>Paid</span>
+                                        )}
+                                    </div>
                                     <span style={{ fontSize: '11px', opacity: 0.5 }}>{formatTime(c.last_message_at)}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

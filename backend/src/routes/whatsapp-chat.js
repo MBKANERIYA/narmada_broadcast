@@ -175,7 +175,7 @@ router.post('/conversations/new', async (req, res) => {
  */
 router.get('/conversations', async (req, res) => {
     try {
-        const { search, archived = '0', page = 1, limit = 30 } = req.query;
+        const { search, archived = '0', page = 1, limit = 30, paid } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
         const isArchived = archived === '1' ? 1 : 0;
@@ -184,6 +184,12 @@ router.get('/conversations', async (req, res) => {
                     LEFT JOIN contacts c ON wc.contact_id = c.id
                     WHERE wc.tenant_id = ? AND wc.is_archived = ${isArchived}`;
         const params = [req.tenantId];
+
+        if (paid === '1') {
+            // Filter conversations to only those matching a phone number with a paid order
+            sql += ` AND wc.phone IN (SELECT phone FROM orders WHERE payment_status = 'paid' AND tenant_id = ?)`;
+            params.push(req.tenantId);
+        }
 
         if (search) {
             sql += ' AND (wc.contact_name LIKE ? OR wc.phone LIKE ?)';

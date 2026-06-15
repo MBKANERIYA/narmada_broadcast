@@ -35,8 +35,9 @@ export default function Settings() {
         enabled: true,
         after_hours_action: 'respond_normally',
         away_message: '',
-        auto_payment_link: '',
-        payment_message_template: '',
+        razorpay_key_id: '',
+        razorpay_key_secret: '',
+        razorpay_webhook_secret: '',
         store_hours: {
             enabled: false,
             timezone: 'Asia/Kolkata',
@@ -75,8 +76,9 @@ export default function Settings() {
                 enabled: parsedBotSettings.enabled !== false,
                 after_hours_action: parsedBotSettings.after_hours_action || 'respond_normally',
                 away_message: parsedBotSettings.away_message || '',
-                auto_payment_link: parsedBotSettings.auto_payment_link || '',
-                payment_message_template: parsedBotSettings.payment_message_template || '',
+                razorpay_key_id: parsedBotSettings.razorpay_key_id || '',
+                razorpay_key_secret: parsedBotSettings.razorpay_key_secret || '',
+                razorpay_webhook_secret: parsedBotSettings.razorpay_webhook_secret || '',
                 store_hours: {
                     enabled: parsedBotSettings.store_hours?.enabled || false,
                     timezone: parsedBotSettings.store_hours?.timezone || 'Asia/Kolkata',
@@ -503,34 +505,41 @@ export default function Settings() {
                             </div>
                         )}
 
-                        {/* Auto-Payment Link Settings */}
+                        {/* Razorpay Integration Settings */}
                         <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px', marginTop: '20px' }}>
-                            <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>Auto-Payment Settings</h3>
+                            <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>Razorpay Integration</h3>
                             <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '12px' }}>
-                                When a customer sends a cart/order from the WhatsApp Catalog, the platform can automatically reply with a payment link.
+                                Add your Razorpay API keys to automatically generate dynamic payment links for customer orders and collect delivery addresses.
                             </p>
                             <div className="form-group">
-                                <label className="form-label">Auto-Payment Link (URL)</label>
+                                <label className="form-label">Razorpay Key ID</label>
                                 <input
                                     className="form-input"
-                                    type="url"
-                                    value={botForm.auto_payment_link}
-                                    onInput={e => setBotForm(f => ({ ...f, auto_payment_link: e.target.value }))}
-                                    placeholder="https://rzp.io/l/yourpaymentlink or UPI link"
+                                    type="text"
+                                    value={botForm.razorpay_key_id}
+                                    onInput={e => setBotForm(f => ({ ...f, razorpay_key_id: e.target.value }))}
+                                    placeholder="rzp_live_XXXXX..."
                                 />
                             </div>
                             <div className="form-group">
-                                <label className="form-label">Payment Message Template</label>
-                                <textarea
-                                    className="form-textarea"
-                                    rows={3}
-                                    value={botForm.payment_message_template}
-                                    onInput={e => setBotForm(f => ({ ...f, payment_message_template: e.target.value }))}
-                                    placeholder="Thank you for your order of {total}! You can complete your payment here: {link}"
+                                <label className="form-label">Razorpay Key Secret</label>
+                                <input
+                                    className="form-input"
+                                    type="password"
+                                    value={botForm.razorpay_key_secret}
+                                    onInput={e => setBotForm(f => ({ ...f, razorpay_key_secret: e.target.value }))}
+                                    placeholder="Enter your Key Secret"
                                 />
-                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                    Use <code>{`{total}`}</code> and <code>{`{link}`}</code> as placeholders. If blank, a default message is sent.
-                                </span>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Webhook Secret (Optional)</label>
+                                <input
+                                    className="form-input"
+                                    type="password"
+                                    value={botForm.razorpay_webhook_secret}
+                                    onInput={e => setBotForm(f => ({ ...f, razorpay_webhook_secret: e.target.value }))}
+                                    placeholder="Secret for verifying webhooks"
+                                />
                             </div>
                         </div>
 

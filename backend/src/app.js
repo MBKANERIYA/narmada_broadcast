@@ -10,6 +10,9 @@ import { run, get, query } from './database.js';
 import { normalizePhone } from './services/whatsapp.js';
 import { emitToTenant } from './services/websocket.js';
 
+import Razorpay from 'razorpay';
+import crypto from 'crypto';
+
 // Routes
 import authRoutes from './routes/auth.js';
 import whatsappRoutes from './routes/whatsapp.js';
@@ -62,6 +65,69 @@ app.get('/api/v1/whatsapp-webhook', (req, res) => {
         }
     } else {
         res.sendStatus(400);
+    }
+});
+
+// ============================================================
+// Razorpay Webhook — Public endpoint (no tenant/auth needed)
+// ============================================================
+app.post('/api/v1/razorpay-webhook', async (req, res) => {
+    try {
+        const secret = req.headers['x-razorpay-signature'];
+        const body = req.body;
+        
+        console.log(`[Razorpay Webhook] Received event: ${body.event}`);
+        
+        if (body.event === 'payment_link.paid') {
+            const paymentLink = body.payload.payment_link.entity;
+            const orderIdStr = paymentLink.notes?.order_id;
+            
+            if (orderIdStr) {
+                const orderId = parseInt(orderIdStr, 10);
+                
+                // Get the order to find the tenant
+                const order = await get('SELECT * FROM orders WHERE id = ?', [orderId]);
+                
+                if (order && order.payment_status !== 'paid') {
+                    // Update order status
+                    await run('UPDATE orders SET payment_status = ? WHERE id = ?', ['paid', orderId]);
+                    console.log(`[Razorpay Webhook] Order #${orderId} marked as paid.`);
+                    
+                    // Fetch tenant settings to get razorpay secret if validation is needed
+                    const tenant = await get('SELECT * FROM tenants WHERE id = ?', [order.tenant_id]);
+                    
+                    // Send WhatsApp confirmation
+                    const { sendTextMessage } = await import('./services/whatsapp.js');
+                    const confirmationMsg = `🎉 *Payment Received!*\n\nThank you for your payment of ${order.currency} ${order.total_amount}. Your order #${orderId} is now confirmed and being processed.`;
+                    
+                    await sendTextMessage(order.phone, confirmationMsg, tenant);
+                    
+                    // Update chat inbox UI real-time
+                    emitToTenant(order.tenant_id, 'order_updated', { orderId, status: 'paid' });
+                    
+                    // Find conversation to emit chat update
+                    const conv = await get('SELECT id FROM whatsapp_conversations WHERE tenant_id = ? AND phone = ?', [order.tenant_id, order.phone]);
+                    if (conv) {
+                        const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(
+                            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, status)
+                             VALUES (?, ?, 'outbound', 'text', ?, 'sent')`,
+                            [order.tenant_id, conv.id, confirmationMsg]
+                        );
+                        await run(
+                            `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
+                            [confirmationMsg.substring(0, 100), nowStr, conv.id]
+                        );
+                        emitToTenant(order.tenant_id, 'chat_updated', { type: 'new_message', conversationId: conv.id });
+                    }
+                }
+            }
+        }
+        
+        res.sendStatus(200);
+    } catch (err) {
+        console.error('[Razorpay Webhook] Error:', err.message);
+        res.sendStatus(500);
     }
 });
 
@@ -386,31 +452,51 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     }
 
     // ============================================================
-    // ORDER AUTO-PAYMENT REPLY
+    // ORDER AUTO-PAYMENT REPLY & ADDRESS COLLECTION
     // ============================================================
-    if (messageType === 'order' && botSettings.auto_payment_link) {
+    if (messageType === 'order') {
         try {
-            const paymentLink = botSettings.auto_payment_link;
-            const paymentMessage = botSettings.payment_message_template
-                ? botSettings.payment_message_template
-                : `Thank you for your order! Please complete your payment using this link:\n${paymentLink}`;
+            if (botSettings.razorpay_key_id && botSettings.razorpay_key_secret) {
+                // Ask for address instead of sending link directly
+                const addressPrompt = `Great! Your total is ₹${totalAmount.toFixed(2)}.\n\nPlease reply with your full *delivery address* to proceed.`;
+                const { sendTextMessage } = await import('./services/whatsapp.js');
+                const result = await sendTextMessage(fromPhone, addressPrompt, tenant);
 
-            const { sendTextMessage } = await import('./services/whatsapp.js');
-            const result = await sendTextMessage(fromPhone, paymentMessage, tenant);
+                if (result && result.messageId) {
+                    const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                    await run(
+                        `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
+                         VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent', NULL)`,
+                        [tenantId, conversation.id, addressPrompt, result.messageId]
+                    );
+                    await run(
+                        `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
+                        [addressPrompt.substring(0, 100), outNow, conversation.id]
+                    );
+                    emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                }
+            } else if (botSettings.auto_payment_link) {
+                const paymentLink = botSettings.auto_payment_link;
+                const paymentMessage = botSettings.payment_message_template
+                    ? botSettings.payment_message_template.replace('{total}', totalAmount.toFixed(2)).replace('{link}', paymentLink)
+                    : `Thank you for your order! Please complete your payment using this link:\n${paymentLink}`;
 
-            if (result && result.messageId) {
-                const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                await run(
-                    `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
-                     VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent', NULL)`,
-                    [tenantId, conversation.id, paymentMessage, result.messageId]
-                );
-                await run(
-                    `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
-                    [paymentMessage.substring(0, 100), outNow, conversation.id]
-                );
-                emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
-                console.log(`[Order] 💳 Auto-payment link sent to ${fromPhone}`);
+                const { sendTextMessage } = await import('./services/whatsapp.js');
+                const result = await sendTextMessage(fromPhone, paymentMessage, tenant);
+
+                if (result && result.messageId) {
+                    const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                    await run(
+                        `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
+                         VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent', NULL)`,
+                        [tenantId, conversation.id, paymentMessage, result.messageId]
+                    );
+                    await run(
+                        `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
+                        [paymentMessage.substring(0, 100), outNow, conversation.id]
+                    );
+                    emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                }
             }
         } catch (payErr) {
             console.error('[Order] Failed to send auto-payment reply:', payErr.message);
@@ -418,9 +504,84 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     }
 
     // ============================================================
+    // CHECK FOR AWAITING ADDRESS FOR PENDING ORDER
+    // ============================================================
+    let addressProcessed = false;
+    if (messageType === 'text' && body && botSettings.razorpay_key_id && botSettings.razorpay_key_secret) {
+        try {
+            // Find if there's a pending order without shipping address
+            const pendingOrder = await get(
+                `SELECT id, total_amount, currency FROM orders WHERE contact_id = ? AND shipping_address IS NULL AND payment_status = 'pending' ORDER BY id DESC LIMIT 1`,
+                [contactId]
+            );
+
+            if (pendingOrder) {
+                addressProcessed = true;
+                const orderId = pendingOrder.id;
+                
+                // Save address
+                await run(`UPDATE orders SET shipping_address = ? WHERE id = ?`, [body, orderId]);
+                console.log(`[Order] Saved address for order #${orderId}`);
+                
+                // Generate Razorpay Link
+                const rzp = new Razorpay({
+                    key_id: botSettings.razorpay_key_id,
+                    key_secret: botSettings.razorpay_key_secret,
+                });
+                
+                const amountInPaise = Math.round(pendingOrder.total_amount * 100);
+                
+                const paymentLinkRequest = {
+                    amount: amountInPaise,
+                    currency: pendingOrder.currency || 'INR',
+                    accept_partial: false,
+                    description: `Order #${orderId} from ${tenant.name}`,
+                    customer: {
+                        name: contactName,
+                        contact: fromPhone
+                    },
+                    notify: {
+                        sms: false,
+                        email: false
+                    },
+                    reminder_enable: true,
+                    notes: {
+                        order_id: orderId.toString(),
+                        tenant_id: tenantId.toString()
+                    }
+                };
+                
+                const paymentLink = await rzp.paymentLink.create(paymentLinkRequest);
+                
+                const replyText = `Thanks for the address!\n\nPlease complete your payment of ${pendingOrder.currency} ${pendingOrder.total_amount} here:\n${paymentLink.short_url}`;
+                
+                const { sendTextMessage } = await import('./services/whatsapp.js');
+                const result = await sendTextMessage(fromPhone, replyText, tenant);
+                
+                if (result && result.messageId) {
+                    const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                    await run(
+                        `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
+                         VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent', NULL)`,
+                        [tenantId, conversation.id, replyText, result.messageId]
+                    );
+                    await run(
+                        `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
+                        [replyText.substring(0, 100), outNow, conversation.id]
+                    );
+                    emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                }
+            }
+        } catch (err) {
+            console.error('[Order] Error processing address / Razorpay link:', err);
+            // Fallthrough to AI chatbot if it fails
+        }
+    }
+
+    // ============================================================
     // AI CHATBOT LOGIC
     // ============================================================
-    if (messageType === 'text' && body) {
+    if (messageType === 'text' && body && !addressProcessed) {
         try {
 
             // Check if chatbot is enabled overall

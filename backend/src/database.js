@@ -276,6 +276,7 @@ const migrate = async () => {
       currency VARCHAR(10) DEFAULT 'INR',
       payment_status ENUM('pending', 'paid', 'failed') DEFAULT 'pending',
       fulfillment_status ENUM('pending', 'processing', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending',
+      shipping_address TEXT,
       notes TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -319,7 +320,8 @@ const migrate = async () => {
     `ALTER TABLE tenants ADD COLUMN whatsapp_catalog_id VARCHAR(50) AFTER whatsapp_business_account_id`,
     `ALTER TABLE products ADD COLUMN meta_product_id VARCHAR(100) AFTER image_url`,
     `ALTER TABLE products ADD COLUMN product_vector JSON AFTER meta_product_id`,
-    `ALTER TABLE tenants ADD COLUMN bot_settings JSON AFTER whatsapp_catalog_id`
+    `ALTER TABLE tenants ADD COLUMN bot_settings JSON AFTER whatsapp_catalog_id`,
+    `ALTER TABLE orders ADD COLUMN shipping_address TEXT AFTER fulfillment_status`
   ];
   for (const sql of alterMigrations) {
     try {

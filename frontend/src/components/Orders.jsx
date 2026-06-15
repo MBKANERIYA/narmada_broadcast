@@ -317,6 +317,12 @@ export default function Orders() {
                                             <div style={{ fontSize: '13px' }}>
                                                 <strong>Total Amount:</strong> {selectedOrder.currency} {parseFloat(selectedOrder.total_amount).toFixed(2)}
                                             </div>
+                                            {selectedOrder.shipping_address && (
+                                                <div style={{ fontSize: '13px', marginTop: '6px' }}>
+                                                    <strong>Shipping Address:</strong><br/>
+                                                    <span style={{ whiteSpace: 'pre-wrap' }}>{selectedOrder.shipping_address}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
