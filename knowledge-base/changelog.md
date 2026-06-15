@@ -4,6 +4,13 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-15 — Fix: WhatsApp Catalog India Compliance Fields
+**What**: Added `manufacturer_info` to the Meta Commerce API product sync payload.
+**Why**: Products were syncing to the Meta Catalog but failing to display in the WhatsApp Business Catalog in India because Meta compliance rules require both `origin_country` and `manufacturer_info` for India catalogs.
+**Files Changed**: `backend/src/services/whatsapp.js`
+**Tests**: Verified payload construction.
+- Appended `manufacturer_info: tenant.name || 'Manufacturer'` to the `PRODUCT_ITEM` payload in `syncProductToMeta`.
+
 ## 2026-06-15 — Fix: Meta Commerce Catalog SKU Match Rate & Deletion Sync
 **What**: Removed `PROD-` prefix from Meta Catalog product ID sync, clarified SKU label, and fixed product deletion synchronization.
 **Why**: 

@@ -539,7 +539,8 @@ export async function syncProductToMeta(tenant, product) {
                     brand: tenant.name || 'Brand',
                     condition: 'new',
                     availability: 'in stock',
-                    origin_country: 'IN'
+                    origin_country: 'IN',
+                    manufacturer_info: tenant.name || 'Manufacturer'
                 }
             }
         ]
