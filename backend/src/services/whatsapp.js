@@ -573,6 +573,7 @@ export async function deleteProductFromMeta(tenant, metaProductId) {
 
     // Use items_batch DELETE method
     const payload = {
+        item_type: 'PRODUCT_ITEM',
         requests: [
             {
                 method: "DELETE",
@@ -595,7 +596,7 @@ export async function deleteProductFromMeta(tenant, metaProductId) {
 
     const data = await res.json();
     if (data.error) {
-        console.error('Meta API Delete Error:', data.error.message);
+        throw new Error(`Meta Commerce API Error: ${data.error.message}`);
     }
 }
 

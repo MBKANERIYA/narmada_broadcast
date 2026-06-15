@@ -110,15 +110,21 @@ router.delete('/:id', async (req, res) => {
 
         if (result.changes === 0) return res.status(404).json({ error: 'Product not found' });
 
+        let syncError = null;
         if (prod && prod.meta_product_id) {
             try {
                 await deleteProductFromMeta(req.tenant, prod.meta_product_id);
             } catch (syncErr) {
+                syncError = syncErr.message;
                 console.error('Meta delete failed:', syncErr.message);
             }
         }
 
-        res.json({ message: 'Product deleted successfully' });
+        if (syncError) {
+            res.json({ message: 'Product deleted locally, but Meta Sync Failed: ' + syncError });
+        } else {
+            res.json({ message: 'Product deleted successfully' });
+        }
     } catch (error) {
         console.error('Error deleting product:', error);
         res.status(500).json({ error: 'Failed to delete product' });
