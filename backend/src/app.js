@@ -270,6 +270,33 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         body = '🏷️ Sticker';
         mediaId = msg.sticker?.id;
         mediaMime = msg.sticker?.mime_type;
+    } else if (msg.type === 'order') {
+        messageType = 'order';
+        const order = msg.order || {};
+        const items = order.product_items || [];
+        let totalAmount = 0;
+        let currency = 'INR';
+        
+        let text = '🛒 *New Order Received*\n\n';
+        for (const item of items) {
+            const price = parseFloat(item.item_price || 0);
+            const qty = parseInt(item.quantity || 1);
+            totalAmount += price * qty;
+            currency = item.currency || currency;
+            
+            try {
+                const product = await get('SELECT name FROM products WHERE tenant_id = ? AND sku = ?', [tenantId, item.product_retailer_id]);
+                const itemName = product ? product.name : `Item #${item.product_retailer_id}`;
+                text += `${qty}x ${itemName} — ${price.toFixed(2)} ${currency}\n`;
+            } catch(e) {
+                text += `${qty}x Item #${item.product_retailer_id} — ${price.toFixed(2)} ${currency}\n`;
+            }
+        }
+        text += `\n*Total: ${totalAmount.toFixed(2)} ${currency}*`;
+        if (order.text) {
+            text += `\n\nNotes: ${order.text}`;
+        }
+        body = text;
     } else {
         body = `[${msg.type}]`;
     }

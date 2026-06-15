@@ -4,6 +4,12 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-15 — Feature: WhatsApp Order Message Parsing
+**What**: Added parsing and rich-text formatting for incoming WhatsApp Cart/Order messages.
+**Why**: When a customer added a product from the WhatsApp Catalog to their cart and sent it, the webhook received a message of type `order`, but the backend only saved `[order]` as plain text. This update unpacks the Meta `order` payload, queries the `products` table using the SKU/retailer ID to get the actual product names, and saves a beautifully formatted order summary (with quantities and total price) so it's readable in the Chat Inbox.
+**Files Changed**: `backend/src/app.js`
+- Replaced the default `[order]` fallback in the webhook with a loop that parses `product_items` and computes totals.
+
 ## 2026-06-15 — Fix: Enhanced Meta API Error Visibility
 **What**: Improved the error handling for Meta API integrations to capture and forward detailed error metadata directly to the frontend toast notifications.
 **Why**: When users encountered "Authorization Error" (e.g. from a restricted or unlinked WhatsApp Business Account), the backend was masking the actual reason because it only looked at the top-level error message instead of parsing `error_user_title`, `error_user_msg`, and `error_data.details`. This fix ensures users know exactly *why* a message failed to send.
