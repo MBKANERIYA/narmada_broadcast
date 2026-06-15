@@ -285,9 +285,12 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             currency = item.currency || currency;
             
             try {
-                const product = await get('SELECT name FROM products WHERE tenant_id = ? AND sku = ?', [tenantId, item.product_retailer_id]);
+                const product = await get('SELECT name, image_url FROM products WHERE tenant_id = ? AND sku = ?', [tenantId, item.product_retailer_id]);
                 const itemName = product ? product.name : `Item #${item.product_retailer_id}`;
                 text += `${qty}x ${itemName} — ${price.toFixed(2)} ${currency}\n`;
+                if (product && product.image_url && !mediaId) {
+                    mediaId = product.image_url;
+                }
             } catch(e) {
                 text += `${qty}x Item #${item.product_retailer_id} — ${price.toFixed(2)} ${currency}\n`;
             }

@@ -682,7 +682,15 @@ export default function WhatsAppChat() {
                                                     )}
                                                 </>
                                             )}
-                                            <div style={{ fontSize: '14px', lineHeight: '1.4', wordBreak: 'break-word' }}>
+                                            {msg.message_type === 'order' && msg.media_id && (
+                                                <img 
+                                                    src={msg.media_id} 
+                                                    alt="Product Thumbnail" 
+                                                    style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px', border: '1px solid rgba(0,0,0,0.1)' }} 
+                                                    onError={e => { e.target.style.display = 'none'; }} 
+                                                />
+                                            )}
+                                            <div style={{ fontSize: '14px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                                                 {msg.body || ''}
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '4px' }}>

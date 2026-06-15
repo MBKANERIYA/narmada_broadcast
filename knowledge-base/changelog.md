@@ -4,11 +4,14 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
-## 2026-06-15 — Feature: WhatsApp Order Message Parsing
-**What**: Added parsing and rich-text formatting for incoming WhatsApp Cart/Order messages.
-**Why**: When a customer added a product from the WhatsApp Catalog to their cart and sent it, the webhook received a message of type `order`, but the backend only saved `[order]` as plain text. This update unpacks the Meta `order` payload, queries the `products` table using the SKU/retailer ID to get the actual product names, and saves a beautifully formatted order summary (with quantities and total price) so it's readable in the Chat Inbox.
-**Files Changed**: `backend/src/app.js`
+## 2026-06-15 — Feature: WhatsApp Order Message Parsing & Images
+**What**: Added parsing, product images, and rich-text formatting for incoming WhatsApp Cart/Order messages.
+**Why**: When a customer added a product from the WhatsApp Catalog to their cart and sent it, the webhook received a message of type `order`, but the backend only saved `[order]` as plain text. This update unpacks the Meta `order` payload, queries the `products` table using the SKU/retailer ID to get the actual product names and image URL, and saves a beautifully formatted order summary (with quantities, total price, and the product image) so it's fully readable in the Chat Inbox.
+**Files Changed**: `backend/src/app.js`, `frontend/src/components/WhatsAppChat.jsx`
 - Replaced the default `[order]` fallback in the webhook with a loop that parses `product_items` and computes totals.
+- Extracted `image_url` from the database and saved it into the `media_id` field.
+- Updated `WhatsAppChat.jsx` to natively render product images when `message_type === 'order'`.
+- Added `whiteSpace: 'pre-wrap'` to the chat body text so that the formatted newlines actually render as line breaks in the UI.
 
 ## 2026-06-15 — Fix: Enhanced Meta API Error Visibility
 **What**: Improved the error handling for Meta API integrations to capture and forward detailed error metadata directly to the frontend toast notifications.
