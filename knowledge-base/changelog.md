@@ -4,6 +4,13 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-15 — Feature: WhatsApp Text Formatting in UI
+**What**: Added support for rendering WhatsApp-style markdown (bold, italic, strikethrough, monospace) in the Chat Inbox.
+**Why**: When users or customers sent messages with WhatsApp formatting like `*bold*` or `_italic_`, the platform displayed the raw symbols instead of actual formatted text. This update adds a robust regex parser that converts WhatsApp markdown into safe HTML elements, perfectly mimicking the native WhatsApp visual experience.
+**Files Changed**: `frontend/src/components/WhatsAppChat.jsx`
+- Created `formatWhatsAppText()` utility to safely escape HTML and apply `<strong>`, `<em>`, `<del>`, and `<code>` tags.
+- Applied `dangerouslySetInnerHTML` to message and template body containers.
+
 ## 2026-06-15 — Feature: WhatsApp Order Message Parsing & Images
 **What**: Added parsing, product images, and rich-text formatting for incoming WhatsApp Cart/Order messages.
 **Why**: When a customer added a product from the WhatsApp Catalog to their cart and sent it, the webhook received a message of type `order`, but the backend only saved `[order]` as plain text. This update unpacks the Meta `order` payload, queries the `products` table using the SKU/retailer ID to get the actual product names and image URL, and saves a beautifully formatted order summary (with quantities, total price, and the product image) so it's fully readable in the Chat Inbox.

@@ -62,6 +62,24 @@ const MediaMessage = ({ mediaId, type }) => {
     return <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>📎 {type}</div>;
 };
 
+const formatWhatsAppText = (text) => {
+    if (!text) return '';
+    let html = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    
+    // WhatsApp Markdown
+    html = html.replace(/\*([^\*\n]+)\*/g, '<strong>$1</strong>');
+    html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+    html = html.replace(/~([^~]+)~/g, '<del>$1</del>');
+    html = html.replace(/```([^`]+)```/g, '<code style="background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 4px; font-family: monospace;">$1</code>');
+    
+    return html;
+};
+
 export default function WhatsAppChat() {
     const {
         conversations, totalUnread, activeConversation, chatMessages,
@@ -387,9 +405,10 @@ export default function WhatsAppChat() {
                 {/* Body */}
                 <div style={{ padding: '8px 12px' }}>
                     <div style={{ fontSize: '10px', opacity: 0.5, marginBottom: '4px', fontStyle: 'italic' }}>Template</div>
-                    <div style={{ fontSize: '14px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                        {data.body}
-                    </div>
+                    <div 
+                        style={{ fontSize: '14px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
+                        dangerouslySetInnerHTML={{ __html: formatWhatsAppText(data.body) }}
+                    />
 
                     {/* Footer */}
                     {data.footer && (
@@ -690,9 +709,10 @@ export default function WhatsAppChat() {
                                                     onError={e => { e.target.style.display = 'none'; }} 
                                                 />
                                             )}
-                                            <div style={{ fontSize: '14px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                                                {msg.body || ''}
-                                            </div>
+                                            <div 
+                                                style={{ fontSize: '14px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
+                                                dangerouslySetInnerHTML={{ __html: formatWhatsAppText(msg.body) }}
+                                            />
                                             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
                                                 <span style={{ fontSize: '10px', opacity: 0.4 }}>{formatFullTime(msg.created_at)}</span>
                                                 {msg.direction === 'outbound' && (
