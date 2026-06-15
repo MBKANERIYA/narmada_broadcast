@@ -513,8 +513,8 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         try {
             // Find if there's a pending order without shipping address
             const pendingOrder = await get(
-                `SELECT id, total_amount, currency FROM orders WHERE contact_id = ? AND shipping_address IS NULL AND payment_status = 'pending' ORDER BY id DESC LIMIT 1`,
-                [contactId]
+                `SELECT id, total_amount, currency FROM orders WHERE phone = ? AND shipping_address IS NULL AND payment_status = 'pending' ORDER BY id DESC LIMIT 1`,
+                [fromPhone]
             );
 
             if (pendingOrder) {
