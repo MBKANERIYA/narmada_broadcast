@@ -4,6 +4,13 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-15 — Fix: Enhanced Meta API Error Visibility
+**What**: Improved the error handling for Meta API integrations to capture and forward detailed error metadata directly to the frontend toast notifications.
+**Why**: When users encountered "Authorization Error" (e.g. from a restricted or unlinked WhatsApp Business Account), the backend was masking the actual reason because it only looked at the top-level error message instead of parsing `error_user_title`, `error_user_msg`, and `error_data.details`. This fix ensures users know exactly *why* a message failed to send.
+**Files Changed**: `backend/src/services/whatsapp.js`
+- Added a new global `formatMetaError` utility to extract granular error details from the Meta Graph API response payloads.
+- Replaced all raw `data.error?.message` generic throw calls with the detailed formatting helper.
+
 ## 2026-06-15 — Fix: WhatsApp Catalog India Compliance Fields
 **What**: Added `manufacturer_info` to the Meta Commerce API product sync payload.
 **Why**: Products were syncing to the Meta Catalog but failing to display in the WhatsApp Business Catalog in India because Meta compliance rules require both `origin_country` and `manufacturer_info` for India catalogs.

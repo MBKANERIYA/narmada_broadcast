@@ -14,6 +14,14 @@ function getCredentials(tenant) {
     return { token, phoneId, wabaId: tenant.whatsapp_business_account_id };
 }
 
+function formatMetaError(data, defaultMsg) {
+    if (!data || !data.error) return defaultMsg;
+    const err = data.error;
+    let msg = err.error_user_title ? `${err.error_user_title}: ${err.error_user_msg}` : (err.error_user_msg || err.error_data?.details || err.message || defaultMsg);
+    if (err.code) msg += ` (Code ${err.code})`;
+    return msg;
+}
+
 /**
  * Normalize Indian phone numbers to WhatsApp format (91XXXXXXXXXX)
  */
@@ -166,7 +174,7 @@ export async function sendTemplateMessage(phone, campaignName, templateParams = 
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || `WhatsApp Cloud API error (${response.status})`);
+    if (!response.ok) throw new Error(formatMetaError(data, `WhatsApp Cloud API error (${response.status})`));
 
     return {
         messageId: data.messages?.[0]?.id || null,
@@ -197,7 +205,7 @@ export async function sendTextMessage(phone, text, tenant) {
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || `WhatsApp API error (${response.status})`);
+    if (!response.ok) throw new Error(formatMetaError(data, `WhatsApp API error (${response.status})`));
 
     return { messageId: data.messages?.[0]?.id || null, data };
 }
@@ -221,7 +229,7 @@ export async function uploadMediaForMessage(buffer, mimeType, filename, tenant) 
     });
 
     const uploadData = await uploadRes.json();
-    if (!uploadRes.ok) throw new Error(uploadData.error?.message || 'Failed to upload media to Meta');
+    if (!uploadRes.ok) throw new Error(formatMetaError(uploadData, 'Failed to upload media to Meta'));
     return uploadData.id;
 }
 
@@ -252,7 +260,7 @@ export async function sendMediaMessage(phone, mediaType, mediaData, caption, ten
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || `WhatsApp API error (${response.status})`);
+    if (!response.ok) throw new Error(formatMetaError(data, `WhatsApp API error (${response.status})`));
 
     return { messageId: data.messages?.[0]?.id || null, data };
 }
@@ -268,7 +276,7 @@ export async function getMediaUrl(mediaId, tenant) {
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Failed to get media URL');
+    if (!response.ok) throw new Error(formatMetaError(data, 'Failed to get media URL'));
 
     return data.url;
 }
@@ -317,7 +325,7 @@ export async function uploadMediaForTemplate(imageBuffer, mimeType = 'image/jpeg
     const sessionUrl = `${WHATSAPP_API_URL}/app/uploads?file_length=${imageBuffer.length}&file_type=${encodeURIComponent(mimeType)}&file_name=${encodeURIComponent(fileName)}`;
     const sessionRes = await fetch(sessionUrl, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
     const sessionData = await sessionRes.json();
-    if (!sessionRes.ok || !sessionData.id) throw new Error(sessionData.error?.message || 'Failed to create upload session');
+    if (!sessionRes.ok || !sessionData.id) throw new Error(formatMetaError(sessionData, 'Failed to create upload session'));
 
     const uploadRes = await fetch(`${WHATSAPP_API_URL}/${sessionData.id}`, {
         method: 'POST',
@@ -325,7 +333,7 @@ export async function uploadMediaForTemplate(imageBuffer, mimeType = 'image/jpeg
         body: imageBuffer,
     });
     const uploadData = await uploadRes.json();
-    if (!uploadRes.ok || !uploadData.h) throw new Error(uploadData.error?.message || 'Failed to upload media file');
+    if (!uploadRes.ok || !uploadData.h) throw new Error(formatMetaError(uploadData, 'Failed to upload media file'));
 
     return uploadData.h;
 }
@@ -400,7 +408,7 @@ export async function createTemplate({ name, category, language, bodyText, heade
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || `Failed to create template (${response.status})`);
+    if (!response.ok) throw new Error(formatMetaError(data, `Failed to create template (${response.status})`));
 
     return { id: data.id, status: data.status, category: data.category };
 }
@@ -417,7 +425,7 @@ export async function fetchTemplates(tenant) {
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Failed to fetch templates');
+    if (!response.ok) throw new Error(formatMetaError(data, 'Failed to fetch templates'));
     return data.data || [];
 }
 
@@ -486,7 +494,7 @@ export async function editTemplate(templateId, { bodyText, headerImageHandle, fo
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || `Failed to edit template (${response.status})`);
+    if (!response.ok) throw new Error(formatMetaError(data, `Failed to edit template (${response.status})`));
 
     // Invalidate template cache for this tenant
     for (const [key] of templateDefCache) {
@@ -509,7 +517,7 @@ export async function deleteTemplate(templateName, tenant) {
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'Failed to delete template');
+    if (!response.ok) throw new Error(formatMetaError(data, 'Failed to delete template'));
     return data;
 }
 
@@ -558,7 +566,7 @@ export async function syncProductToMeta(tenant, product) {
 
     const data = await res.json();
     if (data.error) {
-        throw new Error(`Meta Commerce API Error: ${data.error.message}`);
+        throw new Error(formatMetaError(data, 'Meta Commerce API Error'));
     }
 
     // items_batch doesn't necessarily return a meta_product_id if it's async,
@@ -597,7 +605,7 @@ export async function deleteProductFromMeta(tenant, metaProductId) {
 
     const data = await res.json();
     if (data.error) {
-        throw new Error(`Meta Commerce API Error: ${data.error.message}`);
+        throw new Error(formatMetaError(data, 'Meta Commerce API Error'));
     }
 }
 
