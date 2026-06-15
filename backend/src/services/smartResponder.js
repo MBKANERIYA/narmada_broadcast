@@ -57,7 +57,7 @@ function cosineSimilarity(vecA, vecB) {
  * Evaluates an incoming message against the tenant's knowledge base.
  * @returns {string|null} The answer to send, or null if no match.
  */
-export async function handleSmartReply(tenantId, messageBody) {
+export async function handleSmartReply(tenantId, messageBody, chatHistory = []) {
     if (!messageBody || messageBody.trim() === '') return null;
 
     try {
@@ -77,8 +77,14 @@ export async function handleSmartReply(tenantId, messageBody) {
             return null; // No knowledge base or products configured
         }
 
-        // 2. Generate embedding for the incoming message
-        const messageVector = await generateEmbedding(messageBody);
+        // 2. Generate embedding for the incoming message with context
+        let contextString = messageBody;
+        if (chatHistory && chatHistory.length > 0) {
+            const historyText = chatHistory.map(m => `${m.direction === 'inbound' ? 'User' : 'Bot'}: ${m.body}`).join('\n');
+            contextString = `Conversation Context:\n${historyText}\n\nCurrent Message: ${messageBody}`;
+        }
+        
+        const messageVector = await generateEmbedding(contextString);
 
         let bestFaqMatch = null;
         let highestFaqScore = -1;

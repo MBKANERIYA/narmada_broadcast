@@ -98,7 +98,15 @@ app.post('/api/v1/razorpay-webhook', async (req, res) => {
                     
                     // Send WhatsApp confirmation
                     const { sendTextMessage } = await import('./services/whatsapp.js');
-                    const confirmationMsg = `🎉 *Payment Received!*\n\nThank you for your payment of ${order.currency} ${order.total_amount}. Your order #${orderId} is now confirmed and being processed.`;
+                    let botSettings = {};
+                    try {
+                        botSettings = typeof tenant.bot_settings === 'string' ? JSON.parse(tenant.bot_settings) : (tenant.bot_settings || {});
+                    } catch (e) {}
+                    
+                    let confirmationMsg = botSettings.payment_success_template || '🎉 *Payment Received!*\n\nThank you for your payment of {currency} {total}. Your order #{order_id} is now confirmed and being processed.';
+                    confirmationMsg = confirmationMsg.replace('{currency}', order.currency || 'INR')
+                                                     .replace('{total}', order.total_amount)
+                                                     .replace('{order_id}', orderId);
                     
                     await sendTextMessage(order.phone, confirmationMsg, tenant);
                     
@@ -460,7 +468,8 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         try {
             if (botSettings.razorpay_key_id && botSettings.razorpay_key_secret) {
                 // Ask for address instead of sending link directly
-                const addressPrompt = `Great! Your total is ₹${parsedOrderTotal.toFixed(2)}.\n\nPlease reply with your full *delivery address* to proceed.`;
+                let addressPrompt = botSettings.address_prompt_template || 'Great! Your total is ₹{total}.\n\nPlease reply with your full delivery address to proceed.';
+                addressPrompt = addressPrompt.replace('{total}', parsedOrderTotal.toFixed(2));
                 const { sendTextMessage } = await import('./services/whatsapp.js');
                 const result = await sendTextMessage(fromPhone, addressPrompt, tenant);
 
@@ -555,7 +564,10 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                 
                 const paymentLink = await rzp.paymentLink.create(paymentLinkRequest);
                 
-                const replyText = `Thanks for the address!\n\nPlease complete your payment of ${pendingOrder.currency} ${pendingOrder.total_amount} here:\n${paymentLink.short_url}`;
+                let replyText = botSettings.payment_link_template || 'Thanks for the address!\n\nPlease complete your payment of {currency} {total} here:\n{link}';
+                replyText = replyText.replace('{currency}', pendingOrder.currency || 'INR')
+                                     .replace('{total}', pendingOrder.total_amount)
+                                     .replace('{link}', paymentLink.short_url);
                 
                 const { sendTextMessage } = await import('./services/whatsapp.js');
                 const result = await sendTextMessage(fromPhone, replyText, tenant);
@@ -613,7 +625,19 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                     botReply = { type: 'faq', text: awayReplyText };
                 } else {
                     const { handleSmartReply } = await import('./services/smartResponder.js');
-                    botReply = await handleSmartReply(tenantId, body);
+                    let chatHistory = [];
+                    try {
+                        const historyRows = await query(
+                            `SELECT direction, body FROM whatsapp_chat_messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 4`,
+                            [conversation.id]
+                        );
+                        if (historyRows && historyRows.length > 0) {
+                            chatHistory = historyRows.reverse();
+                        }
+                    } catch (err) {
+                        console.error('[Bot] Failed to fetch chat history for memory:', err.message);
+                    }
+                    botReply = await handleSmartReply(tenantId, body, chatHistory);
                 }
 
                 if (botReply) {

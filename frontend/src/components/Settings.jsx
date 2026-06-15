@@ -38,6 +38,9 @@ export default function Settings() {
         razorpay_key_id: '',
         razorpay_key_secret: '',
         razorpay_webhook_secret: '',
+        address_prompt_template: '',
+        payment_link_template: '',
+        payment_success_template: '',
         store_hours: {
             enabled: false,
             timezone: 'Asia/Kolkata',
@@ -79,6 +82,9 @@ export default function Settings() {
                 razorpay_key_id: parsedBotSettings.razorpay_key_id || '',
                 razorpay_key_secret: parsedBotSettings.razorpay_key_secret || '',
                 razorpay_webhook_secret: parsedBotSettings.razorpay_webhook_secret || '',
+                address_prompt_template: parsedBotSettings.address_prompt_template || 'Great! Your total is ₹{total}.\n\nPlease reply with your full delivery address to proceed.',
+                payment_link_template: parsedBotSettings.payment_link_template || 'Thanks for the address!\n\nPlease complete your payment of {currency} {total} here:\n{link}',
+                payment_success_template: parsedBotSettings.payment_success_template || '🎉 Payment Received!\n\nThank you for your payment of {currency} {total}. Your order #{order_id} is now confirmed and being processed.',
                 store_hours: {
                     enabled: parsedBotSettings.store_hours?.enabled || false,
                     timezone: parsedBotSettings.store_hours?.timezone || 'Asia/Kolkata',
@@ -539,6 +545,50 @@ export default function Settings() {
                                     value={botForm.razorpay_webhook_secret}
                                     onInput={e => setBotForm(f => ({ ...f, razorpay_webhook_secret: e.target.value }))}
                                     placeholder="Secret for verifying webhooks"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Automated Order Messages Settings */}
+                        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px', marginTop: '20px' }}>
+                            <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>Automated Order Messages</h3>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '16px' }}>
+                                Customize the messages sent automatically during the checkout flow. You can use dynamic variables like <code>{`{total}`}</code>, <code>{`{currency}`}</code>, <code>{`{link}`}</code>, and <code>{`{order_id}`}</code>.
+                            </p>
+                            
+                            <div className="form-group">
+                                <label className="form-label">Address Collection Prompt</label>
+                                <textarea
+                                    className="form-textarea"
+                                    rows={3}
+                                    value={botForm.address_prompt_template}
+                                    onInput={e => setBotForm(f => ({ ...f, address_prompt_template: e.target.value }))}
+                                    placeholder="Great! Your total is ₹{total}. Please reply with your full delivery address to proceed."
+                                    required
+                                />
+                            </div>
+                            
+                            <div className="form-group">
+                                <label className="form-label">Payment Link Message</label>
+                                <textarea
+                                    className="form-textarea"
+                                    rows={3}
+                                    value={botForm.payment_link_template}
+                                    onInput={e => setBotForm(f => ({ ...f, payment_link_template: e.target.value }))}
+                                    placeholder="Thanks for the address! Please complete your payment of {currency} {total} here: {link}"
+                                    required
+                                />
+                            </div>
+                            
+                            <div className="form-group">
+                                <label className="form-label">Payment Success Confirmation</label>
+                                <textarea
+                                    className="form-textarea"
+                                    rows={3}
+                                    value={botForm.payment_success_template}
+                                    onInput={e => setBotForm(f => ({ ...f, payment_success_template: e.target.value }))}
+                                    placeholder="🎉 Payment Received! Thank you for your payment of {currency} {total}. Your order #{order_id} is now confirmed and being processed."
+                                    required
                                 />
                             </div>
                         </div>
