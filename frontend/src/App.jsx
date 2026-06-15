@@ -12,11 +12,20 @@ import Settings from './components/Settings';
 import AdminPanel from './components/AdminPanel';
 import Toast from './components/Toast';
 import KnowledgeBase from './components/KnowledgeBase';
+import Orders from './components/Orders';
 
 export default function App() {
     const { isAuthenticated, currentView, tenant } = useStore();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [page, setPage] = useState('landing'); // 'landing' | 'login' | 'register'
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            useStore.getState().initSocket();
+        } else {
+            useStore.getState().disconnectSocket();
+        }
+    }, [isAuthenticated]);
 
     // If authenticated, show dashboard
     if (isAuthenticated) {
@@ -26,6 +35,7 @@ export default function App() {
                 case 'broadcast': return <WhatsAppBroadcast />;
                 case 'chat': return <WhatsAppChat />;
                 case 'catalogue': return <Catalogue />;
+                case 'orders': return <Orders />;
                 case 'knowledge': return <KnowledgeBase />;
                 case 'settings': return <Settings />;
                 case 'admin': return <AdminPanel />;

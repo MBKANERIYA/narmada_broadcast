@@ -35,6 +35,8 @@ export default function Settings() {
         enabled: true,
         after_hours_action: 'respond_normally',
         away_message: '',
+        auto_payment_link: '',
+        payment_message_template: '',
         store_hours: {
             enabled: false,
             timezone: 'Asia/Kolkata',
@@ -73,6 +75,8 @@ export default function Settings() {
                 enabled: parsedBotSettings.enabled !== false,
                 after_hours_action: parsedBotSettings.after_hours_action || 'respond_normally',
                 away_message: parsedBotSettings.away_message || '',
+                auto_payment_link: parsedBotSettings.auto_payment_link || '',
+                payment_message_template: parsedBotSettings.payment_message_template || '',
                 store_hours: {
                     enabled: parsedBotSettings.store_hours?.enabled || false,
                     timezone: parsedBotSettings.store_hours?.timezone || 'Asia/Kolkata',
@@ -498,6 +502,37 @@ export default function Settings() {
                                 )}
                             </div>
                         )}
+
+                        {/* Auto-Payment Link Settings */}
+                        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px', marginTop: '20px' }}>
+                            <h3 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>Auto-Payment Settings</h3>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '12px' }}>
+                                When a customer sends a cart/order from the WhatsApp Catalog, the platform can automatically reply with a payment link.
+                            </p>
+                            <div className="form-group">
+                                <label className="form-label">Auto-Payment Link (URL)</label>
+                                <input
+                                    className="form-input"
+                                    type="url"
+                                    value={botForm.auto_payment_link}
+                                    onInput={e => setBotForm(f => ({ ...f, auto_payment_link: e.target.value }))}
+                                    placeholder="https://rzp.io/l/yourpaymentlink or UPI link"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Payment Message Template</label>
+                                <textarea
+                                    className="form-textarea"
+                                    rows={3}
+                                    value={botForm.payment_message_template}
+                                    onInput={e => setBotForm(f => ({ ...f, payment_message_template: e.target.value }))}
+                                    placeholder="Thank you for your order of {total}! You can complete your payment here: {link}"
+                                />
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                    Use <code>{`{total}`}</code> and <code>{`{link}`}</code> as placeholders. If blank, a default message is sent.
+                                </span>
+                            </div>
+                        </div>
 
                         <button type="submit" className="btn btn-primary" disabled={saving} style={{ marginTop: '20px', width: '100%' }}>
                             {saving ? 'Saving Settings...' : 'Save Settings'}

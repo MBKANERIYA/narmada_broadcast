@@ -13,6 +13,7 @@ export default function KnowledgeBase() {
     const [answer, setAnswer] = useState('');
     const [error, setError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [editingId, setEditingId] = useState(null);
 
     const fetchFaqs = async () => {
         setIsLoading(true);
@@ -38,15 +39,17 @@ export default function KnowledgeBase() {
         fetchFaqs();
     }, []);
 
-    const handleAdd = async (e) => {
+    const handleAddOrEdit = async (e) => {
         e.preventDefault();
         if (!question.trim() || !answer.trim()) return;
         
         setIsSaving(true);
         setError(null);
         try {
-            const res = await fetch('/api/v1/knowledge-base', {
-                method: 'POST',
+            const url = editingId ? `/api/v1/knowledge-base/${editingId}` : '/api/v1/knowledge-base';
+            const method = editingId ? 'PUT' : 'POST';
+            const res = await fetch(url, {
+                method,
                 headers: { 
                     'Authorization': `Bearer ${localStorage.getItem('token')}`,
                     'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default',
@@ -59,19 +62,34 @@ export default function KnowledgeBase() {
             if (res.ok) {
                 setQuestion('');
                 setAnswer('');
+                setEditingId(null);
                 fetchFaqs(); // refresh
                 
                 // Show success toast
-                const evt = new CustomEvent('toast', { detail: { type: 'success', message: 'Smart FAQ added successfully!' }});
+                const evt = new CustomEvent('toast', { detail: { type: 'success', message: `Smart FAQ ${editingId ? 'updated' : 'added'} successfully!` }});
                 window.dispatchEvent(evt);
             } else {
-                setError(data.error || 'Failed to add FAQ');
+                setError(data.error || `Failed to ${editingId ? 'update' : 'add'} FAQ`);
             }
         } catch (err) {
-            setError('Network error adding FAQ');
+            setError(`Network error ${editingId ? 'updating' : 'adding'} FAQ`);
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleEdit = (faq) => {
+        setEditingId(faq.id);
+        setQuestion(faq.question);
+        setAnswer(faq.answer);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setQuestion('');
+        setAnswer('');
+        setError(null);
     };
 
     const handleDelete = async (id) => {
@@ -131,8 +149,8 @@ export default function KnowledgeBase() {
                 <div className="faq-form-column">
                     <div className="card" style={{ padding: '24px' }}>
                         <h2 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Icon name="plus" size={18} style={{ color: 'var(--accent-primary)' }} />
-                            Add New FAQ
+                            <Icon name={editingId ? "edit" : "plus"} size={18} style={{ color: 'var(--accent-primary)' }} />
+                            {editingId ? 'Edit FAQ' : 'Add New FAQ'}
                         </h2>
                         
                         {error && (
@@ -141,7 +159,7 @@ export default function KnowledgeBase() {
                             </div>
                         )}
                         
-                        <form onSubmit={handleAdd}>
+                        <form onSubmit={handleAddOrEdit}>
                             <div className="form-group">
                                 <label className="form-label">Question (or Topic)</label>
                                 <div style={{ position: 'relative' }}>
@@ -169,9 +187,16 @@ export default function KnowledgeBase() {
                                     required
                                 />
                             </div>
-                            <button type="submit" className="btn btn-primary full-width" disabled={isSaving} style={{ marginTop: '8px' }}>
-                                {isSaving ? 'Training Engine...' : <><Icon name="check" size={16} /> Save & Train</>}
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                                {editingId && (
+                                    <button type="button" onClick={handleCancelEdit} className="btn btn--outline" style={{ flex: 1 }}>
+                                        Cancel
+                                    </button>
+                                )}
+                                <button type="submit" className="btn btn--primary" disabled={isSaving} style={{ flex: editingId ? 2 : 1 }}>
+                                    {isSaving ? 'Training Engine...' : <><Icon name="check" size={16} /> {editingId ? 'Update FAQ' : 'Save & Train'}</>}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -223,13 +248,22 @@ export default function KnowledgeBase() {
                                                 <Icon name="chat" size={16} style={{ color: 'var(--accent-primary)', marginTop: '3px', flexShrink: 0 }} />
                                                 <h3 className="faq-question-text">{faq.question}</h3>
                                             </div>
-                                            <button 
-                                                onClick={() => handleDelete(faq.id)}
-                                                className="faq-delete-btn"
-                                                title="Delete FAQ"
-                                            >
-                                                <Icon name="x" size={16} />
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button 
+                                                    onClick={() => handleEdit(faq)}
+                                                    className="faq-delete-btn"
+                                                    title="Edit FAQ"
+                                                >
+                                                    <Icon name="edit" size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(faq.id)}
+                                                    className="faq-delete-btn"
+                                                    title="Delete FAQ"
+                                                >
+                                                    <Icon name="x" size={16} />
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="faq-answer-text">
                                             {faq.answer}

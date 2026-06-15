@@ -63,12 +63,44 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { is_active } = req.body;
+        const { is_active, question, answer } = req.body;
 
-        await run(
-            'UPDATE whatsapp_knowledge_base SET is_active = ? WHERE id = ? AND tenant_id = ?',
-            [is_active === true || is_active === 1 ? 1 : 0, id, req.tenant.id]
-        );
+        let queryStr = 'UPDATE whatsapp_knowledge_base SET ';
+        const params = [];
+
+        if (is_active !== undefined) {
+            queryStr += 'is_active = ?, ';
+            params.push(is_active ? 1 : 0);
+        }
+
+        if (question !== undefined && question.trim() !== '') {
+            queryStr += 'question = ?, ';
+            params.push(question);
+            
+            console.log(`[KnowledgeBase] Updating embedding for: "${question}"`);
+            const vectorArray = await generateEmbedding(question);
+            const vectorJson = JSON.stringify(vectorArray);
+            
+            queryStr += 'question_vector = ?, ';
+            params.push(vectorJson);
+        }
+
+        if (answer !== undefined && answer.trim() !== '') {
+            queryStr += 'answer = ?, ';
+            params.push(answer);
+        }
+
+        if (params.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        // Remove trailing comma and space
+        queryStr = queryStr.slice(0, -2);
+        
+        queryStr += ' WHERE id = ? AND tenant_id = ?';
+        params.push(id, req.tenant.id);
+
+        await run(queryStr, params);
 
         res.json({ success: true });
     } catch (error) {

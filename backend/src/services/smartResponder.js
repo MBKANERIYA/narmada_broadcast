@@ -7,7 +7,7 @@ let extractor = null;
  * Initialize the embedding model.
  * This runs locally on the CPU and downloads a tiny (~90MB) model on first run.
  */
-async function getExtractor() {
+export async function getExtractor() {
     if (!extractor) {
         console.log('[SmartResponder] Loading all-MiniLM-L6-v2 model...');
         // Use the feature extraction pipeline
@@ -15,6 +15,17 @@ async function getExtractor() {
         console.log('[SmartResponder] Model loaded successfully.');
     }
     return extractor;
+}
+
+/**
+ * Pre-warm the model on server startup.
+ */
+export async function initModel() {
+    try {
+        await getExtractor();
+    } catch (err) {
+        console.error('[SmartResponder] Error pre-warming model:', err);
+    }
 }
 
 /**
