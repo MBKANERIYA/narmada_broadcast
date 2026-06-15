@@ -8,10 +8,10 @@ const WHATSAPP_API_URL = `https://graph.facebook.com/${WHATSAPP_API_VERSION}`;
 
 function getCredentials(tenant) {
     if (!tenant) throw new Error('Tenant context required for WhatsApp operations');
-    const token = tenant.whatsapp_access_token;
-    const phoneId = tenant.whatsapp_phone_number_id;
+    const token = tenant.whatsapp_access_token?.trim();
+    const phoneId = tenant.whatsapp_phone_number_id?.trim();
     if (!token || !phoneId) throw new Error('WhatsApp not configured. Add your Meta API credentials in Settings.');
-    return { token, phoneId, wabaId: tenant.whatsapp_business_account_id };
+    return { token, phoneId, wabaId: tenant.whatsapp_business_account_id?.trim() };
 }
 
 function formatMetaError(data, defaultMsg) {
