@@ -89,8 +89,12 @@ app.post('/api/v1/razorpay-webhook', async (req, res) => {
                 const order = await get('SELECT * FROM orders WHERE id = ?', [orderId]);
                 
                 if (order && order.payment_status !== 'paid') {
-                    // Update order status
-                    await run('UPDATE orders SET payment_status = ? WHERE id = ?', ['paid', orderId]);
+                    // Update order status atomically to prevent race conditions
+                    const updateResult = await run("UPDATE orders SET payment_status = 'paid' WHERE id = ? AND payment_status != 'paid'", [orderId]);
+                    if (updateResult.changes === 0) {
+                        console.log(`[Razorpay Webhook] Order #${orderId} already paid. Skipping duplicate webhook.`);
+                        return res.json({ status: 'ok' });
+                    }
                     console.log(`[Razorpay Webhook] Order #${orderId} marked as paid.`);
                     
                     // Fetch tenant settings to get razorpay secret if validation is needed
