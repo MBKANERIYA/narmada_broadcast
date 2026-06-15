@@ -71,10 +71,10 @@ const formatWhatsAppText = (text) => {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
     
-    // WhatsApp Markdown
-    html = html.replace(/\*([^\*\n]+)\*/g, '<strong>$1</strong>');
-    html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
-    html = html.replace(/~([^~]+)~/g, '<del>$1</del>');
+    // WhatsApp Markdown (with explicit inline styles to survive CSS resets)
+    html = html.replace(/\*([^\*\n]+)\*/g, '<strong style="font-weight: 700;">$1</strong>');
+    html = html.replace(/_([^_]+)_/g, '<em style="font-style: italic;">$1</em>');
+    html = html.replace(/~([^~]+)~/g, '<del style="text-decoration: line-through;">$1</del>');
     html = html.replace(/```([^`]+)```/g, '<code style="background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 4px; font-family: monospace;">$1</code>');
     
     return html;
