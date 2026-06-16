@@ -3,8 +3,8 @@
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
 ## 2026-06-16 — Fix: WhatsApp Broadcast Recipient Filtering
-**What**: Fixed the "By Label" and "By Tag" filter logic in the WhatsApp Broadcast interface to properly preview the suggested contact count.
-**Why**: Selecting "By Label" was not updating the preview count correctly because the frontend was not passing the label parameter to the API, and the backend was missing the label check in the recipient preview route. Similarly, the "By Tag" filter was incorrectly persisting its state when switching recipient types.
+**What**: Fixed the "By Label" and "By Tag" filter logic in the WhatsApp Broadcast interface to properly preview the suggested contact count and made the matching case-insensitive.
+**Why**: Selecting "By Label" was not updating the preview count correctly because the frontend was not passing the label parameter to the API, and the backend was missing the label check. Additionally, `JSON_CONTAINS` is strictly case-sensitive in MySQL, meaning searching for "vip" failed to match contacts tagged as "VIP".
 **Files Changed**:
 - `backend/src/routes/whatsapp.js`: Added `label` checking in the `GET /recipients` API.
 - `frontend/src/stores/store.js`: Updated `fetchWhatsAppRecipients` to accept a flexible `filters` object including `label`.

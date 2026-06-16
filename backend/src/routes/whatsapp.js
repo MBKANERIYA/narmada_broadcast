@@ -29,13 +29,13 @@ router.get('/recipients', async (req, res) => {
         const params = [req.tenantId];
 
         if (tag) {
-            sql += ' AND JSON_CONTAINS(tags, ?)';
-            params.push(JSON.stringify(tag));
+            sql += ' AND LOWER(tags) LIKE LOWER(?)';
+            params.push(`%"${tag}"%`);
         }
 
         if (label) {
-            sql += ' AND JSON_CONTAINS(labels, ?)';
-            params.push(JSON.stringify(label));
+            sql += ' AND LOWER(labels) LIKE LOWER(?)';
+            params.push(`%"${label}"%`);
         }
 
         if (location) {
@@ -126,16 +126,16 @@ router.post('/broadcast', async (req, res) => {
         } else if (recipientType === 'tagged' && recipientFilter?.tag) {
             // Filter by tag
             const contacts = await query(
-                `SELECT id, name, phone FROM contacts WHERE tenant_id = ? AND phone IS NOT NULL AND phone != '' AND whatsapp_consent = TRUE AND JSON_CONTAINS(tags, ?)`,
-                [req.tenantId, JSON.stringify(recipientFilter.tag)]
+                `SELECT id, name, phone FROM contacts WHERE tenant_id = ? AND phone IS NOT NULL AND phone != '' AND whatsapp_consent = TRUE AND LOWER(tags) LIKE LOWER(?)`,
+                [req.tenantId, `%"${recipientFilter.tag}"%`]
             );
             recipients = contacts;
 
         } else if (recipientType === 'labeled' && recipientFilter?.label) {
             // Filter by label (e.g. "vip", "follow_up", "complaint")
             const contacts = await query(
-                `SELECT id, name, phone FROM contacts WHERE tenant_id = ? AND phone IS NOT NULL AND phone != '' AND whatsapp_consent = TRUE AND JSON_CONTAINS(labels, ?)`,
-                [req.tenantId, JSON.stringify(recipientFilter.label)]
+                `SELECT id, name, phone FROM contacts WHERE tenant_id = ? AND phone IS NOT NULL AND phone != '' AND whatsapp_consent = TRUE AND LOWER(labels) LIKE LOWER(?)`,
+                [req.tenantId, `%"${recipientFilter.label}"%`]
             );
             recipients = contacts;
 
