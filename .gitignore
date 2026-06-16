@@ -33,3 +33,6 @@ knowledge-base/CREDENTIALS_AND_INFRA.md
 
 # Uploads
 backend/uploads/
+
+# Test output / artifacts
+output/

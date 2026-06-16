@@ -376,15 +376,52 @@ export const useStore = create(
 
             fetchChatMessages: async (conversationId) => {
                 try {
-                    const data = await api(`/whatsapp/chat/conversations/${conversationId}/messages?limit=100`);
+                    const data = await api(`/whatsapp/chat/conversations/${conversationId}/messages?limit=50`);
                     set({
                         activeConversation: data.conversation,
                         chatMessages: data.messages || [],
                         chatMessagesTotal: data.total || 0,
+                        chatHasMore: data.has_more || false,
                     });
                     return data;
                 } catch (error) {
                     console.error('Failed to fetch chat messages:', error);
+                }
+            },
+
+            fetchOlderMessages: async (conversationId) => {
+                try {
+                    const currentMessages = get().chatMessages;
+                    if (!currentMessages.length) return;
+                    const oldestId = currentMessages[0].id;
+                    const data = await api(`/whatsapp/chat/conversations/${conversationId}/messages?limit=50&before_id=${oldestId}`);
+                    if (data.messages?.length) {
+                        set({
+                            chatMessages: [...data.messages, ...currentMessages],
+                            chatHasMore: data.has_more || false,
+                        });
+                    } else {
+                        set({ chatHasMore: false });
+                    }
+                    return data;
+                } catch (error) {
+                    console.error('Failed to fetch older messages:', error);
+                }
+            },
+
+            updateConversationLabels: async (conversationId, labels) => {
+                try {
+                    await api(`/whatsapp/chat/conversations/${conversationId}/labels`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ labels }),
+                    });
+                    // Update activeConversation labels locally
+                    const conv = get().activeConversation;
+                    if (conv && conv.id === conversationId) {
+                        set({ activeConversation: { ...conv, labels: JSON.stringify(labels) } });
+                    }
+                } catch (error) {
+                    console.error('Failed to update labels:', error);
                 }
             },
 

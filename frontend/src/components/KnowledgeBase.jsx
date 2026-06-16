@@ -15,6 +15,34 @@ export default function KnowledgeBase() {
     const [searchQuery, setSearchQuery] = useState('');
     const [editingId, setEditingId] = useState(null);
 
+    // Test Bot state
+    const [testMessage, setTestMessage] = useState('');
+    const [testResult, setTestResult] = useState(null);
+    const [isTesting, setIsTesting] = useState(false);
+    const [showTestBot, setShowTestBot] = useState(false);
+
+    const handleTestBot = async () => {
+        if (!testMessage.trim()) return;
+        setIsTesting(true);
+        setTestResult(null);
+        try {
+            const res = await fetch('/api/v1/knowledge-base/test', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: testMessage }),
+            });
+            const data = await res.json();
+            setTestResult(data);
+        } catch (err) {
+            setTestResult({ error: 'Failed to test. Is the server running?' });
+        } finally {
+            setIsTesting(false);
+        }
+    };
     const fetchFaqs = async () => {
         setIsLoading(true);
         try {
@@ -142,6 +170,90 @@ export default function KnowledgeBase() {
                     <span className="stat-value" style={{ fontSize: '18px', fontWeight: 'bold', padding: '4px 0', margin: '4px 0' }}>MiniLM-L6 (Local)</span>
                     <span className="stat-change">On-Device Embeddings</span>
                 </div>
+            </div>
+
+            {/* Test Bot Panel */}
+            <div className="card" style={{ padding: '0', marginBottom: '24px', overflow: 'hidden' }}>
+                <button onClick={() => setShowTestBot(!showTestBot)} style={{
+                    width: '100%', padding: '14px 20px', background: 'transparent', border: 'none',
+                    display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer',
+                    fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)',
+                }}>
+                    <span style={{ fontSize: '18px' }}>🧪</span>
+                    Test Your Bot
+                    <span style={{ marginLeft: 'auto', fontSize: '12px', opacity: 0.5 }}>{showTestBot ? '▲' : '▼'}</span>
+                </button>
+                {showTestBot && (
+                    <div style={{ padding: '0 20px 20px', borderTop: '1px solid var(--border, #e2e8f0)' }}>
+                        <p style={{ fontSize: '13px', color: '#64748b', margin: '12px 0' }}>
+                            Type a message as if you were a customer. See what the bot would reply.
+                        </p>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                                type="text" value={testMessage}
+                                onChange={e => setTestMessage(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleTestBot()}
+                                placeholder="e.g. What are your delivery charges?"
+                                style={{
+                                    flex: 1, padding: '10px 14px', border: '1px solid var(--border, #e2e8f0)',
+                                    borderRadius: '8px', fontSize: '14px', outline: 'none',
+                                }}
+                            />
+                            <button onClick={handleTestBot} disabled={isTesting || !testMessage.trim()} className="btn btn-primary" style={{ padding: '10px 20px' }}>
+                                {isTesting ? '⏳ Testing...' : '▶ Test'}
+                            </button>
+                        </div>
+
+                        {testResult && !testResult.error && (
+                            <div style={{ marginTop: '16px' }}>
+                                <div style={{
+                                    padding: '14px 16px', borderRadius: '10px',
+                                    background: testResult.would_reply ? '#dcfce7' : '#fef3c7',
+                                    border: `1px solid ${testResult.would_reply ? '#bbf7d0' : '#fde68a'}`,
+                                    marginBottom: '12px',
+                                }}>
+                                    <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '6px', color: testResult.would_reply ? '#16a34a' : '#d97706' }}>
+                                        {testResult.would_reply ? '✅ Bot WOULD reply:' : '⚠️ No match above threshold (0.45)'}
+                                    </div>
+                                    {testResult.matched_answer && (
+                                        <div style={{ fontSize: '14px', color: '#334155', lineHeight: '1.5' }}>{testResult.matched_answer}</div>
+                                    )}
+                                </div>
+
+                                {testResult.matches?.length > 0 && (
+                                    <div>
+                                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '8px' }}>Top Matches:</div>
+                                        {testResult.matches.map((m, i) => (
+                                            <div key={m.id} style={{
+                                                padding: '10px 12px', borderRadius: '8px',
+                                                background: i === 0 && testResult.would_reply ? '#f0fdf4' : '#f8fafc',
+                                                border: '1px solid var(--border, #e2e8f0)',
+                                                marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px',
+                                            }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '2px' }}>Q: {m.question}</div>
+                                                    <div style={{ fontSize: '12px', color: '#64748b' }}>A: {m.answer}</div>
+                                                </div>
+                                                <span style={{
+                                                    fontSize: '12px', fontWeight: 700, padding: '3px 8px', borderRadius: '10px', flexShrink: 0,
+                                                    background: m.score >= 0.45 ? '#dcfce7' : '#fef3c7',
+                                                    color: m.score >= 0.45 ? '#16a34a' : '#d97706',
+                                                }}>
+                                                    {(m.score * 100).toFixed(1)}%
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {testResult?.error && (
+                            <div style={{ marginTop: '12px', padding: '10px 14px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', fontSize: '13px' }}>
+                                {testResult.error}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="faq-grid-container">

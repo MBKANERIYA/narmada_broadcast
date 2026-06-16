@@ -127,4 +127,74 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/v1/knowledge-base/test
+ * Test bot: simulate a customer message and see what the AI would match
+ */
+router.post('/test', async (req, res) => {
+    try {
+        const { message } = req.body;
+        if (!message || !message.trim()) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+
+        // Get all active FAQs with vectors
+        const faqs = await query(
+            'SELECT id, question, answer, question_vector FROM whatsapp_knowledge_base WHERE tenant_id = ? AND is_active = 1',
+            [req.tenant.id]
+        );
+
+        if (!faqs.length) {
+            return res.json({ matches: [], message: 'No FAQs in knowledge base' });
+        }
+
+        // Generate embedding for the test message
+        const messageVector = await generateEmbedding(message);
+
+        // Compute similarity for each FAQ
+        const scored = [];
+        for (const faq of faqs) {
+            if (!faq.question_vector) continue;
+            let faqVector;
+            try {
+                faqVector = typeof faq.question_vector === 'string' ? JSON.parse(faq.question_vector) : faq.question_vector;
+            } catch { continue; }
+
+            const score = cosineSimilarity(messageVector, faqVector);
+            scored.push({ id: faq.id, question: faq.question, answer: faq.answer, score: Math.round(score * 1000) / 1000 });
+        }
+
+        // Sort by score descending and return top 3
+        scored.sort((a, b) => b.score - a.score);
+        const THRESHOLD = 0.45;
+        const topMatches = scored.slice(0, 3);
+        const wouldReply = topMatches.length > 0 && topMatches[0].score >= THRESHOLD;
+
+        res.json({
+            test_message: message,
+            would_reply: wouldReply,
+            threshold: THRESHOLD,
+            best_score: topMatches[0]?.score || 0,
+            matched_answer: wouldReply ? topMatches[0].answer : null,
+            matches: topMatches,
+        });
+    } catch (error) {
+        console.error('[KnowledgeBase] Test error:', error);
+        res.status(500).json({ error: 'Failed to test bot' });
+    }
+});
+
+// Import cosineSimilarity locally for the test endpoint
+function cosineSimilarity(vecA, vecB) {
+    if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
+    let dot = 0, magA = 0, magB = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        dot += vecA[i] * vecB[i];
+        magA += vecA[i] * vecA[i];
+        magB += vecB[i] * vecB[i];
+    }
+    const mag = Math.sqrt(magA) * Math.sqrt(magB);
+    return mag === 0 ? 0 : dot / mag;
+}
+
 export default router;

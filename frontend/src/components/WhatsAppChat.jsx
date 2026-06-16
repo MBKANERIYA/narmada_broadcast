@@ -82,12 +82,36 @@ const formatWhatsAppText = (text) => {
 
 export default function WhatsAppChat() {
     const {
-        conversations, totalUnread, activeConversation, chatMessages,
-        fetchConversations, fetchChatMessages, sendChatReply, sendChatTemplate, sendChatMedia,
-        markConversationRead, archiveConversation, startNewConversation,
+        conversations, totalUnread, activeConversation, chatMessages, chatHasMore,
+        fetchConversations, fetchChatMessages, fetchOlderMessages, sendChatReply, sendChatTemplate, sendChatMedia,
+        markConversationRead, archiveConversation, startNewConversation, updateConversationLabels,
         showToast, fetchWhatsAppTemplates, whatsappTemplates,
         contacts, fetchContacts,
     } = useStore();
+
+    const [loadingOlder, setLoadingOlder] = useState(false);
+    const [showLabelPicker, setShowLabelPicker] = useState(false);
+
+    const LABEL_OPTIONS = [
+        { value: 'vip', label: 'VIP', color: '#f59e0b', bg: '#fef3c7' },
+        { value: 'follow-up', label: 'Follow Up', color: '#3b82f6', bg: '#dbeafe' },
+        { value: 'complaint', label: 'Complaint', color: '#ef4444', bg: '#fee2e2' },
+        { value: 'new-order', label: 'New Order', color: '#22c55e', bg: '#dcfce7' },
+        { value: 'pending-payment', label: 'Pending Payment', color: '#f97316', bg: '#ffedd5' },
+        { value: 'resolved', label: 'Resolved', color: '#6b7280', bg: '#f3f4f6' },
+    ];
+
+    const getConvLabels = (conv) => {
+        try { return JSON.parse(conv?.labels || '[]'); } catch { return []; }
+    };
+
+    const toggleLabel = (labelValue) => {
+        const current = getConvLabels(activeConversation);
+        const next = current.includes(labelValue)
+            ? current.filter(l => l !== labelValue)
+            : [...current, labelValue];
+        updateConversationLabels(selectedConvId, next);
+    };
 
     const [search, setSearch] = useState('');
     const [activeTab, setActiveTab] = useState('all'); // 'all', 'unread', 'paid'
@@ -673,6 +697,11 @@ export default function WhatsAppChat() {
                                         {activeTab === 'paid' && (
                                             <span style={{ fontSize: '10px', background: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '10px', fontWeight: 600 }}>Paid</span>
                                         )}
+                                        {getConvLabels(c).map(lv => {
+                                            const opt = LABEL_OPTIONS.find(o => o.value === lv);
+                                            if (!opt) return null;
+                                            return <span key={lv} title={opt.label} style={{ width: '8px', height: '8px', borderRadius: '50%', background: opt.color, flexShrink: 0 }} />;
+                                        })}
                                     </div>
                                     <span style={{ fontSize: '11px', opacity: 0.5 }}>{formatTime(c.last_message_at)}</span>
                                 </div>
@@ -761,14 +790,87 @@ export default function WhatsAppChat() {
                                     <button className="btn-icon" onClick={() => setShowManageQR(true)} title="Quick Replies">
                                         <Icon name="zap" size={18} />
                                     </button>
+                                    <div style={{ position: 'relative' }}>
+                                        <button className="btn-icon" onClick={() => setShowLabelPicker(!showLabelPicker)} title="Labels">
+                                            <Icon name="tag" size={18} />
+                                        </button>
+                                        {showLabelPicker && (
+                                            <div style={{
+                                                position: 'absolute', top: '100%', right: 0, zIndex: 50,
+                                                background: '#fff', border: '1px solid var(--border, #e2e8f0)',
+                                                borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                padding: '8px 0', minWidth: '180px',
+                                            }}>
+                                                <div style={{ padding: '4px 12px 8px', fontSize: '11px', fontWeight: 600, color: '#64748b' }}>Labels</div>
+                                                {LABEL_OPTIONS.map(opt => {
+                                                    const isActive = getConvLabels(conv).includes(opt.value);
+                                                    return (
+                                                        <div key={opt.value} onClick={() => toggleLabel(opt.value)} style={{
+                                                            padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                                                            background: isActive ? opt.bg : 'transparent', fontSize: '13px',
+                                                        }}
+                                                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f8fafc'; }}
+                                                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+                                                        >
+                                                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: opt.color, flexShrink: 0 }} />
+                                                            <span style={{ flex: 1 }}>{opt.label}</span>
+                                                            {isActive && <span style={{ fontSize: '14px' }}>✓</span>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                     <button className="btn-icon" onClick={() => archiveConversation(selectedConvId)} title="Archive">
                                         <Icon name="archive" size={18} />
                                     </button>
                                 </div>
                             </div>
 
+                            {/* Label badges */}
+                            {getConvLabels(conv).length > 0 && (
+                                <div style={{ padding: '4px 20px 6px', background: '#fff', borderBottom: '1px solid var(--border, #e2e8f0)', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                    {getConvLabels(conv).map(lv => {
+                                        const opt = LABEL_OPTIONS.find(o => o.value === lv);
+                                        if (!opt) return null;
+                                        return (
+                                            <span key={lv} style={{
+                                                fontSize: '11px', padding: '2px 8px', borderRadius: '10px',
+                                                background: opt.bg, color: opt.color, fontWeight: 600,
+                                                display: 'flex', alignItems: 'center', gap: '4px',
+                                            }}>
+                                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: opt.color }} />
+                                                {opt.label}
+                                                <span onClick={() => toggleLabel(lv)} style={{ cursor: 'pointer', marginLeft: '2px', opacity: 0.6 }}>×</span>
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            )}
                             {/* Messages */}
                             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {chatHasMore && (
+                                    <div style={{ textAlign: 'center', padding: '8px 0 12px' }}>
+                                        <button
+                                            onClick={async () => {
+                                                setLoadingOlder(true);
+                                                await fetchOlderMessages(selectedConvId);
+                                                setLoadingOlder(false);
+                                            }}
+                                            disabled={loadingOlder}
+                                            style={{
+                                                background: 'transparent', border: '1px solid #cbd5e1',
+                                                borderRadius: '16px', padding: '6px 16px', fontSize: '12px',
+                                                color: '#64748b', cursor: 'pointer', fontWeight: 500,
+                                                transition: 'all 0.15s',
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            {loadingOlder ? '⏳ Loading...' : '↑ Load Older Messages'}
+                                        </button>
+                                    </div>
+                                )}
                                 {chatMessages.map(msg => {
                                     // Check if this is a rich template message
                                     if (msg.message_type === 'template') {

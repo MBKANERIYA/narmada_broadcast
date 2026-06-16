@@ -228,11 +228,13 @@ router.get('/conversations', async (req, res) => {
 /**
  * GET /api/v1/whatsapp/chat/conversations/:id/messages
  * Get messages for a conversation
+ * Supports cursor-based pagination:
+ *   ?limit=50          — get latest 50 messages
+ *   ?before_id=123     — get messages older than id 123
  */
 router.get('/conversations/:id/messages', async (req, res) => {
     try {
-        const { page = 1, limit = 50 } = req.query;
-        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const { limit = 50, before_id } = req.query;
 
         const conversation = await get(
             'SELECT * FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
@@ -240,25 +242,40 @@ router.get('/conversations/:id/messages', async (req, res) => {
         );
         if (!conversation) return res.status(404).json({ error: 'Conversation not found' });
 
-        const safeLimit = parseInt(limit) || 50;
-        const safeOffset = Math.max(0, offset);
+        const safeLimit = Math.min(parseInt(limit) || 50, 200);
 
-        const messages = await query(
-            `SELECT wcm.*, u.name as sender_name
-             FROM whatsapp_chat_messages wcm
-             LEFT JOIN users u ON wcm.sent_by = u.id
-             WHERE wcm.conversation_id = ? AND wcm.tenant_id = ?
-             ORDER BY wcm.created_at ASC
-             LIMIT ${safeLimit} OFFSET ${safeOffset}`,
-            [req.params.id, req.tenantId]
-        );
+        let messages;
+        if (before_id) {
+            // Cursor pagination: get messages older than before_id
+            // Fetch DESC to get the N most recent before the cursor, then reverse for ASC display
+            messages = await query(
+                `SELECT wcm.*, u.name as sender_name
+                 FROM whatsapp_chat_messages wcm
+                 LEFT JOIN users u ON wcm.sent_by = u.id
+                 WHERE wcm.conversation_id = ? AND wcm.tenant_id = ? AND wcm.id < ?
+                 ORDER BY wcm.id DESC
+                 LIMIT ${safeLimit}`,
+                [req.params.id, req.tenantId, parseInt(before_id)]
+            );
+            messages.reverse(); // back to chronological order
+        } else {
+            // Default: get latest N messages (fetch DESC, reverse)
+            messages = await query(
+                `SELECT wcm.*, u.name as sender_name
+                 FROM whatsapp_chat_messages wcm
+                 LEFT JOIN users u ON wcm.sent_by = u.id
+                 WHERE wcm.conversation_id = ? AND wcm.tenant_id = ?
+                 ORDER BY wcm.id DESC
+                 LIMIT ${safeLimit}`,
+                [req.params.id, req.tenantId]
+            );
+            messages.reverse(); // back to chronological order
+        }
 
         const total = await get(
             'SELECT COUNT(*) as count FROM whatsapp_chat_messages WHERE conversation_id = ? AND tenant_id = ?',
             [req.params.id, req.tenantId]
         );
-
-        console.log(`[Chat API] Fetched ${messages.length} messages for conv=${req.params.id}, tenant=${req.tenantId}, total=${total?.count || 0}`);
 
         res.json({
             conversation: {
@@ -270,6 +287,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
             },
             messages,
             total: total?.count || 0,
+            has_more: before_id ? messages.length === safeLimit : (total?.count || 0) > safeLimit,
         });
     } catch (error) {
         console.error('Fetch messages error:', error);
@@ -505,6 +523,24 @@ router.patch('/conversations/:id/archive', async (req, res) => {
         res.json({ success: true, is_archived: !conv.is_archived });
     } catch (error) {
         res.status(500).json({ error: 'Failed to update' });
+    }
+});
+
+/**
+ * PATCH /api/v1/whatsapp/chat/conversations/:id/labels
+ * Update conversation labels
+ */
+router.patch('/conversations/:id/labels', async (req, res) => {
+    try {
+        const { labels } = req.body;
+        if (!Array.isArray(labels)) return res.status(400).json({ error: 'labels must be an array' });
+        await run(
+            'UPDATE whatsapp_conversations SET labels = ? WHERE id = ? AND tenant_id = ?',
+            [JSON.stringify(labels), req.params.id, req.tenantId]
+        );
+        res.json({ success: true, labels });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update labels' });
     }
 });
 
