@@ -52,7 +52,7 @@ app.get('/', (req, res) => res.json({ message: 'WhatsApp Marketing Platform API'
 
 // Serve uploads publicly
 import path from 'path';
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/api/v1/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // ============================================================
 // WhatsApp Webhook — Public endpoint (no tenant/auth needed)

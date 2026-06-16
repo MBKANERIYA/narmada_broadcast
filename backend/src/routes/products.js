@@ -31,7 +31,7 @@ router.post('/upload-image', upload.single('image'), (req, res) => {
         // Return full public URL for the image
         const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
         const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
-        const imageUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+        const imageUrl = `${protocol}://${host}/api/v1/uploads/${req.file.filename}`;
         
         res.json({ image_url: imageUrl });
     } catch (error) {
