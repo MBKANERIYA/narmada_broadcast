@@ -1,9 +1,44 @@
 import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { query, run, get } from '../database.js';
 import { syncProductToMeta, deleteProductFromMeta } from '../services/whatsapp.js';
 import { generateEmbedding } from '../services/smartResponder.js';
 
 const router = express.Router();
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadDir = path.join(process.cwd(), 'uploads');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const safeFilename = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        cb(null, `${Date.now()}_${safeFilename}`);
+    }
+});
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+// Upload image for a product
+router.post('/upload-image', upload.single('image'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image uploaded' });
+        }
+        
+        // Return full public URL for the image
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+        const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
+        const imageUrl = `${protocol}://${host}/uploads/${req.file.filename}`;
+        
+        res.json({ image_url: imageUrl });
+    } catch (error) {
+        console.error('Image upload error:', error);
+        res.status(500).json({ error: 'Failed to upload image' });
+    }
+});
 
 // Get all products for the tenant
 router.get('/', async (req, res) => {

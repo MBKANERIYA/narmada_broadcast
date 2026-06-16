@@ -50,6 +50,10 @@ app.use(cors({
 app.get('/health', (req, res) => res.json({ status: 'healthy' }));
 app.get('/', (req, res) => res.json({ message: 'WhatsApp Marketing Platform API' }));
 
+// Serve uploads publicly
+import path from 'path';
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // ============================================================
 // WhatsApp Webhook — Public endpoint (no tenant/auth needed)
 // Handles BOTH delivery statuses AND incoming messages

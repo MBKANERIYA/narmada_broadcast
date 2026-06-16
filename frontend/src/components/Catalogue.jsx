@@ -12,6 +12,7 @@ export default function Catalogue() {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOption, setSortOption] = useState('newest');
     const [categoryFilter, setCategoryFilter] = useState('');
+    const [uploadingImage, setUploadingImage] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -83,6 +84,49 @@ export default function Catalogue() {
             });
         }
         setShowModal(true);
+    };
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Ensure it's an image
+        if (!file.type.startsWith('image/')) {
+            showToast('Please select an image file', 'error');
+            return;
+        }
+
+        const token = localStorage.getItem('token');
+        const slug = localStorage.getItem('tenant_slug') || 'default';
+        const formDataPayload = new FormData();
+        formDataPayload.append('image', file);
+
+        setUploadingImage(true);
+        try {
+            const res = await fetch('/api/v1/products/upload-image', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'x-tenant-slug': slug,
+                },
+                body: formDataPayload
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to upload image');
+            }
+
+            const data = await res.json();
+            setFormData(prev => ({ ...prev, image_url: data.image_url }));
+            showToast('Image uploaded successfully');
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setUploadingImage(false);
+            // Clear input value so the same file can be selected again
+            e.target.value = '';
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -320,8 +364,15 @@ export default function Catalogue() {
                                         <input type="text" className="form-input" name="sku" value={formData.sku} onChange={handleInputChange} placeholder="Must match website Pixel ID" />
                                     </div>
                                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                                        <label className="form-label">Image URL</label>
-                                        <input type="url" className="form-input" name="image_url" value={formData.image_url} onChange={handleInputChange} placeholder="https://example.com/image.jpg" />
+                                        <label className="form-label">Image URL or Upload</label>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <input type="url" className="form-input" name="image_url" value={formData.image_url} onChange={handleInputChange} placeholder="https://example.com/image.jpg" style={{ flex: 1 }} />
+                                            <label className="btn btn-secondary" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                                                {uploadingImage ? <Icon name="loader" size={16} /> : <Icon name="upload" size={16} />}
+                                                {uploadingImage ? 'Uploading...' : 'Upload'}
+                                                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploadingImage} />
+                                            </label>
+                                        </div>
                                         {formData.image_url && (
                                             <div style={{ marginTop: '10px' }}>
                                                 <img src={formData.image_url} alt="Preview" style={{ height: '100px', borderRadius: '8px', objectFit: 'cover' }} />

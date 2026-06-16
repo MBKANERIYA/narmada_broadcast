@@ -68,6 +68,24 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-16 — Feature: Local Image Uploads for Products
+**What**: Added an image file upload feature to the "Add/Edit Product" modal in the Catalogue dashboard.
+**Why**: Users previously had to paste an existing URL for a product image. Now they can directly upload local image files which are saved and served statically from the backend.
+**Files Changed**:
+- `backend/src/routes/products.js`: Added `POST /upload-image` endpoint utilizing `multer` with disk storage in `uploads` folder.
+- `backend/src/app.js`: Added static file serving (`app.use('/uploads')`) for public access to uploaded images.
+- `frontend/src/components/Catalogue.jsx`: Implemented file input, `uploadingImage` state, and `handleImageUpload` function to send `FormData` directly to the new API and auto-fill the URL field.
+
+---
+
+## 2026-06-16 — Sync: Pulled Latest Code
+**What**: Executed `git pull origin main` to fetch and accept all incoming changes from the remote repository.
+**Why**: User request to sync the local codebase with the remote repository.
+**Files Changed**: Multiple backend and frontend files were updated via fast-forward.
+**Commit**: `a29bc62`
+
+---
+
 ## 2026-06-16 — Fix: Labels Persistence, Auto-Create Contacts, Broadcast Label Filtering
 **What**: Three interconnected fixes:
 1. Labels now persist on BOTH `whatsapp_conversations.labels` AND `contacts.labels` (synced via PATCH endpoint)
