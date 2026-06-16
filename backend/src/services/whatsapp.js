@@ -531,25 +531,31 @@ export async function syncProductToMeta(tenant, product) {
     const priceString = `${priceValue} INR`;
     const fallbackUrl = `https://wa.me/${tenant.phone || ''}?text=Inquiry+about+${encodeURIComponent(product.name)}`;
     
+    const updateData = {
+        id: product.sku || String(product.id),
+        title: product.name,
+        description: product.description || product.name,
+        price: priceString,
+        link: fallbackUrl,
+        image_link: product.image_url || 'https://via.placeholder.com/600x600.png?text=No+Image',
+        brand: tenant.name || 'Brand',
+        condition: 'new',
+        availability: 'in stock',
+        origin_country: 'IN',
+        manufacturer_info: tenant.name || 'Manufacturer'
+    };
+
+    if (product.images && Array.isArray(product.images) && product.images.length > 1) {
+        updateData.additional_image_links = product.images.slice(1).slice(0, 10);
+    }
+
     // Create an items batch request for upserting
     const payload = {
         item_type: 'PRODUCT_ITEM',
         requests: [
             {
                 method: "UPDATE",
-                data: {
-                    id: product.sku || String(product.id),
-                    title: product.name,
-                    description: product.description || product.name,
-                    price: priceString,
-                    link: fallbackUrl,
-                    image_link: product.image_url || 'https://via.placeholder.com/600x600.png?text=No+Image',
-                    brand: tenant.name || 'Brand',
-                    condition: 'new',
-                    availability: 'in stock',
-                    origin_country: 'IN',
-                    manufacturer_info: tenant.name || 'Manufacturer'
-                }
+                data: updateData
             }
         ]
     };

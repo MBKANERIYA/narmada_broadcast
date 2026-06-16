@@ -3,12 +3,13 @@
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
 ## 2026-06-16 — Feature: Multiple Image Uploads for Products
-**What**: Upgraded the product catalogue to support multiple image uploads instead of just a single image URL.
-**Why**: Allows adding additional images for a richer product gallery, which is useful for future catalogue displays and UI improvements. 
+**What**: Upgraded the product catalogue to support multiple image uploads instead of just a single image URL, and enabled multi-image sync to Meta Catalog.
+**Why**: Allows adding additional images for a richer product gallery in both the dashboard and WhatsApp Business catalog.
 **Files Changed**:
 - `backend/src/database.js`: Added `images` JSON column to the `products` table.
 - `backend/src/routes/products.js`: Added `POST /upload-images` endpoint and updated product creation/editing to accept an array of images.
-- `frontend/src/components/Catalogue.jsx`: Refactored the UI to accept multiple files, render an image grid thumbnail preview, and allow removing uploaded images.
+- `backend/src/services/whatsapp.js`: Updated `syncProductToMeta` to pass extra images via `additional_image_links`.
+- `frontend/src/components/Catalogue.jsx`: Refactored the UI to accept multiple files, render an image grid thumbnail preview, and allow removing uploaded images. Also improved card styling to be premium and square with blurred backdrops.
 
 ---
 
