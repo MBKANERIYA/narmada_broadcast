@@ -301,18 +301,62 @@ export default function Catalogue() {
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                     {filteredProducts.map(product => (
-                        <div key={product.id} className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <div 
+                            key={product.id} 
+                            className="card" 
+                            style={{ 
+                                padding: 0, 
+                                overflow: 'hidden', 
+                                display: 'flex', 
+                                flexDirection: 'column',
+                                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                border: '1px solid var(--border)',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 24px -8px rgba(0,0,0,0.12)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)'; }}
+                        >
                             <div style={{
-                                height: '200px',
+                                width: '100%',
+                                aspectRatio: '1 / 1',
+                                position: 'relative',
                                 background: 'var(--bg-secondary)',
-                                backgroundImage: product.image_url ? `url(${product.image_url})` : 'none',
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center'
+                                justifyContent: 'center',
+                                overflow: 'hidden'
                             }}>
-                                {!product.image_url && <Icon name="image" size={40} color="var(--border)" />}
+                                {/* Blurred Background Layer */}
+                                {product.image_url && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '-10%', left: '-10%', right: '-10%', bottom: '-10%',
+                                        backgroundImage: `url(${product.image_url})`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center',
+                                        filter: 'blur(20px)',
+                                        opacity: 0.3,
+                                        zIndex: 0
+                                    }} />
+                                )}
+                                
+                                {/* Foreground Image */}
+                                {product.image_url ? (
+                                    <img 
+                                        src={product.image_url} 
+                                        alt={product.name}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'contain',
+                                            position: 'relative',
+                                            zIndex: 1,
+                                            padding: '16px' // Breathing room
+                                        }}
+                                    />
+                                ) : (
+                                    <Icon name="image" size={40} color="var(--border)" style={{ position: 'relative', zIndex: 1 }} />
+                                )}
                             </div>
                             <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
