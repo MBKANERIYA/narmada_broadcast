@@ -4,6 +4,24 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-16 — Fix: Labels Persistence, Auto-Create Contacts, Broadcast Label Filtering
+**What**: Three interconnected fixes:
+1. Labels now persist on BOTH `whatsapp_conversations.labels` AND `contacts.labels` (synced via PATCH endpoint)
+2. New WhatsApp messages auto-create a contact if one doesn't exist for that phone (source='whatsapp')
+3. Broadcasts can filter by label — "By Label" button sends `recipientType: 'labeled'` with `recipientFilter: { label: 'vip' }`
+**Why**: Labels weren't persisting because the store only updated `activeConversation` but not the conversations list. Labels on conversations alone couldn't be used in broadcasts (which target contacts). New customers messaging on WhatsApp weren't being saved to contacts.
+**Impact**: Labels are now the shared taxonomy between Chat, Contacts, and Broadcast. Every WhatsApp customer auto-gets a contact record.
+**Files Changed**:
+- `backend/src/database.js`: Migration to add `labels` JSON column to `contacts` table
+- `backend/src/app.js`: Auto-create contact on new WhatsApp message (INSERT INTO contacts with source='whatsapp')
+- `backend/src/routes/whatsapp-chat.js`: Labels PATCH syncs to linked contact via contact_id
+- `backend/src/routes/whatsapp.js`: New `recipientType: 'labeled'` filter using `JSON_CONTAINS(labels, ?)`
+- `frontend/src/stores/store.js`: Fixed `updateConversationLabels` to update both activeConversation AND conversations list
+- `frontend/src/components/WhatsAppChat.jsx`: Fixed `getConvLabels` to handle both array and string types
+- `frontend/src/components/WhatsAppBroadcast.jsx`: Added "By Label" button + label dropdown selector
+- `frontend/src/components/Contacts.jsx`: Shows label badges alongside tags in contacts table
+**Tests**: Frontend builds successfully (71 modules, 0 errors).
+
 ## 2026-06-16 — Feature: Load Older Messages (Cursor Pagination)
 **What**: Chat messages now load via cursor-based pagination. A "Load Older Messages" button appears when there are more messages.
 **Why**: Previously only the latest 100 messages loaded. Long conversations were truncated with no way to see history.
