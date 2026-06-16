@@ -31,8 +31,8 @@ This document captures all planned improvements identified during a full platfor
 | Conversation Filters | ✅ Done | Tabs: All / Unread / Paid Orders (existed prior) |
 | Quick Replies | ✅ Done | Type `/` to trigger popup with canned responses. Manage via ⚡ modal. |
 | AI Pause Toggle | ✅ Done | Per-conversation bot pause/resume button in chat header |
-| Load Older Messages | Planned | "Load More" button (currently only last 50 shown) |
-| Conversation Tags/Labels | Planned | Tag conversations as VIP, Follow Up, Complaint, etc. |
+| Load Older Messages | ✅ Done | Cursor-based pagination with "↑ Load Older Messages" button |
+| Conversation Tags/Labels | ✅ Done | 6 color-coded labels (VIP, Follow Up, Complaint, New Order, Pending Payment, Resolved) |
 | Assign to Team Member | Planned | Route conversations to specific employees |
 | Internal Notes | Planned | Team-only notes on conversations |
 
@@ -79,7 +79,7 @@ This document captures all planned improvements identified during a full platfor
 ### Knowledge Base
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Test Bot | Planned | Input field to test what the bot would reply |
+| Test Bot | ✅ Done | "🧪 Test Your Bot" panel — type customer message, see matched answer + confidence scores |
 | FAQ Categories | Planned | Group FAQs by topic |
 | Bulk Import (CSV) | Planned | CSV import for FAQs |
 | Usage Analytics | Planned | Track which FAQs are matched most often |

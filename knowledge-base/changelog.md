@@ -4,6 +4,36 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-16 — Feature: Load Older Messages (Cursor Pagination)
+**What**: Chat messages now load via cursor-based pagination. A "Load Older Messages" button appears when there are more messages.
+**Why**: Previously only the latest 100 messages loaded. Long conversations were truncated with no way to see history.
+**Impact**: Backend messages endpoint changed from page/offset to `before_id` cursor. Store adds `fetchOlderMessages` and `chatHasMore` state.
+**Files Changed**:
+- `backend/src/routes/whatsapp-chat.js`: Rewrote messages endpoint with `before_id` cursor, `has_more` flag, fetches latest N by default.
+- `frontend/src/stores/store.js`: Added `fetchOlderMessages`, `chatHasMore` state.
+- `frontend/src/components/WhatsAppChat.jsx`: Added "↑ Load Older Messages" button at top of messages area.
+**Tests**: Frontend builds successfully.
+
+## 2026-06-16 — Feature: Conversation Labels
+**What**: 6 color-coded labels (VIP, Follow Up, Complaint, New Order, Pending Payment, Resolved) that can be toggled per conversation via a tag icon dropdown.
+**Why**: SMBs need to categorize conversations for prioritization and follow-up tracking.
+**Impact**: New `labels` JSON column on `whatsapp_conversations` table. Labels show as colored dots in sidebar and badges in chat header.
+**Files Changed**:
+- `backend/src/database.js`: Migration to add `labels` JSON column.
+- `backend/src/routes/whatsapp-chat.js`: New `PATCH /conversations/:id/labels` endpoint.
+- `frontend/src/stores/store.js`: Added `updateConversationLabels` method.
+- `frontend/src/components/WhatsAppChat.jsx`: Label picker dropdown, label badges below header, label dots in conversation list.
+**Tests**: Frontend builds successfully.
+
+## 2026-06-16 — Feature: Knowledge Base Test Bot
+**What**: Collapsible "🧪 Test Your Bot" panel on the Knowledge Base page. Type a customer question → see the bot's matched answer with confidence scores for all top matches.
+**Why**: SMBs had no way to verify their FAQ entries were matching correctly without sending real WhatsApp messages.
+**Impact**: New `POST /api/v1/knowledge-base/test` endpoint runs cosine similarity against all active FAQs.
+**Files Changed**:
+- `backend/src/routes/knowledge-base.js`: Added `/test` POST endpoint with local cosineSimilarity function.
+- `frontend/src/components/KnowledgeBase.jsx`: Added test bot state, UI panel with input, results display with match scores.
+**Tests**: Frontend builds successfully.
+
 ## 2026-06-16 — Feature: Orders Overhaul (Phase 1)
 **What**: Complete rewrite of Orders page — backend and frontend — with search, filters, sorting, stats, export, bulk actions, and notes.
 **Why**: The orders page was a raw data dump. SMBs processing 50+ daily orders need search, date filters, bulk status updates, and CSV export for accounting.
