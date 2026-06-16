@@ -281,11 +281,12 @@ export const useStore = create(
             whatsappCampaigns: [],
             whatsappTemplates: [],
 
-            fetchWhatsAppRecipients: async (tag = '', search = '') => {
+            fetchWhatsAppRecipients: async (filters = {}) => {
                 try {
                     let url = `/whatsapp/recipients?`;
-                    if (tag) url += `tag=${encodeURIComponent(tag)}&`;
-                    if (search) url += `search=${encodeURIComponent(search)}`;
+                    if (filters.tag) url += `tag=${encodeURIComponent(filters.tag)}&`;
+                    if (filters.label) url += `label=${encodeURIComponent(filters.label)}&`;
+                    if (filters.search) url += `search=${encodeURIComponent(filters.search)}`;
                     const data = await api(url);
                     set({ whatsappRecipients: data });
                 } catch (error) {

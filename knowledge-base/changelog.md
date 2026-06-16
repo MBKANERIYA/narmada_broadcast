@@ -2,6 +2,16 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-16 — Fix: WhatsApp Broadcast Recipient Filtering
+**What**: Fixed the "By Label" and "By Tag" filter logic in the WhatsApp Broadcast interface to properly preview the suggested contact count.
+**Why**: Selecting "By Label" was not updating the preview count correctly because the frontend was not passing the label parameter to the API, and the backend was missing the label check in the recipient preview route. Similarly, the "By Tag" filter was incorrectly persisting its state when switching recipient types.
+**Files Changed**:
+- `backend/src/routes/whatsapp.js`: Added `label` checking in the `GET /recipients` API.
+- `frontend/src/stores/store.js`: Updated `fetchWhatsAppRecipients` to accept a flexible `filters` object including `label`.
+- `frontend/src/components/WhatsAppBroadcast.jsx`: Refactored the `useEffect` hook to explicitly pass `tag` and `label` only when the respective recipient type is selected.
+
+---
+
 ## 2026-06-16 — Fix: Webhook Signature Backward Compatibility
 **What**: Made the Razorpay Webhook Signature verification optional if the secret is not configured.
 **Why**: During the recent security audit, signatures were made mandatory, which broke the automatic "Payment Received" WhatsApp confirmation for existing users who had not yet configured their Webhook Secret in the Settings dashboard.

@@ -89,11 +89,15 @@ export default function WhatsAppBroadcast() {
     useEffect(() => {
         const timer = setTimeout(() => {
             if (recipientType !== 'direct') {
-                fetchWhatsAppRecipients(filterTag, searchQuery);
+                fetchWhatsAppRecipients({ 
+                    tag: recipientType === 'tagged' ? filterTag : '', 
+                    label: recipientType === 'labeled' ? filterLabel : '', 
+                    search: searchQuery 
+                });
             }
         }, 300);
         return () => clearTimeout(timer);
-    }, [recipientType, filterTag, filterLocation, filterMinTicket, filterMaxTicket, searchQuery]);
+    }, [recipientType, filterTag, filterLabel, filterLocation, filterMinTicket, filterMaxTicket, searchQuery]);
 
     const contacts = whatsappRecipients?.contacts || [];
     // Filter contacts client-side for location/ticket_size (API also filters on backend)

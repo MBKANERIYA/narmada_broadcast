@@ -22,15 +22,20 @@ router.use(checkWhatsAppEnabled);
  */
 router.get('/recipients', async (req, res) => {
     try {
-        const { tag, search, location, min_ticket, max_ticket } = req.query;
+        const { tag, label, search, location, min_ticket, max_ticket } = req.query;
 
-        let sql = `SELECT id, name, phone, email, location, ticket_size, tags, whatsapp_consent 
+        let sql = `SELECT id, name, phone, email, location, ticket_size, tags, labels, whatsapp_consent 
                     FROM contacts WHERE tenant_id = ? AND phone IS NOT NULL AND phone != '' AND whatsapp_consent = TRUE`;
         const params = [req.tenantId];
 
         if (tag) {
             sql += ' AND JSON_CONTAINS(tags, ?)';
             params.push(JSON.stringify(tag));
+        }
+
+        if (label) {
+            sql += ' AND JSON_CONTAINS(labels, ?)';
+            params.push(JSON.stringify(label));
         }
 
         if (location) {
