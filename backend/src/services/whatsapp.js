@@ -546,7 +546,7 @@ export async function syncProductToMeta(tenant, product) {
     };
 
     if (product.images && Array.isArray(product.images) && product.images.length > 1) {
-        updateData.additional_image_links = product.images.slice(1).slice(0, 10);
+        updateData.additional_image_link = product.images.slice(1).slice(0, 10).join(',');
     }
 
     // Create an items batch request for upserting
