@@ -2,6 +2,7 @@ import { useStore } from '../stores/store';
 import Icon from './Icons';
 
 const NAV_ITEMS = [
+    { id: 'overview', label: 'Overview', icon: 'bar-chart' },
     { id: 'contacts', label: 'Contacts', icon: 'contacts' },
     { id: 'broadcast', label: 'Broadcast', icon: 'whatsapp' },
     { id: 'chat', label: 'Chat Inbox', icon: 'chat' },

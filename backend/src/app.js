@@ -25,6 +25,7 @@ import adminRoutes from './routes/admin.js';
 import productsRoutes from './routes/products.js';
 import knowledgeBaseRoutes from './routes/knowledge-base.js';
 import ordersRoutes from './routes/orders.js';
+import analyticsRoutes from './routes/analytics.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -772,6 +773,7 @@ app.use('/api/v1/tenant-settings', auth, tenantSettingsRoutes);
 app.use('/api/v1/products', auth, productsRoutes);
 app.use('/api/v1/knowledge-base', auth, knowledgeBaseRoutes);
 app.use('/api/v1/orders', auth, ordersRoutes);
+app.use('/api/v1/analytics', auth, analyticsRoutes);
 
 // Super admin routes (auth + super admin check)
 app.use('/api/v1/admin', auth, superAdminOnly, adminRoutes);

@@ -13,6 +13,7 @@ import AdminPanel from './components/AdminPanel';
 import Toast from './components/Toast';
 import KnowledgeBase from './components/KnowledgeBase';
 import Orders from './components/Orders';
+import Overview from './components/Overview';
 
 export default function App() {
     const { isAuthenticated, currentView, tenant } = useStore();
@@ -31,6 +32,7 @@ export default function App() {
     if (isAuthenticated) {
         const renderView = () => {
             switch (currentView) {
+                case 'overview': return <Overview />;
                 case 'contacts': return <Contacts />;
                 case 'broadcast': return <WhatsAppBroadcast />;
                 case 'chat': return <WhatsAppChat />;
@@ -39,7 +41,7 @@ export default function App() {
                 case 'knowledge': return <KnowledgeBase />;
                 case 'settings': return <Settings />;
                 case 'admin': return <AdminPanel />;
-                default: return <Contacts />;
+                default: return <Overview />;
             }
         };
 
