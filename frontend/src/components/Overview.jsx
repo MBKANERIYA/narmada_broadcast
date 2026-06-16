@@ -73,7 +73,7 @@ function Sparkline({ data, color = '#25D366', height = 40, width = 120 }) {
 }
 
 // ── Area Chart Component ──
-function AreaChart({ data, dataKey, color = '#25D366', label = '', height = 220 }) {
+function AreaChart({ data, dataKey, color = '#25D366', height = 220 }) {
     const [tooltip, setTooltip] = useState(null);
     const svgRef = useRef(null);
 

@@ -23,8 +23,11 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['preact', 'zustand'],
+        manualChunks(id) {
+          if (id.includes('node_modules/preact') || id.includes('node_modules/zustand')) {
+            return 'vendor';
+          }
+          return undefined;
         },
       },
     },

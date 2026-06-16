@@ -9,9 +9,9 @@ import { resolveTenant, superAdminOnly } from './middleware/tenant.js';
 import { run, get, query } from './database.js';
 import { normalizePhone } from './services/whatsapp.js';
 import { emitToTenant } from './services/websocket.js';
+import { parseJsonObject, verifyRazorpayWebhookSignature } from './utils/security.js';
 
 import Razorpay from 'razorpay';
-import crypto from 'crypto';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -31,7 +31,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 // Middleware
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+    limit: '10mb',
+    verify: (req, res, buf) => {
+        req.rawBody = buf.toString('utf8');
+    },
+}));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 app.use(cors({
@@ -74,7 +79,7 @@ app.get('/api/v1/whatsapp-webhook', (req, res) => {
 // ============================================================
 app.post('/api/v1/razorpay-webhook', async (req, res) => {
     try {
-        const secret = req.headers['x-razorpay-signature'];
+        const signature = req.headers['x-razorpay-signature'];
         const body = req.body;
         
         console.log(`[Razorpay Webhook] Received event: ${body.event}`);
@@ -90,6 +95,15 @@ app.post('/api/v1/razorpay-webhook', async (req, res) => {
                 const order = await get('SELECT * FROM orders WHERE id = ?', [orderId]);
                 
                 if (order && order.payment_status !== 'paid') {
+                    const tenant = await get('SELECT * FROM tenants WHERE id = ?', [order.tenant_id]);
+                    const botSettings = parseJsonObject(tenant?.bot_settings);
+                    const webhookSecret = botSettings.razorpay_webhook_secret;
+
+                    if (!verifyRazorpayWebhookSignature(req.rawBody, signature, webhookSecret)) {
+                        console.warn(`[Razorpay Webhook] Invalid signature for order #${orderId}`);
+                        return res.status(401).json({ error: 'Invalid webhook signature' });
+                    }
+
                     // Update order status atomically to prevent race conditions
                     const updateResult = await run("UPDATE orders SET payment_status = 'paid' WHERE id = ? AND payment_status != 'paid'", [orderId]);
                     if (updateResult.changes === 0) {
@@ -98,15 +112,8 @@ app.post('/api/v1/razorpay-webhook', async (req, res) => {
                     }
                     console.log(`[Razorpay Webhook] Order #${orderId} marked as paid.`);
                     
-                    // Fetch tenant settings to get razorpay secret if validation is needed
-                    const tenant = await get('SELECT * FROM tenants WHERE id = ?', [order.tenant_id]);
-                    
                     // Send WhatsApp confirmation
                     const { sendTextMessage } = await import('./services/whatsapp.js');
-                    let botSettings = {};
-                    try {
-                        botSettings = typeof tenant.bot_settings === 'string' ? JSON.parse(tenant.bot_settings) : (tenant.bot_settings || {});
-                    } catch (e) {}
                     
                     let confirmationMsg = botSettings.payment_success_template || '🎉 *Payment Received!*\n\nThank you for your payment of {currency} {total}. Your order #{order_id} is now confirmed and being processed.';
                     confirmationMsg = confirmationMsg.replace('{currency}', order.currency || 'INR')
@@ -438,7 +445,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
             [tenantId, fromPhone, contactName, contactId, previewText, now, now, windowExpiry]
         );
-        conversation = { id: result.lastInsertRowid };
+        conversation = { id: result.lastInsertRowid, bot_paused: false };
     } else {
         // Update existing conversation
         await run(
@@ -463,6 +470,11 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
 
     // Emit real-time update
     emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+
+    if (conversation.bot_paused) {
+        console.log(`[Bot] Conversation #${conversation.id} is paused. Skipping automated replies.`);
+        return;
+    }
 
     // ============================================================
     // PARSE BOT SETTINGS (shared by order auto-reply + AI chatbot)
@@ -539,8 +551,8 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         try {
             // Find if there's a pending order without shipping address
             const pendingOrder = await get(
-                `SELECT id, total_amount, currency FROM orders WHERE phone = ? AND shipping_address IS NULL AND payment_status = 'pending' ORDER BY id DESC LIMIT 1`,
-                [fromPhone]
+                `SELECT id, total_amount, currency FROM orders WHERE tenant_id = ? AND phone = ? AND shipping_address IS NULL AND payment_status = 'pending' ORDER BY id DESC LIMIT 1`,
+                [tenantId, fromPhone]
             );
 
             if (pendingOrder) {
@@ -548,7 +560,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                 const orderId = pendingOrder.id;
                 
                 // Save address
-                await run(`UPDATE orders SET shipping_address = ? WHERE id = ?`, [body, orderId]);
+                await run(`UPDATE orders SET shipping_address = ? WHERE id = ? AND tenant_id = ?`, [body, orderId, tenantId]);
                 console.log(`[Order] Saved address for order #${orderId}`);
                 
                 // Generate Razorpay Link
@@ -710,57 +722,6 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         }
     }
 }
-
-// ============================================================
-// DEBUG — Diagnostic endpoint (public, no auth)
-// Remove in production when not needed
-// ============================================================
-app.get('/api/v1/debug/chat-status', async (req, res) => {
-    try {
-        // 1. Check tenants and their WhatsApp config
-        const tenants = await query(
-            'SELECT id, name, slug, whatsapp_phone_number_id, whatsapp_configured FROM tenants'
-        );
-
-        // 2. Check recent conversations
-        const conversations = await query(
-            `SELECT id, tenant_id, phone, contact_name, last_message_text, last_message_at, window_expires_at, unread_count 
-             FROM whatsapp_conversations ORDER BY last_message_at DESC LIMIT 10`
-        );
-
-        // 3. Check recent chat messages (both inbound and outbound)
-        const messages = await query(
-            `SELECT id, tenant_id, conversation_id, direction, message_type, SUBSTRING(body, 1, 80) as body_preview, status, created_at 
-             FROM whatsapp_chat_messages ORDER BY created_at DESC LIMIT 20`
-        );
-
-        // 4. Count inbound vs outbound
-        const inboundCount = await get('SELECT COUNT(*) as cnt FROM whatsapp_chat_messages WHERE direction = "inbound"');
-        const outboundCount = await get('SELECT COUNT(*) as cnt FROM whatsapp_chat_messages WHERE direction = "outbound"');
-
-        res.json({
-            info: 'Chat Inbox Diagnostic',
-            webhook_url: `${req.protocol}://${req.get('host')}/api/v1/whatsapp-webhook`,
-            verify_token: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || 'CrmSaasWebhookToken123',
-            tenants: tenants.map(t => ({
-                id: t.id,
-                name: t.name,
-                slug: t.slug,
-                phone_number_id: t.whatsapp_phone_number_id || '❌ NOT SET',
-                configured: t.whatsapp_configured ? '✅' : '❌',
-            })),
-            message_counts: {
-                inbound: inboundCount?.cnt || 0,
-                outbound: outboundCount?.cnt || 0,
-            },
-            recent_conversations: conversations,
-            recent_messages: messages,
-            webhook_event_log: webhookLog,
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
 
 // ============================================================
 // PUBLIC ROUTES — No tenant resolution, no auth required

@@ -11,6 +11,7 @@ Multi-tenant SaaS platform for WhatsApp broadcast messaging and two-way chat inb
 | Database | MySQL 8.0 |
 | Auth | JWT + bcryptjs |
 | WhatsApp API | Meta Cloud API v21.0 |
+| Test Runner | Node built-in `node:test`, ESLint, Vite build, npm audit |
 | Process Manager | PM2 |
 | Reverse Proxy | Nginx |
 | Hosting | Hostinger VPS (Ubuntu) |
@@ -53,8 +54,10 @@ whatsapp-broadcast-saas/
 | 3 | `ARCHITECTURE.md` | Database schema, API endpoints, data flow |
 | 4 | `DEPLOYMENT.md` | VPS setup, Nginx, PM2, MySQL, environment variables |
 | 5 | `DEVELOPMENT_GUIDE.md` | Local dev setup, coding patterns, how to add features |
-| 6 | `CREDENTIALS_AND_INFRA.md` | Server details, domains, database credentials, API keys |
-| 7 | `changelog.md` | Chronological history of all changes |
+| 6 | `security.md` | Webhook signatures, tenant scoping, secret masking, dependency audit rules |
+| 7 | `testing.md` | Current verification commands, test gaps, future test rules |
+| 8 | `CREDENTIALS_AND_INFRA.md` | Server details, domains, database credentials, API keys |
+| 9 | `changelog.md` | Chronological history of all changes |
 
 ## Critical Rules
 
@@ -77,6 +80,13 @@ cd frontend && npm run build && cd ..
 pm2 restart whatsapp-broadcast
 ```
 
+### Verification Before Handoff
+- Backend regressions: run `npm test` from `backend/`.
+- Backend syntax: run `node --check` across `backend/src/**/*.js`.
+- Frontend lint/build: run `npm run lint` and `npm run build` from `frontend/`.
+- Dependency audit: run `npm audit --audit-level=high` from both `frontend/` and `backend/`.
+- Secret scan: keep deployment docs on placeholders; do not commit production-looking DB, JWT, webhook, Meta, or Razorpay secrets.
+
 ## Quick Facts
 
 | Item | Value |
@@ -87,4 +97,5 @@ pm2 restart whatsapp-broadcast
 | Git User | shivanshu407 |
 | DB | MySQL 8.0 (local on VPS) |
 | Backend Port | 3001 |
-| Node | 20+ |
+| Node | 20.19+ for frontend tooling, backend supports 18+ |
+| Test Command | `cd backend && npm test`; plus `cd frontend && npm run lint && npm run build` |

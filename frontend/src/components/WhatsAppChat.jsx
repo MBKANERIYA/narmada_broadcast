@@ -84,7 +84,7 @@ export default function WhatsAppChat() {
     const {
         conversations, totalUnread, activeConversation, chatMessages, chatHasMore,
         fetchConversations, fetchChatMessages, fetchOlderMessages, sendChatReply, sendChatTemplate, sendChatMedia,
-        markConversationRead, archiveConversation, startNewConversation, updateConversationLabels,
+        markConversationRead, archiveConversation, startNewConversation, updateConversationLabels, updateConversationBotPause,
         showToast, fetchWhatsAppTemplates, whatsappTemplates,
         contacts, fetchContacts,
     } = useStore();
@@ -154,7 +154,7 @@ export default function WhatsAppChat() {
             let mediaRecorder;
             try {
                 mediaRecorder = new MediaRecorder(stream, options);
-            } catch (e) {
+            } catch {
                 // Fallback for Safari/iOS
                 mediaRecorder = new MediaRecorder(stream);
             }
@@ -581,24 +581,18 @@ export default function WhatsAppChat() {
         setQuickReplyFilter('');
     };
 
-    // ── Bot Pause ──
-    const BOT_PAUSE_KEY = `bot_paused_${localStorage.getItem('tenant_slug') || 'default'}`;
-    const loadPausedConvs = () => {
-        try { return new Set(JSON.parse(localStorage.getItem(BOT_PAUSE_KEY) || '[]')); } catch { return new Set(); }
-    };
-    const [pausedConversations, setPausedConversations] = useState(loadPausedConvs);
-
-    const toggleBotPause = (convId) => {
-        setPausedConversations(prev => {
-            const next = new Set(prev);
-            if (next.has(convId)) next.delete(convId); else next.add(convId);
-            localStorage.setItem(BOT_PAUSE_KEY, JSON.stringify([...next]));
-            return next;
-        });
+    // Bot Pause
+    const toggleBotPause = async (convId) => {
+        if (!convId) return;
+        try {
+            await updateConversationBotPause(convId, !isBotPaused);
+            showToast(!isBotPaused ? 'Bot paused for this conversation' : 'Bot resumed for this conversation', 'success');
+        } catch (err) {
+            showToast(err.message || 'Failed to update bot pause', 'error');
+        }
     };
 
-    const isBotPaused = selectedConvId ? pausedConversations.has(selectedConvId) : false;
-
+    const isBotPaused = Boolean(activeConversation?.bot_paused);
     return (
         <div className="page-container" style={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
             <div className="page-header" style={{ flexShrink: 0 }}>

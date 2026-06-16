@@ -527,6 +527,35 @@ router.patch('/conversations/:id/archive', async (req, res) => {
 });
 
 /**
+ * PATCH /api/v1/whatsapp/chat/conversations/:id/bot-pause
+ * Pause/resume smart bot replies for a conversation.
+ */
+router.patch('/conversations/:id/bot-pause', async (req, res) => {
+    try {
+        const { paused } = req.body;
+        if (typeof paused !== 'boolean') {
+            return res.status(400).json({ error: 'paused must be a boolean' });
+        }
+
+        const conv = await get(
+            'SELECT id FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
+            [req.params.id, req.tenantId]
+        );
+        if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+
+        await run(
+            'UPDATE whatsapp_conversations SET bot_paused = ? WHERE id = ? AND tenant_id = ?',
+            [paused, req.params.id, req.tenantId]
+        );
+
+        res.json({ success: true, bot_paused: paused });
+    } catch (error) {
+        console.error('[Bot Pause] Update error:', error);
+        res.status(500).json({ error: 'Failed to update bot pause' });
+    }
+});
+
+/**
  * PATCH /api/v1/whatsapp/chat/conversations/:id/labels
  * Update labels — syncs to both conversation AND linked contact
  */

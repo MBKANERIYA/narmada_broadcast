@@ -39,7 +39,24 @@ This document logs the architectural choices made during the development of the 
 **Date**: 2026-06-12
 **Status**: Accepted
 **Context**: The project pivoted away from third-party remote AI APIs (Google Gemini API via OpenAI SDK) to guarantee offline reliability, eliminate external API key configuration requirements, and ensure responses are strictly aligned with the merchant's FAQ/product dataset.
-**Decision**: Use a local feature-extraction pipeline via `@xenova/transformers` with the `all-MiniLM-L6-v2` model running directly on the CPU. Match incoming messages to existing FAQs and products using cosine similarity.
+**Decision**: Use a local feature-extraction pipeline with the `all-MiniLM-L6-v2` model running directly on the CPU. Match incoming messages to existing FAQs and products using cosine similarity.
 **Alternatives Considered**: Google Gemini API (requires external API keys, internet connectivity, and can generate off-topic conversational text).
 **Consequences**: The system is completely self-contained with zero external API key requirements. Responses are strictly bounded by active FAQs and products.
 
+## Decision: Use Node Built-In Regression Tests
+**Date**: 2026-06-16
+**Status**: Accepted
+**Context**: The code review fixes needed regression coverage without adding a heavyweight test framework or requiring live MySQL, Meta, Razorpay, SMTP, or Socket.io services.
+**Decision**: Use Node.js built-in `node:test` with `node:assert/strict` for backend regression tests under `backend/test/*.test.js`, exposed through `npm test` in `backend/package.json`.
+**Alternatives Considered**: Vitest or Jest for all JavaScript tests. Those would add more dependencies and configuration before the project has frontend component-test infrastructure.
+**Consequences**: Regression tests are fast and dependency-light, but current coverage is mostly helper/static contract coverage rather than full HTTP/database integration coverage.
+**Superseded By**:
+
+## Decision: Maintained Local Transformer Runtime
+**Date**: 2026-06-16
+**Status**: Accepted
+**Context**: `@xenova/transformers` is no longer the safest runtime dependency because it pins old ONNX/protobuf packages that trigger critical audit findings.
+**Decision**: Keep the local CPU-bound semantic matching architecture, but import `pipeline` from `@huggingface/transformers` instead of `@xenova/transformers`.
+**Alternatives Considered**: Force npm to override `@xenova/transformers` transitive ONNX packages, run `npm audit fix --force` and accept a downgrade, or remove local embeddings. Overrides risked untested ABI/API combinations, forced downgrade was marked breaking, and removing embeddings would regress the product.
+**Consequences**: Dependency audit is clean while preserving the local FAQ/product embedding flow. First model load behavior should still be verified after deployment because the runtime package changed.
+**Superseded By**:

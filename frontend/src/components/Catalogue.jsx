@@ -9,6 +9,9 @@ export default function Catalogue() {
     const [showModal, setShowModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortOption, setSortOption] = useState('newest');
+    const [categoryFilter, setCategoryFilter] = useState('');
 
     const [formData, setFormData] = useState({
         name: '',
@@ -136,10 +139,6 @@ export default function Catalogue() {
             </div>
         );
     }
-
-    const [searchTerm, setSearchTerm] = useState('');
-    const [sortOption, setSortOption] = useState('newest');
-    const [categoryFilter, setCategoryFilter] = useState('');
 
     // Client-side filtering + sorting
     const categories = [...new Set(products.map(p => p.category).filter(Boolean))];

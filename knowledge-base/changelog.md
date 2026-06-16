@@ -2,6 +2,70 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-16 — Security, Realtime, Bot Pause, Lint, and Dependency Fixes
+**What**: Fixed all documented review findings and added regression coverage for the critical paths.
+**Why**: The review found exposed diagnostics, unsigned payment webhooks, schema drift, realtime refresh mismatch, UI-only bot pause, settings secret rehydration, red lint, secret-like docs, and dependency audit vulnerabilities.
+**Impact**: Razorpay payment webhooks now require tenant-specific valid signatures; public chat diagnostics are removed; bot pause is persisted and enforced server-side; label broadcasts can insert campaign rows; settings reads no longer return Razorpay secrets; frontend lint/build and dependency audits are green. Vite was upgraded to 8 and local embeddings now import from `@huggingface/transformers`.
+**Files Changed**:
+- `backend/package.json`
+- `backend/package-lock.json`
+- `backend/src/app.js`
+- `backend/src/database.js`
+- `backend/src/routes/tenant-settings.js`
+- `backend/src/routes/whatsapp-chat.js`
+- `backend/src/services/smartResponder.js`
+- `backend/src/utils/security.js`
+- `backend/src/utils/settings-security.js`
+- `backend/test/regression.test.js`
+- `frontend/package.json`
+- `frontend/package-lock.json`
+- `frontend/eslint.config.js`
+- `frontend/vite.config.js`
+- `frontend/src/components/Catalogue.jsx`
+- `frontend/src/components/Contacts.jsx`
+- `frontend/src/components/KnowledgeBase.jsx`
+- `frontend/src/components/Orders.jsx`
+- `frontend/src/components/Overview.jsx`
+- `frontend/src/components/WhatsAppBroadcast.jsx`
+- `frontend/src/components/WhatsAppChat.jsx`
+- `frontend/src/stores/store.js`
+- `frontend/src/utils/helpers.js`
+- `knowledge-base/DEPLOYMENT.md`
+- `knowledge-base/README.md`
+- `knowledge-base/active-context.md`
+- `knowledge-base/changelog.md`
+- `knowledge-base/decisions.md`
+- `knowledge-base/known-issues.md`
+- `knowledge-base/security.md`
+- `knowledge-base/testing.md`
+**Tests**: PASS - `npm test` from `backend/` (8 tests); PASS - backend `node --check` across `backend/src/**/*.js`; PASS - `npm run lint` from `frontend/`; PASS - `npm run build` from `frontend/`; PASS - `npm audit --audit-level=high` from both `frontend/` and `backend/`; PASS - targeted `rg` secret-pattern scan returned no matches.
+**Commit**: Not available
+
+- Removed the public `/api/v1/debug/chat-status` endpoint.
+- Added Razorpay webhook HMAC verification against tenant settings before paid-order updates, and tenant-scoped pending-order lookup/update.
+- Added persisted `bot_paused` conversation state, a backend pause endpoint, frontend store support, and webhook auto-reply enforcement.
+- Added helper utilities for raw-body signature verification, JSON parsing, client-safe settings masking, and blank-secret preservation.
+- Fixed Vite 8 `manualChunks` compatibility by converting the object map to a function.
+- Added `knowledge-base/security.md` to document webhook, tenant, secret, bot-pause, dependency-audit, and secret-scan conventions.
+
+---
+
+## 2026-06-16 - Detailed Code Review Findings Documentation
+**What**: Documented review findings in the knowledge base and added a testing guide for the current verification commands and test gaps.
+**Why**: The review found open security, data integrity, realtime chat, bot pause, secret masking, and lint issues that need to be visible to future sessions.
+**Impact**: Documentation only. Product behavior is unchanged.
+**Files Changed**:
+- `knowledge-base/known-issues.md`
+- `knowledge-base/active-context.md`
+- `knowledge-base/testing.md`
+- `knowledge-base/README.md`
+- `knowledge-base/changelog.md`
+**Tests**: Before documentation updates, `npm run build` in `frontend/` passed; backend `node --check` across `backend/src/**/*.js` passed; `npm run lint` in `frontend/` failed with 11 errors and 37 warnings.
+**Commit**: Not available
+
+- Added open issues for the public debug endpoint, unsigned Razorpay webhook, deployment-doc secrets, label broadcast enum mismatch, realtime event key mismatch, UI-only bot pause, settings secret rehydration, and red frontend lint gate.
+- Added `testing.md` because no automated test framework exists yet, but build/lint/syntax verification commands are now part of the project handoff.
+
 ---
 
 ## 2026-06-16 — Fix: Labels Persistence, Auto-Create Contacts, Broadcast Label Filtering

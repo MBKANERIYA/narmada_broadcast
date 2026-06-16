@@ -148,7 +148,7 @@ const migrate = async () => {
       tenant_id INT NOT NULL,
       name VARCHAR(255) NOT NULL,
       campaign_name VARCHAR(255) NOT NULL,
-      recipient_type ENUM('all','tagged','custom') NOT NULL DEFAULT 'all',
+      recipient_type ENUM('all','tagged','custom','labeled') NOT NULL DEFAULT 'all',
       recipient_filter JSON,
       total_recipients INT NOT NULL DEFAULT 0,
       successful_count INT DEFAULT 0,
@@ -218,6 +218,7 @@ const migrate = async () => {
       window_expires_at DATETIME,
       unread_count INT DEFAULT 0,
       is_archived BOOLEAN DEFAULT FALSE,
+      bot_paused BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
@@ -323,7 +324,9 @@ const migrate = async () => {
     `ALTER TABLE tenants ADD COLUMN bot_settings JSON AFTER whatsapp_catalog_id`,
     `ALTER TABLE orders ADD COLUMN shipping_address TEXT AFTER fulfillment_status`,
     `ALTER TABLE whatsapp_conversations ADD COLUMN labels JSON AFTER is_archived`,
-    `ALTER TABLE contacts ADD COLUMN labels JSON AFTER tags`
+    `ALTER TABLE whatsapp_conversations ADD COLUMN bot_paused BOOLEAN DEFAULT FALSE AFTER is_archived`,
+    `ALTER TABLE contacts ADD COLUMN labels JSON AFTER tags`,
+    `ALTER TABLE whatsapp_campaigns MODIFY COLUMN recipient_type ENUM('all','tagged','custom','labeled') NOT NULL DEFAULT 'all'`
   ];
   for (const sql of alterMigrations) {
     try {

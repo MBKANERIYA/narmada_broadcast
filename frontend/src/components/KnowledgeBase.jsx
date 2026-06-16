@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
-import { useStore } from '../stores/store';
 import Icon from './Icons';
 
 export default function KnowledgeBase() {
-    const { tenant } = useStore();
     const [faqs, setFaqs] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -37,7 +35,7 @@ export default function KnowledgeBase() {
             });
             const data = await res.json();
             setTestResult(data);
-        } catch (err) {
+        } catch {
             setTestResult({ error: 'Failed to test. Is the server running?' });
         } finally {
             setIsTesting(false);
@@ -99,7 +97,7 @@ export default function KnowledgeBase() {
             } else {
                 setError(data.error || `Failed to ${editingId ? 'update' : 'add'} FAQ`);
             }
-        } catch (err) {
+        } catch {
             setError(`Network error ${editingId ? 'updating' : 'adding'} FAQ`);
         } finally {
             setIsSaving(false);

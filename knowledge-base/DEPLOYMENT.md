@@ -50,7 +50,7 @@ mysql -u root -p
 Then in MySQL prompt:
 ```sql
 CREATE DATABASE whatsapp_broadcast CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'wauser'@'localhost' IDENTIFIED BY 'WaBroadcast_S3cur3_2026!';
+CREATE USER 'wauser'@'localhost' IDENTIFIED BY '<strong-random-db-password>';
 GRANT ALL PRIVILEGES ON whatsapp_broadcast.* TO 'wauser'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
@@ -99,11 +99,11 @@ NODE_ENV=production
 
 DB_HOST=localhost
 DB_USER=wauser
-DB_PASSWORD=WaBroadcast_S3cur3_2026!
+DB_PASSWORD=<strong-random-db-password>
 DB_NAME=whatsapp_broadcast
 
-JWT_SECRET=WaBroadcast_JWT_x9k2mP7qR4wL8nB3vF5jH1yT6uA0cE_2026
-WEBHOOK_VERIFY_TOKEN=WaBroadcast_WH_Verify_2026
+JWT_SECRET=<strong-random-jwt-secret>
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=<strong-random-whatsapp-webhook-token>
 
 SMTP_HOST=smtp.hostinger.com
 SMTP_PORT=465
@@ -203,7 +203,7 @@ You should see:
 In Meta Developer Console:
 1. Go to your WhatsApp app → Configuration → Webhook
 2. Set callback URL: `https://broadcast.innodify.in/webhook/whatsapp`
-3. Set verify token: `WaBroadcast_WH_Verify_2026`
+3. Set verify token to the same value as `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
 4. Subscribe to: `messages`, `message_deliveries`, `message_reads`
 
 ## Updating the App
@@ -239,7 +239,7 @@ nginx -t
 systemctl restart nginx
 
 # Check MySQL connection
-mysql -u wauser -p'WaBroadcast_S3cur3_2026!' whatsapp_broadcast -e "SHOW TABLES;"
+mysql -u wauser -p'<strong-random-db-password>' whatsapp_broadcast -e "SHOW TABLES;"
 
 # Check disk space
 df -h

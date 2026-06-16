@@ -65,7 +65,7 @@ export const formatBudget = (amount) => {
             return `₹${(num / 100000).toFixed(0)}L`;
         }
         return `₹${num.toLocaleString('en-IN')}`;
-    } catch (e) {
+    } catch {
         return '-';
     }
 };

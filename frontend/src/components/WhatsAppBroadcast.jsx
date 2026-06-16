@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useStore } from '../stores/store';
-import Icon, { EmptyStateIcon } from './Icons';
+import Icon from './Icons';
 
 export default function WhatsAppBroadcast() {
     const {
@@ -96,8 +96,6 @@ export default function WhatsAppBroadcast() {
     }, [recipientType, filterTag, filterLocation, filterMinTicket, filterMaxTicket, searchQuery]);
 
     const contacts = whatsappRecipients?.contacts || [];
-    const counts = whatsappRecipients?.counts || {};
-
     // Filter contacts client-side for location/ticket_size (API also filters on backend)
     const filteredContacts = contacts.filter(c => {
         if (filterLocation && !(c.location || '').toLowerCase().includes(filterLocation.toLowerCase())) return false;

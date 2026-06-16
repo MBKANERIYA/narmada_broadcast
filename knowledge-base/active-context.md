@@ -1,7 +1,7 @@
 ## Current Status
 **Last Updated**: 2026-06-16
-**Last Agent Session**: Shipped load older messages, conversation labels, and test bot features. Also fixed orders/contacts/catalogue/chat overhauls from earlier today.
-**Test Suite Status**: Frontend builds successfully (71 modules, 0 errors). No automated test framework yet.
+**Last Agent Session**: Fixed the documented code-review issues: removed the public debug endpoint, enforced Razorpay webhook signatures, added persisted bot pause, fixed labeled campaign schema support, accepted both realtime event key shapes, masked Razorpay settings secrets, made frontend lint deterministic, replaced deployment-doc secrets with placeholders, and cleared high/critical dependency audit findings.
+**Test Suite Status**: PASS - `npm test` from `backend/` (8 tests); PASS - backend `node --check` across `backend/src/**/*.js`; PASS - `npm run lint` from `frontend/`; PASS - `npm run build` from `frontend/` with only the existing bundle-size warning; PASS - `npm audit --audit-level=high` from both `frontend/` and `backend/`; PASS - targeted secret-pattern scan returned no matches.
 
 ## Completed This Session
 - [x] **Orders Overhaul** — search, filters, sorting, pagination, stats cards, CSV export, bulk actions, notes
@@ -23,15 +23,15 @@
 - [ ] Phase 5: LLM integration, secret encryption, human-agent handoff
 
 ## Blocked On
-- None
+- None.
 
 ## Decisions Needed
 - None
 
 ## Next Steps (for the next agent session)
-1. Campaign scheduling + campaign analytics (Phase 4 broadcast)
-2. FAQ categories for knowledge base
-3. Backend-side catalogue pagination
+1. Deploy and smoke-test Razorpay webhooks with a real tenant webhook secret and signed event payload.
+2. Smoke-test Smart FAQ/product replies after deployment because the local embedding runtime moved from `@xenova/transformers` to `@huggingface/transformers`.
+3. Continue roadmap work only after the verification gates in `testing.md` stay green.
 
 ## Do Not Touch
 - N/A

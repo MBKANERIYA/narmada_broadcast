@@ -50,7 +50,6 @@ export default function Contacts() {
     const [showImport, setShowImport] = useState(false);
     const [importFile, setImportFile] = useState(null);
     const [importPreview, setImportPreview] = useState(null);
-    const [importText, setImportText] = useState('');
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
 
@@ -145,7 +144,7 @@ export default function Contacts() {
             a.click();
             window.URL.revokeObjectURL(downloadUrl);
             showToast('Contacts exported!', 'success');
-        } catch (err) {
+        } catch {
             showToast('Export failed', 'error');
         } finally {
             setExporting(false);
@@ -153,7 +152,7 @@ export default function Contacts() {
     };
 
     // ── Quick Chat ──
-    const openChat = (phone) => {
+    const openChat = () => {
         setView('chat');
         // The chat component will handle showing conversations
     };
@@ -230,7 +229,6 @@ export default function Contacts() {
         const reader = new FileReader();
         reader.onload = (ev) => {
             const text = ev.target.result;
-            setImportText(text);
             setImportPreview(parseCSV(text));
         };
         reader.readAsText(file);
@@ -242,7 +240,7 @@ export default function Contacts() {
         try {
             const result = await importContacts(importPreview);
             showToast(`Imported ${result.imported} contacts (${result.skipped} skipped)`);
-            setShowImport(false); setImportFile(null); setImportPreview(null); setImportText('');
+            setShowImport(false); setImportFile(null); setImportPreview(null);
             doFetch();
             // Refresh filter dropdowns
             apiFetch('/contacts/tags/list').then(setAllTags).catch(() => {});
@@ -595,7 +593,7 @@ export default function Contacts() {
                                             {importPreview ? `${importPreview.length} valid contacts found` : 'Parsing...'}
                                         </div>
                                         <button type="button" className="btn btn-secondary" style={{ marginTop: '8px', fontSize: '12px', padding: '4px 12px' }}
-                                            onClick={(e) => { e.stopPropagation(); setImportFile(null); setImportPreview(null); setImportText(''); }}>
+                                            onClick={(e) => { e.stopPropagation(); setImportFile(null); setImportPreview(null); }}>
                                             Change file
                                         </button>
                                     </>

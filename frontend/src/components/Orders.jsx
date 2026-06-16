@@ -173,7 +173,7 @@ export default function Orders() {
         try {
             const data = await api('/orders/stats');
             setStats(data);
-        } catch (e) { /* silent */ }
+        } catch { /* silent */ }
     };
 
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
@@ -253,7 +253,7 @@ export default function Orders() {
             a.click();
             window.URL.revokeObjectURL(downloadUrl);
             showToast('Orders exported!', 'success');
-        } catch (error) {
+        } catch {
             showToast('Export failed', 'error');
         } finally {
             setExporting(false);

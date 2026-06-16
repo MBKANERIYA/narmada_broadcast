@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { run, get, query } from '../database.js';
 import { invalidateTenantCache } from '../database.js';
+import { mergeSecretSettings, sanitizeBotSettingsForClient } from '../utils/settings-security.js';
 
 const router = Router();
 
@@ -43,6 +44,7 @@ router.get('/', async (req, res) => {
         res.json({
             ...tenant,
             whatsapp_access_token: tenant.whatsapp_configured ? '••••••••' : null,
+            bot_settings: sanitizeBotSettingsForClient(tenant.bot_settings),
             current_users: userCount?.count || 0,
         });
     } catch (error) {
@@ -201,7 +203,12 @@ router.get('/subscription', async (req, res) => {
 router.put('/chatbot', async (req, res) => {
     try {
         const { bot_settings } = req.body;
-        const settingsStr = typeof bot_settings === 'string' ? bot_settings : JSON.stringify(bot_settings);
+        const tenant = await get(
+            'SELECT bot_settings FROM tenants WHERE id = ?',
+            [req.tenantId]
+        );
+        const mergedSettings = mergeSecretSettings(tenant?.bot_settings, bot_settings);
+        const settingsStr = JSON.stringify(mergedSettings);
 
         await run(
             'UPDATE tenants SET bot_settings = ? WHERE id = ?',

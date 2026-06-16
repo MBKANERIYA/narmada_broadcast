@@ -43,7 +43,7 @@ const api = async (path, options = {}) => {
         if (!res.ok) {
             const errorText = await res.text();
             let error;
-            try { error = JSON.parse(errorText); } catch (e) { error = { error: errorText || `Request failed (${res.status})` }; }
+            try { error = JSON.parse(errorText); } catch { error = { error: errorText || `Request failed (${res.status})` }; }
 
             if (error.subscription_expired || error.trial_expired) {
                 const store = useStore.getState();
@@ -126,12 +126,13 @@ export const useStore = create(
 
                 socket.on('chat_updated', (data) => {
                     const state = get();
+                    const conversationId = data.conversationId ?? data.conversation_id;
                     // Refresh conversations list
                     state.fetchConversations();
                     
                     // If viewing the specific conversation, refresh messages
-                    if (state.activeConversation && state.activeConversation.id === data.conversation_id) {
-                        state.fetchChatMessages(data.conversation_id);
+                    if (state.activeConversation && state.activeConversation.id === conversationId) {
+                        state.fetchChatMessages(conversationId);
                     }
                 });
 
@@ -501,6 +502,23 @@ export const useStore = create(
             archiveConversation: async (conversationId) => {
                 await api(`/whatsapp/chat/conversations/${conversationId}/archive`, { method: 'PATCH' });
                 get().fetchConversations();
+            },
+
+            updateConversationBotPause: async (conversationId, paused) => {
+                const result = await api(`/whatsapp/chat/conversations/${conversationId}/bot-pause`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ paused }),
+                });
+                const botPaused = result.bot_paused;
+                set(state => ({
+                    activeConversation: state.activeConversation?.id === conversationId
+                        ? { ...state.activeConversation, bot_paused: botPaused }
+                        : state.activeConversation,
+                    conversations: state.conversations.map(c =>
+                        c.id === conversationId ? { ...c, bot_paused: botPaused } : c
+                    ),
+                }));
+                return result;
             },
 
             startNewConversation: async (phone, contactName, templateName, templateParams = [], languageCode = 'en_US') => {
