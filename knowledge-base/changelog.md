@@ -4,6 +4,24 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ---
 
+## 2026-06-16 — Feature: Orders Overhaul (Phase 1)
+**What**: Complete rewrite of Orders page — backend and frontend — with search, filters, sorting, stats, export, bulk actions, and notes.
+**Why**: The orders page was a raw data dump. SMBs processing 50+ daily orders need search, date filters, bulk status updates, and CSV export for accounting.
+**Impact**: Orders page is now a fully functional order management system.
+**Files Changed**:
+- `backend/src/routes/orders.js`: Added search, sort_by/sort_order, date_from/date_to params, `/stats` endpoint, `/export` CSV endpoint, `/bulk/status` bulk update, notes in PATCH, input validation.
+- `frontend/src/components/Orders.jsx`: Complete rewrite with stat cards, debounced search, payment/fulfillment/date filters, date presets, sortable column headers, checkbox selection, bulk actions bar, CSV export button, editable order notes, improved pagination with page size selector.
+**Tests**: Frontend builds successfully (71 modules, 0 errors).
+
+## 2026-06-16 — Feature: Analytics Dashboard
+**What**: Added Overview dashboard as the default landing page with custom SVG charts (zero new dependencies).
+**Why**: SMBs need an at-a-glance view of revenue, orders, contacts, campaigns, and conversations.
+**Files Changed**:
+- `backend/src/routes/analytics.js` (NEW): Dashboard metrics API.
+- `frontend/src/components/Overview.jsx` (NEW): Custom AreaChart, BarChart, DonutChart components.
+- `frontend/src/App.jsx`, `frontend/src/components/Sidebar.jsx`: Wired in as default view.
+**Tests**: Frontend builds successfully.
+
 ## 2026-06-15 — Feature: Order Management System (OMS) Frontend Dashboard
 **What**: Created a fully featured Orders Dashboard and auto-payment settings configuration screen on the frontend.
 **Why**: Allows merchants to view orders placed via WhatsApp in a tabular format, filter by payment and fulfillment statuses, view granular line items and customer info, update statuses, and configure auto-payment links for automatic replies.

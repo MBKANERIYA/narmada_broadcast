@@ -7,22 +7,20 @@ This document captures all planned improvements identified during a full platfor
 
 ---
 
-## Phase 1: Orders Overhaul (HIGHEST PRIORITY)
-
-The Orders page is currently a raw data dump with no search, filtering, sorting, or pagination.
+## Phase 1: Orders Overhaul ✅ COMPLETED (2026-06-16)
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Search | Planned | Search by order #, phone, address |
-| Filter: Payment Status | Planned | All / Paid / Pending / Failed |
-| Filter: Fulfillment Status | Planned | All / Pending / Processing / Shipped / Delivered / Cancelled |
-| Filter: Date Range | Planned | Today / This Week / This Month / Custom |
-| Sort | Planned | By Date, Amount, Status (asc/desc) |
-| Pagination | Planned | Page-based with page size selector (25/50/100) |
-| Revenue Summary Cards | Planned | Total Revenue, Pending Payments, Orders Today, Avg Order Value |
-| Export CSV | Planned | Download filtered orders as CSV for accounting/GST |
-| Bulk Actions | Planned | Select multiple → Mark Shipped / Mark Delivered |
-| Order Notes | Planned | Internal notes per order (DB column already exists) |
+| Search | ✅ Done | Search by order #, phone, name, address |
+| Filter: Payment Status | ✅ Done | All / Paid / Pending / Failed |
+| Filter: Fulfillment Status | ✅ Done | All / Pending / Processing / Shipped / Delivered / Cancelled |
+| Filter: Date Range | ✅ Done | Today / 7 Days / 30 Days / Custom date pickers |
+| Sort | ✅ Done | By Date, Amount, Payment Status, Fulfillment Status (asc/desc) |
+| Pagination | ✅ Done | Page-based with 25/50/100 selector + first/prev/next/last |
+| Revenue Summary Cards | ✅ Done | Total Revenue, Total Orders, Orders Today, Pending Payments, Avg Order Value |
+| Export CSV | ✅ Done | Exports currently filtered orders as CSV |
+| Bulk Actions | ✅ Done | Checkbox select + bulk payment/fulfillment status update |
+| Order Notes | ✅ Done | Editable internal notes in order detail modal |
 
 ---
 
