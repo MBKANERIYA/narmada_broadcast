@@ -44,7 +44,12 @@ router.get('/', async (req, res) => {
         const limitNum = parseInt(limit) || 50;
         const offsetNum = parseInt(offset) || 0;
 
-        sql += ` ORDER BY created_at DESC LIMIT ${limitNum} OFFSET ${offsetNum}`;
+        // Sorting
+        const allowedSorts = ['created_at', 'name', 'ticket_size', 'location'];
+        const sortBy = allowedSorts.includes(req.query.sort_by) ? req.query.sort_by : 'created_at';
+        const sortOrder = req.query.sort_order === 'asc' ? 'ASC' : 'DESC';
+
+        sql += ` ORDER BY ${sortBy} ${sortOrder} LIMIT ${limitNum} OFFSET ${offsetNum}`;
 
         const contacts = await query(sql, params);
 
@@ -72,6 +77,86 @@ router.get('/', async (req, res) => {
     } catch (error) {
         console.error('Fetch contacts error:', error);
         res.status(500).json({ error: 'Failed to fetch contacts' });
+    }
+});
+
+/**
+ * GET /api/v1/contacts/tags/list
+ */
+router.get('/tags/list', async (req, res) => {
+    try {
+        const rows = await query(
+            `SELECT DISTINCT JSON_UNQUOTE(jt.tag) as tag 
+             FROM contacts, JSON_TABLE(COALESCE(tags, '[]'), '$[*]' COLUMNS(tag VARCHAR(100) PATH '$')) jt
+             WHERE tenant_id = ?`,
+            [req.tenantId]
+        );
+        res.json(rows.map(r => r.tag).filter(Boolean));
+    } catch (error) {
+        res.json([]);
+    }
+});
+
+/**
+ * GET /api/v1/contacts/locations/list
+ */
+router.get('/locations/list', async (req, res) => {
+    try {
+        const rows = await query(
+            'SELECT DISTINCT location FROM contacts WHERE tenant_id = ? AND location IS NOT NULL AND location != "" ORDER BY location',
+            [req.tenantId]
+        );
+        res.json(rows.map(r => r.location));
+    } catch (error) {
+        res.json([]);
+    }
+});
+
+/**
+ * GET /api/v1/contacts/export
+ * Export filtered contacts as CSV
+ */
+router.get('/export', async (req, res) => {
+    try {
+        const { search, tag, location } = req.query;
+        let sql = 'SELECT * FROM contacts WHERE tenant_id = ?';
+        const params = [req.tenantId];
+
+        if (search) {
+            sql += ' AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR location LIKE ?)';
+            const s = `%${search}%`;
+            params.push(s, s, s, s);
+        }
+        if (tag) { sql += ' AND JSON_CONTAINS(tags, ?)'; params.push(JSON.stringify(tag)); }
+        if (location) { sql += ' AND location LIKE ?'; params.push(`%${location}%`); }
+
+        sql += ' ORDER BY created_at DESC LIMIT 10000';
+        const contacts = await query(sql, params);
+
+        const headers = ['Name', 'Phone', 'Email', 'Location', 'Ticket Size', 'Tags', 'Source', 'Notes', 'Date Added'];
+        const csvRows = [headers.join(',')];
+        for (const c of (contacts || [])) {
+            let tags = '';
+            try { tags = JSON.parse(c.tags || '[]').join(';'); } catch { }
+            csvRows.push([
+                `"${(c.name || '').replace(/"/g, '""')}"`,
+                c.phone || '',
+                c.email || '',
+                `"${(c.location || '').replace(/"/g, '""')}"`,
+                c.ticket_size || '',
+                `"${tags}"`,
+                c.source || '',
+                `"${(c.notes || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+                c.created_at || '',
+            ].join(','));
+        }
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=contacts-${new Date().toISOString().split('T')[0]}.csv`);
+        res.send(csvRows.join('\n'));
+    } catch (error) {
+        console.error('Export contacts error:', error);
+        res.status(500).json({ error: 'Failed to export contacts' });
     }
 });
 
@@ -178,38 +263,6 @@ router.post('/import', async (req, res) => {
     } catch (error) {
         console.error('Import contacts error:', error);
         res.status(500).json({ error: 'Failed to import contacts' });
-    }
-});
-
-/**
- * GET /api/v1/contacts/tags/list
- */
-router.get('/tags/list', async (req, res) => {
-    try {
-        const rows = await query(
-            `SELECT DISTINCT JSON_UNQUOTE(jt.tag) as tag 
-             FROM contacts, JSON_TABLE(COALESCE(tags, '[]'), '$[*]' COLUMNS(tag VARCHAR(100) PATH '$')) jt
-             WHERE tenant_id = ?`,
-            [req.tenantId]
-        );
-        res.json(rows.map(r => r.tag).filter(Boolean));
-    } catch (error) {
-        res.json([]);
-    }
-});
-
-/**
- * GET /api/v1/contacts/locations/list
- */
-router.get('/locations/list', async (req, res) => {
-    try {
-        const rows = await query(
-            'SELECT DISTINCT location FROM contacts WHERE tenant_id = ? AND location IS NOT NULL AND location != "" ORDER BY location',
-            [req.tenantId]
-        );
-        res.json(rows.map(r => r.location));
-    } catch (error) {
-        res.json([]);
     }
 });
 

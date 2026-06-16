@@ -238,11 +238,12 @@ export const useStore = create(
             contacts: [],
             contactsTotal: 0,
 
-            fetchContacts: async (search = '', tag = '', page = 1) => {
+            fetchContacts: async (search = '', tag = '', page = 1, limit = 50, sort_by = 'created_at', sort_order = 'desc', location = '') => {
                 try {
-                    let url = `/contacts?page=${page}&limit=50`;
+                    let url = `/contacts?page=${page}&limit=${limit}&sort_by=${sort_by}&sort_order=${sort_order}`;
                     if (search) url += `&search=${encodeURIComponent(search)}`;
                     if (tag) url += `&tag=${encodeURIComponent(tag)}`;
+                    if (location) url += `&location=${encodeURIComponent(location)}`;
 
                     const data = await api(url);
                     set({ contacts: data.contacts || [], contactsTotal: data.total || 0 });

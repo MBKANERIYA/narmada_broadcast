@@ -137,16 +137,41 @@ export default function Catalogue() {
         );
     }
 
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortOption, setSortOption] = useState('newest');
+    const [categoryFilter, setCategoryFilter] = useState('');
+
+    // Client-side filtering + sorting
+    const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
+
+    const filteredProducts = products
+        .filter(p => {
+            const matchesSearch = !searchTerm || p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku?.toLowerCase().includes(searchTerm.toLowerCase()) || p.description?.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesCategory = !categoryFilter || p.category === categoryFilter;
+            return matchesSearch && matchesCategory;
+        })
+        .sort((a, b) => {
+            switch (sortOption) {
+                case 'name-asc': return (a.name || '').localeCompare(b.name || '');
+                case 'name-desc': return (b.name || '').localeCompare(a.name || '');
+                case 'price-low': return (parseFloat(a.selling_price) || 0) - (parseFloat(b.selling_price) || 0);
+                case 'price-high': return (parseFloat(b.selling_price) || 0) - (parseFloat(a.selling_price) || 0);
+                case 'newest': default: return (b.id || 0) - (a.id || 0);
+            }
+        });
+
     return (
         <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <div>
                     <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                         <Icon name="tag" size={22} style={{ marginRight: '8px' }} />
                         Products Catalogue
                     </h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '4px 0 0' }}>
-                        Manage your products for WhatsApp sharing
+                        {products.length} product{products.length !== 1 ? 's' : ''}
+                        {filteredProducts.length !== products.length ? ` · ${filteredProducts.length} shown` : ''}
                     </p>
                 </div>
                 <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
@@ -154,7 +179,57 @@ export default function Catalogue() {
                 </button>
             </div>
 
-            {products.length === 0 ? (
+            {/* Search + Sort + Filter Bar */}
+            {products.length > 0 && (
+                <div className="card" style={{ marginBottom: '16px', padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
+                        {/* Search */}
+                        <div className="form-group" style={{ margin: 0, flex: '1 1 220px', minWidth: '180px' }}>
+                            <label className="form-label" style={{ fontSize: '11px', fontWeight: 600 }}>Search</label>
+                            <div style={{ position: 'relative' }}>
+                                <Icon name="search" size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                                <input className="form-input" type="text" placeholder="Product name, SKU..." value={searchTerm} onInput={e => setSearchTerm(e.target.value)} style={{ paddingLeft: '32px' }} />
+                            </div>
+                        </div>
+
+                        {/* Category */}
+                        {categories.length > 0 && (
+                            <div className="form-group" style={{ margin: 0, minWidth: '140px' }}>
+                                <label className="form-label" style={{ fontSize: '11px', fontWeight: 600 }}>Category</label>
+                                <select className="form-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+                                    <option value="">All</option>
+                                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* Sort */}
+                        <div className="form-group" style={{ margin: 0, minWidth: '150px' }}>
+                            <label className="form-label" style={{ fontSize: '11px', fontWeight: 600 }}>Sort By</label>
+                            <select className="form-select" value={sortOption} onChange={e => setSortOption(e.target.value)}>
+                                <option value="newest">Newest First</option>
+                                <option value="name-asc">Name A → Z</option>
+                                <option value="name-desc">Name Z → A</option>
+                                <option value="price-low">Price: Low → High</option>
+                                <option value="price-high">Price: High → Low</option>
+                            </select>
+                        </div>
+
+                        {(searchTerm || categoryFilter) && (
+                            <button className="btn btn-secondary" onClick={() => { setSearchTerm(''); setCategoryFilter(''); }} style={{ padding: '6px 12px', fontSize: '12px', alignSelf: 'flex-end' }}>
+                                <Icon name="x" size={12} /> Reset
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {filteredProducts.length === 0 && products.length > 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+                    <Icon name="search" size={36} style={{ opacity: 0.4 }} />
+                    <p style={{ marginTop: '8px' }}>No products match your search</p>
+                </div>
+            ) : filteredProducts.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
                     <Icon name="tag" size={48} strokeWidth={1.5} style={{ opacity: 0.4 }} />
                     <p style={{ marginTop: '12px' }}>No products found in your catalogue.</p>
@@ -164,7 +239,7 @@ export default function Catalogue() {
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-                    {products.map(product => (
+                    {filteredProducts.map(product => (
                         <div key={product.id} className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                             <div style={{
                                 height: '200px',
