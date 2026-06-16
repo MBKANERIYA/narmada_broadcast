@@ -2,6 +2,16 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-16 — Feature: Multiple Image Uploads for Products
+**What**: Upgraded the product catalogue to support multiple image uploads instead of just a single image URL.
+**Why**: Allows adding additional images for a richer product gallery, which is useful for future catalogue displays and UI improvements. 
+**Files Changed**:
+- `backend/src/database.js`: Added `images` JSON column to the `products` table.
+- `backend/src/routes/products.js`: Added `POST /upload-images` endpoint and updated product creation/editing to accept an array of images.
+- `frontend/src/components/Catalogue.jsx`: Refactored the UI to accept multiple files, render an image grid thumbnail preview, and allow removing uploaded images.
+
+---
+
 ## 2026-06-16 — Security, Realtime, Bot Pause, Lint, and Dependency Fixes
 **What**: Fixed all documented review findings and added regression coverage for the critical paths.
 **Why**: The review found exposed diagnostics, unsigned payment webhooks, schema drift, realtime refresh mismatch, UI-only bot pause, settings secret rehydration, red lint, secret-like docs, and dependency audit vulnerabilities.

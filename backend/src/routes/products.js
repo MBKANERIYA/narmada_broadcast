@@ -21,22 +21,29 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
-// Upload image for a product
-router.post('/upload-image', upload.single('image'), (req, res) => {
+// Upload images for a product
+router.post('/upload-images', upload.array('images', 10), (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No image uploaded' });
+        if (!req.files || req.files.length === 0) {
+            // Fallback for single image upload backwards compatibility
+            if (req.file) {
+                const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+                const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
+                const imageUrl = `${protocol}://${host}/api/v1/uploads/${req.file.filename}`;
+                return res.json({ image_url: imageUrl, image_urls: [imageUrl] });
+            }
+            return res.status(400).json({ error: 'No images uploaded' });
         }
         
-        // Return full public URL for the image
+        // Return full public URLs for the images
         const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
         const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
-        const imageUrl = `${protocol}://${host}/api/v1/uploads/${req.file.filename}`;
+        const imageUrls = req.files.map(file => `${protocol}://${host}/api/v1/uploads/${file.filename}`);
         
-        res.json({ image_url: imageUrl });
+        res.json({ image_urls: imageUrls, image_url: imageUrls[0] });
     } catch (error) {
         console.error('Image upload error:', error);
-        res.status(500).json({ error: 'Failed to upload image' });
+        res.status(500).json({ error: 'Failed to upload images' });
     }
 });
 
@@ -54,17 +61,23 @@ router.get('/', async (req, res) => {
 // Add a new product
 router.post('/', async (req, res) => {
     try {
-        const { name, description, mrp, selling_price, category, sku, image_url } = req.body;
+        let { name, description, mrp, selling_price, category, sku, image_url, images } = req.body;
         
         if (!name) return res.status(400).json({ error: 'Product name is required' });
+
+        if (images && Array.isArray(images) && images.length > 0) {
+            image_url = images[0];
+        } else if (image_url && !images) {
+            images = [image_url];
+        }
 
         const searchString = `Product: ${name}\nCategory: ${category || 'General'}\nDescription: ${description || ''}\nPrice: ${selling_price || mrp || ''}`;
         const vector = await generateEmbedding(searchString);
 
         const result = await run(
-            `INSERT INTO products (tenant_id, name, description, mrp, selling_price, category, sku, image_url, product_vector) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [req.tenant.id, name, description || '', mrp || 0, selling_price || 0, category || '', sku || '', image_url || '', JSON.stringify(vector)]
+            `INSERT INTO products (tenant_id, name, description, mrp, selling_price, category, sku, image_url, images, product_vector) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [req.tenant.id, name, description || '', mrp || 0, selling_price || 0, category || '', sku || '', image_url || '', JSON.stringify(images || []), JSON.stringify(vector)]
         );
 
         const productId = result.lastInsertRowid;
@@ -95,17 +108,23 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, mrp, selling_price, category, sku, image_url } = req.body;
+        let { name, description, mrp, selling_price, category, sku, image_url, images } = req.body;
 
         if (!name) return res.status(400).json({ error: 'Product name is required' });
+
+        if (images && Array.isArray(images) && images.length > 0) {
+            image_url = images[0];
+        } else if (image_url && (!images || images.length === 0)) {
+            images = [image_url];
+        }
 
         const searchString = `Product: ${name}\nCategory: ${category || 'General'}\nDescription: ${description || ''}\nPrice: ${selling_price || mrp || ''}`;
         const vector = await generateEmbedding(searchString);
 
         const result = await run(
-            `UPDATE products SET name = ?, description = ?, mrp = ?, selling_price = ?, category = ?, sku = ?, image_url = ?, product_vector = ?
+            `UPDATE products SET name = ?, description = ?, mrp = ?, selling_price = ?, category = ?, sku = ?, image_url = ?, images = ?, product_vector = ?
              WHERE id = ? AND tenant_id = ?`,
-            [name, description || '', mrp || 0, selling_price || 0, category || '', sku || '', image_url || '', JSON.stringify(vector), id, req.tenant.id]
+            [name, description || '', mrp || 0, selling_price || 0, category || '', sku || '', image_url || '', JSON.stringify(images || []), JSON.stringify(vector), id, req.tenant.id]
         );
 
         if (result.changes === 0) return res.status(404).json({ error: 'Product not found' });

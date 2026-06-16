@@ -21,7 +21,8 @@ export default function Catalogue() {
         selling_price: '',
         category: '',
         sku: '',
-        image_url: ''
+        image_url: '',
+        images: []
     });
 
     const api = async (path, options = {}) => {
@@ -68,6 +69,12 @@ export default function Catalogue() {
     const handleOpenModal = (product = null) => {
         if (product) {
             setEditingProduct(product);
+            let parsedImages = [];
+            try {
+                if (product.images) parsedImages = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
+                if (!parsedImages || parsedImages.length === 0) parsedImages = product.image_url ? [product.image_url] : [];
+            } catch(e) { parsedImages = product.image_url ? [product.image_url] : []; }
+
             setFormData({
                 name: product.name || '',
                 description: product.description || '',
@@ -75,35 +82,36 @@ export default function Catalogue() {
                 selling_price: product.selling_price || '',
                 category: product.category || '',
                 sku: product.sku || '',
-                image_url: product.image_url || ''
+                image_url: product.image_url || '',
+                images: parsedImages
             });
         } else {
             setEditingProduct(null);
             setFormData({
-                name: '', description: '', mrp: '', selling_price: '', category: '', sku: '', image_url: ''
+                name: '', description: '', mrp: '', selling_price: '', category: '', sku: '', image_url: '', images: []
             });
         }
         setShowModal(true);
     };
 
     const handleImageUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
 
-        // Ensure it's an image
-        if (!file.type.startsWith('image/')) {
-            showToast('Please select an image file', 'error');
+        // Ensure all are images
+        if (files.some(f => !f.type.startsWith('image/'))) {
+            showToast('Please select only image files', 'error');
             return;
         }
 
         const token = localStorage.getItem('token');
         const slug = localStorage.getItem('tenant_slug') || 'default';
         const formDataPayload = new FormData();
-        formDataPayload.append('image', file);
+        files.forEach(file => formDataPayload.append('images', file));
 
         setUploadingImage(true);
         try {
-            const res = await fetch('/api/v1/products/upload-image', {
+            const res = await fetch('/api/v1/products/upload-images', {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -114,19 +122,29 @@ export default function Catalogue() {
 
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'Failed to upload image');
+                throw new Error(err.error || 'Failed to upload images');
             }
 
             const data = await res.json();
-            setFormData(prev => ({ ...prev, image_url: data.image_url }));
-            showToast('Image uploaded successfully');
+            setFormData(prev => {
+                const newImages = [...(prev.images || []), ...(data.image_urls || [])];
+                return { ...prev, images: newImages, image_url: newImages[0] || '' };
+            });
+            showToast('Images uploaded successfully');
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
             setUploadingImage(false);
-            // Clear input value so the same file can be selected again
             e.target.value = '';
         }
+    };
+
+    const removeImage = (index) => {
+        setFormData(prev => {
+            const newImages = [...prev.images];
+            newImages.splice(index, 1);
+            return { ...prev, images: newImages, image_url: newImages[0] || '' };
+        });
     };
 
     const handleSubmit = async (e) => {
@@ -364,18 +382,29 @@ export default function Catalogue() {
                                         <input type="text" className="form-input" name="sku" value={formData.sku} onChange={handleInputChange} placeholder="Must match website Pixel ID" />
                                     </div>
                                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                                        <label className="form-label">Image URL or Upload</label>
+                                        <label className="form-label">Images</label>
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                            <input type="url" className="form-input" name="image_url" value={formData.image_url} onChange={handleInputChange} placeholder="https://example.com/image.jpg" style={{ flex: 1 }} />
+                                            <input type="url" className="form-input" name="image_url" value={formData.image_url} onChange={handleInputChange} placeholder="https://example.com/image.jpg (Primary Image)" style={{ flex: 1 }} />
                                             <label className="btn btn-secondary" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
                                                 {uploadingImage ? <Icon name="loader" size={16} /> : <Icon name="upload" size={16} />}
                                                 {uploadingImage ? 'Uploading...' : 'Upload'}
-                                                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploadingImage} />
+                                                <input type="file" multiple accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploadingImage} />
                                             </label>
                                         </div>
-                                        {formData.image_url && (
-                                            <div style={{ marginTop: '10px' }}>
-                                                <img src={formData.image_url} alt="Preview" style={{ height: '100px', borderRadius: '8px', objectFit: 'cover' }} />
+                                        {formData.images && formData.images.length > 0 && (
+                                            <div style={{ marginTop: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                {formData.images.map((img, index) => (
+                                                    <div key={index} style={{ position: 'relative', width: '100px', height: '100px' }}>
+                                                        <img src={img} alt={`Preview ${index}`} style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover', border: index === 0 ? '2px solid #6366f1' : '1px solid #e2e8f0' }} />
+                                                        {index === 0 && <span style={{ position: 'absolute', bottom: '4px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '10px' }}>Primary</span>}
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => removeImage(index)}
+                                                            style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px' }}>
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
                                         )}
                                     </div>
