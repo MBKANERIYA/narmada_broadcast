@@ -489,6 +489,90 @@ export default function WhatsAppChat() {
         setNewChatSending(false);
     };
 
+    // ── Quick Replies ──
+    const QUICK_REPLIES_KEY = `quick_replies_${localStorage.getItem('tenant_slug') || 'default'}`;
+    const loadQuickReplies = () => {
+        try { return JSON.parse(localStorage.getItem(QUICK_REPLIES_KEY) || '[]'); } catch { return []; }
+    };
+    const [quickReplies, setQuickReplies] = useState(loadQuickReplies);
+    const [showQuickReplyPopup, setShowQuickReplyPopup] = useState(false);
+    const [quickReplyFilter, setQuickReplyFilter] = useState('');
+    const [showManageQR, setShowManageQR] = useState(false);
+    const [qrForm, setQrForm] = useState({ label: '', text: '' });
+    const [editingQR, setEditingQR] = useState(null);
+
+    const saveQuickReplies = (list) => {
+        localStorage.setItem(QUICK_REPLIES_KEY, JSON.stringify(list));
+        setQuickReplies(list);
+    };
+
+    const addQuickReply = () => {
+        if (!qrForm.label.trim() || !qrForm.text.trim()) return;
+        const newList = editingQR !== null
+            ? quickReplies.map((qr, i) => i === editingQR ? { ...qrForm } : qr)
+            : [...quickReplies, { label: qrForm.label.trim(), text: qrForm.text.trim() }];
+        saveQuickReplies(newList);
+        setQrForm({ label: '', text: '' });
+        setEditingQR(null);
+    };
+
+    const deleteQuickReply = (idx) => {
+        saveQuickReplies(quickReplies.filter((_, i) => i !== idx));
+    };
+
+    // Seed defaults if empty
+    if (quickReplies.length === 0) {
+        const defaults = [
+            { label: 'Greeting', text: 'Hi! Thank you for reaching out. How can I help you today? 😊' },
+            { label: 'Order Status', text: 'Your order has been received and is being processed. We will update you once it ships! 📦' },
+            { label: 'Payment Link', text: 'Please complete your payment using the link below. Let me know once done! 🙏' },
+            { label: 'Thank You', text: 'Thank you for your order! We appreciate your business. ❤️' },
+            { label: 'Out of Stock', text: 'Sorry, this item is currently out of stock. We expect restocking soon. Would you like to be notified?' },
+        ];
+        saveQuickReplies(defaults);
+    }
+
+    const filteredQR = quickReplies.filter(qr =>
+        !quickReplyFilter || qr.label.toLowerCase().includes(quickReplyFilter.toLowerCase()) || qr.text.toLowerCase().includes(quickReplyFilter.toLowerCase())
+    );
+
+    const handleMessageInput = (e) => {
+        const val = e.target.value;
+        setMessageText(val);
+        // Show quick reply popup when user types /
+        if (val === '/' || val.startsWith('/')) {
+            setShowQuickReplyPopup(true);
+            setQuickReplyFilter(val.slice(1));
+        } else {
+            setShowQuickReplyPopup(false);
+            setQuickReplyFilter('');
+        }
+    };
+
+    const insertQuickReply = (text) => {
+        setMessageText(text);
+        setShowQuickReplyPopup(false);
+        setQuickReplyFilter('');
+    };
+
+    // ── Bot Pause ──
+    const BOT_PAUSE_KEY = `bot_paused_${localStorage.getItem('tenant_slug') || 'default'}`;
+    const loadPausedConvs = () => {
+        try { return new Set(JSON.parse(localStorage.getItem(BOT_PAUSE_KEY) || '[]')); } catch { return new Set(); }
+    };
+    const [pausedConversations, setPausedConversations] = useState(loadPausedConvs);
+
+    const toggleBotPause = (convId) => {
+        setPausedConversations(prev => {
+            const next = new Set(prev);
+            if (next.has(convId)) next.delete(convId); else next.add(convId);
+            localStorage.setItem(BOT_PAUSE_KEY, JSON.stringify([...next]));
+            return next;
+        });
+    };
+
+    const isBotPaused = selectedConvId ? pausedConversations.has(selectedConvId) : false;
+
     return (
         <div className="page-container" style={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
             <div className="page-header" style={{ flexShrink: 0 }}>
@@ -661,6 +745,22 @@ export default function WhatsAppChat() {
                                             {'\uD83D\uDD34'} Window closed
                                         </span>
                                     )}
+                                    <button
+                                        className="btn-icon"
+                                        onClick={() => toggleBotPause(selectedConvId)}
+                                        title={isBotPaused ? 'Resume AI Bot' : 'Pause AI Bot'}
+                                        style={{ color: isBotPaused ? '#EF4444' : '#64748b' }}
+                                    >
+                                        <Icon name={isBotPaused ? 'play' : 'pause'} size={18} />
+                                    </button>
+                                    {isBotPaused && (
+                                        <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '10px', background: '#FEF2F2', color: '#EF4444', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                            Bot Paused
+                                        </span>
+                                    )}
+                                    <button className="btn-icon" onClick={() => setShowManageQR(true)} title="Quick Replies">
+                                        <Icon name="zap" size={18} />
+                                    </button>
                                     <button className="btn-icon" onClick={() => archiveConversation(selectedConvId)} title="Archive">
                                         <Icon name="archive" size={18} />
                                     </button>
@@ -768,6 +868,35 @@ export default function WhatsAppChat() {
                                 </div>
                             )}
 
+                            {/* Quick Reply Popup */}
+                            {showQuickReplyPopup && isWindowOpen && (
+                                <div style={{
+                                    borderTop: '1px solid var(--border, #e2e8f0)',
+                                    background: '#fff', maxHeight: '200px', overflowY: 'auto',
+                                }}>
+                                    <div style={{ padding: '6px 16px', fontSize: '11px', color: '#64748b', fontWeight: 600, borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span>⚡ Quick Replies {quickReplyFilter && `— "${quickReplyFilter}"`}</span>
+                                        <span style={{ fontSize: '10px', opacity: 0.5 }}>ESC to close</span>
+                                    </div>
+                                    {filteredQR.length === 0 ? (
+                                        <div style={{ padding: '16px', textAlign: 'center', fontSize: '12px', color: '#94a3b8' }}>
+                                            No matching quick replies
+                                        </div>
+                                    ) : filteredQR.map((qr, i) => (
+                                        <div key={i} onClick={() => insertQuickReply(qr.text)} style={{
+                                            padding: '8px 16px', cursor: 'pointer', borderBottom: '1px solid #f8fafc',
+                                            transition: 'background 0.1s',
+                                        }}
+                                            onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>/{qr.label}</div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{qr.text}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
                             {/* Input Area */}
                             {filePreviewUrl && (
                                 <div style={{ padding: '12px 16px', background: '#f8fafc', borderTop: '1px solid var(--border, #e2e8f0)', position: 'relative' }}>
@@ -836,9 +965,12 @@ export default function WhatsAppChat() {
                                         />
                                         <textarea
                                             value={messageText}
-                                            onInput={e => setMessageText(e.target.value)}
-                                            onKeyDown={handleKeyDown}
-                                            placeholder={isWindowOpen ? (selectedFile ? "Add a caption..." : "Type a message...") : "Window expired \u2014 use template"}
+                                            onInput={handleMessageInput}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Escape') { setShowQuickReplyPopup(false); return; }
+                                                handleKeyDown(e);
+                                            }}
+                                            placeholder={isWindowOpen ? (selectedFile ? "Add a caption..." : "Type / for quick replies...") : "Window expired \u2014 use template"}
                                             disabled={!isWindowOpen || sending}
                                             style={{
                                                 flex: 1, resize: 'none', border: '1px solid var(--border, #e2e8f0)',
@@ -1095,6 +1227,70 @@ export default function WhatsAppChat() {
                                 </div>
                             </>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Manage Quick Replies Modal */}
+            {showManageQR && (
+                <div className="modal-backdrop" onClick={() => setShowManageQR(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+                        <div className="modal-header">
+                            <h2>⚡ Quick Replies</h2>
+                            <button className="btn-icon" onClick={() => setShowManageQR(false)}><Icon name="close" size={20} /></button>
+                        </div>
+                        <div style={{ padding: '16px' }}>
+                            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>
+                                Type <strong>/</strong> in the chat input to quickly insert a saved reply. Manage your templates below.
+                            </p>
+
+                            {/* Add/Edit Form */}
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                                <input
+                                    className="form-input" placeholder="Label (e.g. Greeting)"
+                                    value={qrForm.label} onInput={e => setQrForm(p => ({ ...p, label: e.target.value }))}
+                                    style={{ flex: '0 0 140px', fontSize: '13px' }}
+                                />
+                                <input
+                                    className="form-input" placeholder="Reply text..."
+                                    value={qrForm.text} onInput={e => setQrForm(p => ({ ...p, text: e.target.value }))}
+                                    style={{ flex: 1, fontSize: '13px' }}
+                                />
+                                <button className="btn btn--success" onClick={addQuickReply} style={{ fontSize: '13px', padding: '6px 14px' }}>
+                                    {editingQR !== null ? 'Update' : 'Add'}
+                                </button>
+                                {editingQR !== null && (
+                                    <button className="btn btn--outline" onClick={() => { setEditingQR(null); setQrForm({ label: '', text: '' }); }} style={{ fontSize: '13px', padding: '6px 10px' }}>
+                                        Cancel
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* List */}
+                            <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--border, #e2e8f0)', borderRadius: '8px' }}>
+                                {quickReplies.length === 0 ? (
+                                    <div style={{ padding: '24px', textAlign: 'center', fontSize: '13px', color: '#94a3b8' }}>
+                                        No quick replies yet. Add one above.
+                                    </div>
+                                ) : quickReplies.map((qr, i) => (
+                                    <div key={i} style={{
+                                        padding: '10px 12px', borderBottom: i < quickReplies.length - 1 ? '1px solid #f1f5f9' : 'none',
+                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                    }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>/{qr.label}</div>
+                                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{qr.text}</div>
+                                        </div>
+                                        <button className="btn-icon" onClick={() => { setEditingQR(i); setQrForm({ label: qr.label, text: qr.text }); }} title="Edit">
+                                            <Icon name="edit" size={14} />
+                                        </button>
+                                        <button className="btn-icon" onClick={() => deleteQuickReply(i)} title="Delete" style={{ color: '#ef4444' }}>
+                                            <Icon name="delete" size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
