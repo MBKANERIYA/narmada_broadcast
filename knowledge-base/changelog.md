@@ -2,6 +2,14 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-16 — Fix: Webhook Signature Backward Compatibility
+**What**: Made the Razorpay Webhook Signature verification optional if the secret is not configured.
+**Why**: During the recent security audit, signatures were made mandatory, which broke the automatic "Payment Received" WhatsApp confirmation for existing users who had not yet configured their Webhook Secret in the Settings dashboard.
+**Files Changed**:
+- `backend/src/app.js`: Bypassed signature check if `webhookSecret` is empty.
+
+---
+
 ## 2026-06-16 — Feature: Multiple Image Uploads for Products
 **What**: Upgraded the product catalogue to support multiple image uploads instead of just a single image URL, and enabled multi-image sync to Meta Catalog.
 **Why**: Allows adding additional images for a richer product gallery in both the dashboard and WhatsApp Business catalog.

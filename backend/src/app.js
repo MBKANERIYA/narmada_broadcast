@@ -103,9 +103,13 @@ app.post('/api/v1/razorpay-webhook', async (req, res) => {
                     const botSettings = parseJsonObject(tenant?.bot_settings);
                     const webhookSecret = botSettings.razorpay_webhook_secret;
 
-                    if (!verifyRazorpayWebhookSignature(req.rawBody, signature, webhookSecret)) {
-                        console.warn(`[Razorpay Webhook] Invalid signature for order #${orderId}`);
-                        return res.status(401).json({ error: 'Invalid webhook signature' });
+                    if (webhookSecret) {
+                        if (!verifyRazorpayWebhookSignature(req.rawBody, signature, webhookSecret)) {
+                            console.warn(`[Razorpay Webhook] Invalid signature for order #${orderId}`);
+                            return res.status(401).json({ error: 'Invalid webhook signature' });
+                        }
+                    } else {
+                        console.warn(`[Razorpay Webhook] Warning: Webhook secret not configured. Processing unsigned webhook for order #${orderId}.`);
                     }
 
                     // Update order status atomically to prevent race conditions
