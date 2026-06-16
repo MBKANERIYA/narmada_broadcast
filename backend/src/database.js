@@ -322,7 +322,8 @@ const migrate = async () => {
     `ALTER TABLE products ADD COLUMN product_vector JSON AFTER meta_product_id`,
     `ALTER TABLE tenants ADD COLUMN bot_settings JSON AFTER whatsapp_catalog_id`,
     `ALTER TABLE orders ADD COLUMN shipping_address TEXT AFTER fulfillment_status`,
-    `ALTER TABLE whatsapp_conversations ADD COLUMN labels JSON AFTER is_archived`
+    `ALTER TABLE whatsapp_conversations ADD COLUMN labels JSON AFTER is_archived`,
+    `ALTER TABLE contacts ADD COLUMN labels JSON AFTER tags`
   ];
   for (const sql of alterMigrations) {
     try {

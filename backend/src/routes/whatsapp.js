@@ -126,6 +126,14 @@ router.post('/broadcast', async (req, res) => {
             );
             recipients = contacts;
 
+        } else if (recipientType === 'labeled' && recipientFilter?.label) {
+            // Filter by label (e.g. "vip", "follow_up", "complaint")
+            const contacts = await query(
+                `SELECT id, name, phone FROM contacts WHERE tenant_id = ? AND phone IS NOT NULL AND phone != '' AND whatsapp_consent = TRUE AND JSON_CONTAINS(labels, ?)`,
+                [req.tenantId, JSON.stringify(recipientFilter.label)]
+            );
+            recipients = contacts;
+
         } else {
             // All contacts
             const contacts = await query(

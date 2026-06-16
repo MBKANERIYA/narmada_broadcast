@@ -273,6 +273,21 @@ export default function Contacts() {
         return tags;
     };
 
+    const LABEL_COLORS = {
+        vip: { bg: '#f3e8ff', color: '#7c3aed', label: 'VIP' },
+        follow_up: { bg: '#dbeafe', color: '#2563eb', label: 'Follow Up' },
+        complaint: { bg: '#fee2e2', color: '#dc2626', label: 'Complaint' },
+        new_order: { bg: '#dcfce7', color: '#16a34a', label: 'New Order' },
+        pending_payment: { bg: '#fef3c7', color: '#d97706', label: 'Pending Payment' },
+        resolved: { bg: '#f1f5f9', color: '#64748b', label: 'Resolved' },
+    };
+
+    const parseLabels = (labels) => {
+        if (!labels) return [];
+        if (Array.isArray(labels)) return labels;
+        try { return JSON.parse(labels); } catch { return []; }
+    };
+
     const formatTicket = (amount) => {
         if (!amount) return '—';
         const num = Number(amount);
@@ -433,6 +448,16 @@ export default function Contacts() {
                                                 background: '#eef2ff', color: '#6366f1', fontSize: '10px', fontWeight: 600,
                                             }}>{tag}</span>
                                         ))}
+                                        {parseLabels(contact.labels).map(lv => {
+                                            const lc = LABEL_COLORS[lv];
+                                            if (!lc) return null;
+                                            return (
+                                                <span key={lv} style={{
+                                                    padding: '2px 8px', borderRadius: '9999px',
+                                                    background: lc.bg, color: lc.color, fontSize: '10px', fontWeight: 600,
+                                                }}>{lc.label}</span>
+                                            );
+                                        })}
                                     </div>
                                 </td>
                                 <td style={{ opacity: 0.6, fontSize: '12px' }}>{contact.source || '—'}</td>

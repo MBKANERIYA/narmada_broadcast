@@ -415,11 +415,19 @@ export const useStore = create(
                         method: 'PATCH',
                         body: JSON.stringify({ labels }),
                     });
-                    // Update activeConversation labels locally
+                    // Update activeConversation labels locally (store as JSON string for consistency with DB)
+                    const labelsStr = JSON.stringify(labels);
                     const conv = get().activeConversation;
                     if (conv && conv.id === conversationId) {
-                        set({ activeConversation: { ...conv, labels: JSON.stringify(labels) } });
+                        set({ activeConversation: { ...conv, labels: labelsStr } });
                     }
+                    // Also update in conversations list so sidebar dots stay in sync
+                    const convList = get().conversations;
+                    set({
+                        conversations: convList.map(c =>
+                            c.id === conversationId ? { ...c, labels: labelsStr } : c
+                        ),
+                    });
                 } catch (error) {
                     console.error('Failed to update labels:', error);
                 }

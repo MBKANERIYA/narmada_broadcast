@@ -319,6 +319,18 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         if (contact) {
             contactId = contact.id;
             contactName = contact.name;
+        } else {
+            // Auto-create contact from WhatsApp message
+            try {
+                const newContact = await run(
+                    `INSERT INTO contacts (tenant_id, name, phone, source, whatsapp_consent) VALUES (?, ?, ?, 'whatsapp', TRUE)`,
+                    [tenantId, contactName || fromPhone, fromPhone]
+                );
+                contactId = newContact.lastInsertRowid;
+                console.log(`[Webhook] Auto-created contact #${contactId} for ${fromPhone} (${contactName})`);
+            } catch (e) {
+                console.error('[Webhook] Auto-create contact error:', e.message);
+            }
         }
     }
 

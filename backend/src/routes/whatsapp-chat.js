@@ -528,18 +528,36 @@ router.patch('/conversations/:id/archive', async (req, res) => {
 
 /**
  * PATCH /api/v1/whatsapp/chat/conversations/:id/labels
- * Update conversation labels
+ * Update labels — syncs to both conversation AND linked contact
  */
 router.patch('/conversations/:id/labels', async (req, res) => {
     try {
         const { labels } = req.body;
         if (!Array.isArray(labels)) return res.status(400).json({ error: 'labels must be an array' });
+
+        const labelsJson = JSON.stringify(labels);
+
+        // Save on conversation
         await run(
             'UPDATE whatsapp_conversations SET labels = ? WHERE id = ? AND tenant_id = ?',
-            [JSON.stringify(labels), req.params.id, req.tenantId]
+            [labelsJson, req.params.id, req.tenantId]
         );
+
+        // Also sync to linked contact
+        const conv = await get(
+            'SELECT contact_id FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
+            [req.params.id, req.tenantId]
+        );
+        if (conv && conv.contact_id) {
+            await run(
+                'UPDATE contacts SET labels = ? WHERE id = ? AND tenant_id = ?',
+                [labelsJson, conv.contact_id, req.tenantId]
+            );
+        }
+
         res.json({ success: true, labels });
     } catch (error) {
+        console.error('[Labels] Update error:', error);
         res.status(500).json({ error: 'Failed to update labels' });
     }
 });

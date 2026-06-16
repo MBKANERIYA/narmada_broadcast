@@ -102,7 +102,9 @@ export default function WhatsAppChat() {
     ];
 
     const getConvLabels = (conv) => {
-        try { return JSON.parse(conv?.labels || '[]'); } catch { return []; }
+        if (!conv?.labels) return [];
+        if (Array.isArray(conv.labels)) return conv.labels;
+        try { return JSON.parse(conv.labels); } catch { return []; }
     };
 
     const toggleLabel = (labelValue) => {
