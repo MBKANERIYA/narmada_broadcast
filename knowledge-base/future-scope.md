@@ -24,13 +24,13 @@ This document captures all planned improvements identified during a full platfor
 
 ---
 
-## Phase 2: Chat Inbox Polish
+## Phase 2: Chat Inbox Polish (PARTIALLY DONE)
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Conversation Filters | Planned | Tabs: All / Unread / Has Orders / Needs Reply |
-| Quick Replies | Planned | Saved canned responses for common messages |
-| AI Pause Toggle | Planned | Per-conversation toggle to pause bot when human takes over |
+| Conversation Filters | ✅ Done | Tabs: All / Unread / Paid Orders (existed prior) |
+| Quick Replies | ✅ Done | Type `/` to trigger popup with canned responses. Manage via ⚡ modal. |
+| AI Pause Toggle | ✅ Done | Per-conversation bot pause/resume button in chat header |
 | Load Older Messages | Planned | "Load More" button (currently only last 50 shown) |
 | Conversation Tags/Labels | Planned | Tag conversations as VIP, Follow Up, Complaint, etc. |
 | Assign to Team Member | Planned | Route conversations to specific employees |
@@ -38,14 +38,15 @@ This document captures all planned improvements identified during a full platfor
 
 ---
 
-## Phase 3: Catalogue & Contacts
+## Phase 3: Catalogue & Contacts (PARTIALLY DONE)
 
 ### Catalogue
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Sort | Planned | By Name, Price, Date Added |
-| Pagination | Planned | Page-based (currently loads all products at once) |
-| Categories/Tags | Planned | Group products into categories |
+| Search | ✅ Done | Client-side search by name, SKU, description |
+| Sort | ✅ Done | By Name (A-Z/Z-A), Price (Low/High), Newest |
+| Category Filter | ✅ Done | Dropdown filter by product category |
+| Pagination | Planned | Backend-side pagination (currently loads all at once) |
 | Stock/Inventory Count | Planned | Actual inventory numbers + low-stock alerts |
 | Bulk Actions | Planned | Select multiple → delete, hide, update |
 | Product Variants | Planned | Sizes, colors, etc. |
@@ -53,8 +54,13 @@ This document captures all planned improvements identified during a full platfor
 ### Contacts
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Export CSV | Planned | Download contacts (import already exists) |
-| Quick Chat Button | Planned | One-click open WhatsApp chat from contact row |
+| Tag Filter | ✅ Done | Dropdown filter by tag (wires existing `/tags/list` endpoint) |
+| Location Filter | ✅ Done | Dropdown filter by location (wires existing `/locations/list` endpoint) |
+| Sortable Columns | ✅ Done | Sort by Name, Location, Ticket Size (asc/desc) |
+| Pagination UI | ✅ Done | Page-based with 25/50/100 per page selector |
+| Export CSV | ✅ Done | Download filtered contacts as CSV |
+| Bulk Delete | ✅ Done | Checkbox selection + delete selected |
+| Quick Chat Button | ✅ Done | WhatsApp icon on each contact row |
 | Contact Activity Timeline | Planned | Unified view of orders, chats, campaigns per contact |
 | Duplicate Detection | Planned | Warn on importing duplicate phone numbers |
 

@@ -22,6 +22,31 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `frontend/src/App.jsx`, `frontend/src/components/Sidebar.jsx`: Wired in as default view.
 **Tests**: Frontend builds successfully.
 
+## 2026-06-16 — Feature: Contacts Overhaul
+**What**: Complete rewrite of Contacts page with tag/location filter dropdowns, sortable columns, server-side pagination, CSV export, bulk delete, and quick-chat button.
+**Why**: Contacts page had no filters, no pagination UI, and no export despite the backend already supporting tags/location filtering.
+**Impact**: Contacts are now fully manageable for SMBs with 100s-1000s of contacts.
+**Files Changed**:
+- `backend/src/routes/contacts.js`: Added sorting (sort_by/sort_order), CSV export endpoint, moved static routes (`/tags/list`, `/locations/list`, `/export`) before `/:id`.
+- `frontend/src/components/Contacts.jsx`: Complete rewrite with tag/location filter dropdowns, sortable columns (name, location, ticket_size), pagination with page size selector, CSV export, checkbox selection, bulk delete, WhatsApp quick-chat button.
+- `frontend/src/stores/store.js`: Updated `fetchContacts` to pass sort_by, sort_order, location, and limit params.
+**Tests**: Frontend builds successfully (71 modules, 0 errors).
+
+## 2026-06-16 — Feature: Catalogue Search, Sort & Filter
+**What**: Added client-side search, category filter, and sort options to the product catalogue page.
+**Why**: SMBs with 50+ products couldn't find anything without scrolling. Search by name/SKU and sort by price/name makes product management much faster.
+**Files Changed**:
+- `frontend/src/components/Catalogue.jsx`: Added search input, category filter dropdown, sort selector (newest, name, price), product count.
+**Tests**: Frontend builds successfully.
+
+## 2026-06-16 — Feature: Chat Inbox — Quick Replies & Bot Pause
+**What**: Added a `/` slash-command quick replies system and per-conversation bot pause toggle to the chat inbox.
+**Why**: SMBs answering 50+ chats daily need canned responses. Typing `/` shows a popup of saved replies that can be clicked to insert. Bot pause lets the human agent take over a conversation without the AI bot interfering.
+**Files Changed**:
+- `frontend/src/components/WhatsAppChat.jsx`: Quick replies state/logic, `/` trigger popup, manage quick replies modal (⚡ icon), bot pause toggle with visual indicator.
+- `frontend/src/components/Icons.jsx`: Added `pause`, `play`, `zap` icons.
+**Tests**: Frontend builds successfully.
+
 ## 2026-06-15 — Feature: Order Management System (OMS) Frontend Dashboard
 **What**: Created a fully featured Orders Dashboard and auto-payment settings configuration screen on the frontend.
 **Why**: Allows merchants to view orders placed via WhatsApp in a tabular format, filter by payment and fulfillment statuses, view granular line items and customer info, update statuses, and configure auto-payment links for automatic replies.
