@@ -284,7 +284,6 @@ export const useStore = create(
             fetchWhatsAppRecipients: async (filters = {}) => {
                 try {
                     let url = `/whatsapp/recipients?`;
-                    if (filters.tag) url += `tag=${encodeURIComponent(filters.tag)}&`;
                     if (filters.label) url += `label=${encodeURIComponent(filters.label)}&`;
                     if (filters.search) url += `search=${encodeURIComponent(filters.search)}`;
                     const data = await api(url);

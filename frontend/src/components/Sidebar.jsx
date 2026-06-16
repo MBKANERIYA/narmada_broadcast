@@ -8,7 +8,7 @@ const NAV_ITEMS = [
     { id: 'chat', label: 'Chat Inbox', icon: 'chat' },
     { id: 'catalogue', label: 'Catalogue', icon: 'tag' },
     { id: 'orders', label: 'Orders', icon: 'clipboard' },
-    { id: 'knowledge', label: 'Smart FAQs', icon: 'message' },
+    { id: 'knowledge', label: 'Smart FAQs', icon: 'message-circle' },
     { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
 

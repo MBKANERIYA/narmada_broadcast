@@ -28,11 +28,6 @@ router.get('/recipients', async (req, res) => {
                     FROM contacts WHERE tenant_id = ? AND phone IS NOT NULL AND phone != '' AND whatsapp_consent = TRUE`;
         const params = [req.tenantId];
 
-        if (tag) {
-            sql += ' AND LOWER(tags) LIKE LOWER(?)';
-            params.push(`%"${tag}"%`);
-        }
-
         if (label) {
             sql += ' AND LOWER(labels) LIKE LOWER(?)';
             params.push(`%"${label}"%`);
@@ -120,14 +115,6 @@ router.post('/broadcast', async (req, res) => {
             const contacts = await query(
                 `SELECT id, name, phone FROM contacts WHERE tenant_id = ? AND id IN (${placeholders}) AND phone IS NOT NULL AND phone != ''`,
                 [req.tenantId, ...recipientIds]
-            );
-            recipients = contacts;
-
-        } else if (recipientType === 'tagged' && recipientFilter?.tag) {
-            // Filter by tag
-            const contacts = await query(
-                `SELECT id, name, phone FROM contacts WHERE tenant_id = ? AND phone IS NOT NULL AND phone != '' AND whatsapp_consent = TRUE AND LOWER(tags) LIKE LOWER(?)`,
-                [req.tenantId, `%"${recipientFilter.tag}"%`]
             );
             recipients = contacts;
 

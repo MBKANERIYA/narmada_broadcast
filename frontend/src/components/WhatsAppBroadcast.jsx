@@ -63,7 +63,6 @@ export default function WhatsAppBroadcast() {
 
     // Broadcast state
     const [recipientType, setRecipientType] = useState('all');
-    const [filterTag, setFilterTag] = useState('');
     const [filterLabel, setFilterLabel] = useState('');
     const [filterLocation, setFilterLocation] = useState('');
     const [filterMinTicket, setFilterMinTicket] = useState('');
@@ -90,14 +89,13 @@ export default function WhatsAppBroadcast() {
         const timer = setTimeout(() => {
             if (recipientType !== 'direct') {
                 fetchWhatsAppRecipients({ 
-                    tag: recipientType === 'tagged' ? filterTag : '', 
                     label: recipientType === 'labeled' ? filterLabel : '', 
                     search: searchQuery 
                 });
             }
         }, 300);
         return () => clearTimeout(timer);
-    }, [recipientType, filterTag, filterLabel, filterLocation, filterMinTicket, filterMaxTicket, searchQuery]);
+    }, [recipientType, filterLabel, filterLocation, filterMinTicket, filterMaxTicket, searchQuery]);
 
     const contacts = whatsappRecipients?.contacts || [];
     // Filter contacts client-side for location/ticket_size (API also filters on backend)
@@ -156,9 +154,9 @@ export default function WhatsAppBroadcast() {
                 const broadcastData = {
                     campaignName,
                     templateParams: templateParams.filter(Boolean),
-                    recipientType: recipientType === 'custom' ? 'custom' : recipientType === 'tagged' ? 'tagged' : recipientType === 'labeled' ? 'labeled' : 'all',
+                    recipientType: recipientType === 'custom' ? 'custom' : recipientType === 'labeled' ? 'labeled' : 'all',
                     recipientIds: recipientType === 'custom' ? selectedIds : undefined,
-                    recipientFilter: recipientType === 'tagged' ? { tag: filterTag } : recipientType === 'labeled' ? { label: filterLabel } : {},
+                    recipientFilter: recipientType === 'labeled' ? { label: filterLabel } : {},
                 };
                 const result = await sendWhatsAppBroadcast(broadcastData);
                 showToast(`Broadcasting to ${result.totalRecipients} contacts`);
@@ -623,7 +621,6 @@ export default function WhatsAppBroadcast() {
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {[
                             { id: 'all', label: 'All Contacts' },
-                            { id: 'tagged', label: 'By Tag' },
                             { id: 'labeled', label: 'By Label' },
                             { id: 'filtered', label: 'By Filters' },
                             { id: 'custom', label: 'Pick Manually' },
@@ -641,13 +638,7 @@ export default function WhatsAppBroadcast() {
                     </div>
                 </div>
 
-                {/* Filters by Tag */}
-                {recipientType === 'tagged' && (
-                    <div className="form-group">
-                        <label className="form-label">Tag</label>
-                        <input className="form-input" value={filterTag} onInput={e => setFilterTag(e.target.value)} placeholder="e.g. vip, interested, delhi" />
-                    </div>
-                )}
+
 
                 {/* Filter by Label */}
                 {recipientType === 'labeled' && (

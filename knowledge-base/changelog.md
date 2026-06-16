@@ -2,6 +2,17 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-16 — Feature: WhatsApp Broadcast UI Polish
+**What**: Removed the "By Tag" filter option from the WhatsApp Broadcast interface and fixed the missing icon for "Smart FAQs" in the sidebar navigation.
+**Why**: Based on user request, the tag filter was removed to simplify the recipient selection options. The Smart FAQs icon was not rendering due to an invalid icon name mapping, which has now been corrected.
+**Files Changed**:
+- `frontend/src/components/WhatsAppBroadcast.jsx`: Removed "By Tag" option and associated logic.
+- `backend/src/routes/whatsapp.js`: Removed tag filtering block from the broadcast API.
+- `frontend/src/stores/store.js`: Removed `tag` from `fetchWhatsAppRecipients`.
+- `frontend/src/components/Sidebar.jsx`: Corrected icon name for Smart FAQs.
+
+---
+
 ## 2026-06-16 — Fix: WhatsApp Broadcast Recipient Filtering
 **What**: Fixed the "By Label" and "By Tag" filter logic in the WhatsApp Broadcast interface to properly preview the suggested contact count and made the matching case-insensitive.
 **Why**: Selecting "By Label" was not updating the preview count correctly because the frontend was not passing the label parameter to the API, and the backend was missing the label check. Additionally, `JSON_CONTAINS` is strictly case-sensitive in MySQL, meaning searching for "vip" failed to match contacts tagged as "VIP".
