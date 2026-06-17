@@ -3,11 +3,10 @@
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
 ## 2026-06-17 — Feature: Interactive Shopping Auto-Responder
-**What**: Added a native WhatsApp interactive flow for extra messages, presenting "Blouses" and "Shapewear" buttons, which dynamically link to the Meta Commerce Catalog.
-**Why**: To allow customers to browse categories interactively and natively view/add products to their carts directly from WhatsApp.
+**What**: Updated the native WhatsApp interactive flow to automatically read dynamic product categories from the database instead of hardcoded options, presenting them as an interactive List message.
+**Why**: To allow businesses to dynamically update their product categories in the dashboard and have them automatically reflect in the WhatsApp shopping auto-responder flow.
 **Files Changed**:
-- `backend/src/app.js`: Implemented parsing for incoming `interactive` message types. Added custom conditional logic to intercept messages and trigger interactive button prompts and Catalog Product List messages.
-- `backend/src/services/whatsapp.js`: Added a new `sendInteractiveMessage` function to support Meta API's native interactive messaging structures (Buttons and Product Lists).
+- `backend/src/app.js`: Refactored the custom interactive interceptor to dynamically `SELECT DISTINCT category FROM products` and generate Meta API compliant list messages. Updated the callback handler to query products based on the selected dynamic category.
 
 ---
 

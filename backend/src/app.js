@@ -644,25 +644,36 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     // ============================================================
     // AI CHATBOT LOGIC / CUSTOM SHOPPING FLOW
     // ============================================================
-    if ((messageType === 'text' || messageType === 'interactive_button') && body && !addressProcessed) {
+    if ((messageType === 'text' || messageType === 'interactive_button' || messageType === 'interactive_list') && body && !addressProcessed) {
         try {
-            const { sendInteractiveMessage } = await import('./services/whatsapp.js');
+            const { sendInteractiveMessage, sendTextMessage } = await import('./services/whatsapp.js');
             
-            // Custom Demo Shopping Flow
-            if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'btn_blouses') {
-                // Fetch blouse products and send Catalog Multi-Product Message
-                const blouses = await query(`SELECT * FROM products WHERE tenant_id = ? AND category LIKE '%blouse%' LIMIT 5`, [tenantId]);
-                if (blouses && blouses.length > 0 && tenant.whatsapp_catalog_id) {
+            // Custom Demo Shopping Flow - Handle Category Selection
+            let selectedCategory = null;
+            if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id?.startsWith('cat_')) {
+                selectedCategory = msg.interactive.button_reply.id.replace('cat_', '');
+            } else if (messageType === 'interactive_list' && msg.interactive?.list_reply?.id?.startsWith('cat_')) {
+                selectedCategory = msg.interactive.list_reply.id.replace('cat_', '');
+            }
+
+            if (selectedCategory) {
+                // Decode category name
+                const categoryName = decodeURIComponent(selectedCategory);
+                
+                // Fetch products for this category
+                const products = await query(`SELECT * FROM products WHERE tenant_id = ? AND category = ? LIMIT 30`, [tenantId, categoryName]);
+                
+                if (products && products.length > 0 && tenant.whatsapp_catalog_id) {
                     const catalogPayload = {
                         type: "product_list",
-                        header: { type: "text", text: "Latest Blouses" },
+                        header: { type: "text", text: categoryName.substring(0, 60) },
                         body: { text: "Tap a product below to view details or add to cart." },
                         action: {
                             catalog_id: tenant.whatsapp_catalog_id,
                             sections: [
                                 {
-                                    title: "Blouses",
-                                    product_items: blouses.map(p => ({ product_retailer_id: p.sku || String(p.id) }))
+                                    title: "Products",
+                                    product_items: products.map(p => ({ product_retailer_id: p.sku || String(p.id) }))
                                 }
                             ]
                         }
@@ -672,71 +683,55 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                         const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
                         await run(
                             `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`,
-                            [tenantId, conversation.id, "Sent Blouse Catalog", result.messageId]
+                            [tenantId, conversation.id, `Sent ${categoryName} Catalog`, result.messageId]
                         );
                         await run(
                             `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
-                            ["Sent Blouse Catalog", outNow, conversation.id]
+                            [`Sent ${categoryName} Catalog`, outNow, conversation.id]
                         );
                         emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
                     }
                 } else {
-                    const { sendTextMessage } = await import('./services/whatsapp.js');
-                    await sendTextMessage(fromPhone, "Sorry, no blouses are available right now.", tenant);
+                    await sendTextMessage(fromPhone, `Sorry, no products available in ${categoryName} right now.`, tenant);
                 }
                 return; // End flow
-            } else if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'btn_shapewear') {
-                const shapewear = await query(`SELECT * FROM products WHERE tenant_id = ? AND category LIKE '%shapewear%' LIMIT 5`, [tenantId]);
-                if (shapewear && shapewear.length > 0 && tenant.whatsapp_catalog_id) {
-                    const catalogPayload = {
-                        type: "product_list",
-                        header: { type: "text", text: "Premium Shapewear" },
-                        body: { text: "Tap a product below to view details or add to cart." },
+            } else if (messageType === 'text') {
+                // Fetch distinct categories
+                const categories = await query(`SELECT DISTINCT category FROM products WHERE tenant_id = ? AND category IS NOT NULL AND category != '' LIMIT 10`, [tenantId]);
+                
+                if (categories && categories.length > 0) {
+                    // Send list of categories
+                    const interactiveOptions = {
+                        type: "list",
+                        header: { type: "text", text: "Our Categories" },
+                        body: { text: "What would you like to explore today?" },
+                        footer: { text: "Tap below to view categories" },
                         action: {
-                            catalog_id: tenant.whatsapp_catalog_id,
+                            button: "View Categories",
                             sections: [
                                 {
-                                    title: "Shapewear",
-                                    product_items: shapewear.map(p => ({ product_retailer_id: p.sku || String(p.id) }))
+                                    title: "Available Categories",
+                                    rows: categories.map((c, i) => ({
+                                        id: `cat_${encodeURIComponent(c.category)}`.substring(0, 200),
+                                        title: c.category.substring(0, 24)
+                                    }))
                                 }
                             ]
                         }
                     };
-                    const result = await sendInteractiveMessage(fromPhone, catalogPayload, tenant);
+                    
+                    const result = await sendInteractiveMessage(fromPhone, interactiveOptions, tenant);
                     if (result && result.messageId) {
                         const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                        await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`, [tenantId, conversation.id, "Sent Shapewear Catalog", result.messageId]);
-                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["Sent Shapewear Catalog", outNow, conversation.id]);
+                        await run(
+                            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`,
+                            [tenantId, conversation.id, "[Category List Sent]", result.messageId]
+                        );
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["[Category List Sent]", outNow, conversation.id]);
                         emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
                     }
-                } else {
-                    const { sendTextMessage } = await import('./services/whatsapp.js');
-                    await sendTextMessage(fromPhone, "Sorry, no shapewear available right now.", tenant);
+                    return; // End flow
                 }
-                return; // End flow
-            } else if (messageType === 'text') {
-                // For ANY text message that wasn't handled, send the 2 options.
-                const interactiveOptions = {
-                    type: "button",
-                    body: { text: "What would you like to explore today?" },
-                    action: {
-                        buttons: [
-                            { type: "reply", reply: { id: "btn_blouses", title: "Blouses" } },
-                            { type: "reply", reply: { id: "btn_shapewear", title: "Shapewear" } }
-                        ]
-                    }
-                };
-                const result = await sendInteractiveMessage(fromPhone, interactiveOptions, tenant);
-                if (result && result.messageId) {
-                    const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                    await run(
-                        `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`,
-                        [tenantId, conversation.id, "[Interactive Options]", result.messageId]
-                    );
-                    await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["[Interactive Options]", outNow, conversation.id]);
-                    emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
-                }
-                return; // Skip normal bot logic to enforce this flow
             }
 
             // Check if chatbot is enabled overall
