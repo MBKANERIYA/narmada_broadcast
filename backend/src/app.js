@@ -618,11 +618,23 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                                      .replace('{total}', pendingOrder.total_amount)
                                      .replace('{link}', paymentLink.short_url);
 
-                const { sendTextMessage } = await import('./services/whatsapp.js');
-                const result = await sendTextMessage(fromPhone, replyText, tenant);
+                // Update order with payment link and last_reminder_at
+                const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                await run(`UPDATE orders SET payment_link = ?, last_reminder_at = ? WHERE id = ?`, [paymentLink.short_url, outNow, orderId]);
+
+                const { sendInteractiveMessage } = await import('./services/whatsapp.js');
+                const interactiveOptions = {
+                    type: "button",
+                    body: { text: replyText },
+                    action: {
+                        buttons: [
+                            { type: "reply", reply: { id: `cancel_order_${orderId}`, title: "Cancel Order" } }
+                        ]
+                    }
+                };
+                const result = await sendInteractiveMessage(fromPhone, interactiveOptions, tenant);
 
                 if (result && result.messageId) {
-                    const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
                     await run(
                         `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
                          VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent', NULL)`,
@@ -647,6 +659,26 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     if ((messageType === 'text' || messageType === 'interactive_button' || messageType === 'interactive_list') && body && !addressProcessed) {
         try {
             const { sendInteractiveMessage, sendTextMessage } = await import('./services/whatsapp.js');
+
+            // Handle Cancel Order Button
+            if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id?.startsWith('cancel_order_')) {
+                const orderId = msg.interactive.button_reply.id.replace('cancel_order_', '');
+                await run(`UPDATE orders SET fulfillment_status = 'cancelled', payment_status = 'failed' WHERE id = ? AND tenant_id = ?`, [orderId, tenantId]);
+                
+                const replyText = `Your order #${orderId} has been successfully cancelled. Please let us know if there is anything else we can help you with!`;
+                const result = await sendTextMessage(fromPhone, replyText, tenant);
+                if (result && result.messageId) {
+                    const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                    await run(
+                        `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent')`,
+                        [tenantId, conversation.id, replyText, result.messageId]
+                    );
+                    await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, [replyText, outNow, conversation.id]);
+                    emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                }
+                return; // End flow
+            }
+
             const automationEnabled = botSettings.enabled !== false;
             const shouldOfferShoppingOptions = messageType === 'text';
 

@@ -2,6 +2,17 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-17 — Feature: Order Cancellation and Payment Reminders
+**What**: Added a "Cancel Order" interactive button to the payment link message and implemented an automated 15-minute payment reminder system for pending orders.
+**Why**: To improve conversion rates by automatically reminding customers to complete their payments, while giving them a quick option to cancel if they changed their mind, keeping the order queue clean.
+**Files Changed**:
+- `backend/src/database.js`: Added `payment_link` and `last_reminder_at` columns to the `orders` table.
+- `backend/src/app.js`: Upgraded payment link messages to Interactive Button payloads with a "Cancel Order" quick reply. Added webhook logic to intercept order cancellation requests.
+- `backend/src/services/paymentReminder.js`: Created a new background cron service to scan and dispatch payment reminders every 15 minutes.
+- `backend/src/server.js`: Initialized the `startPaymentReminderCron` worker.
+
+---
+
 ## 2026-06-17 - Option C UI Polish and Remote Review Fixes
 **What**: Polished the dashboard UI, improved responsive store-owner workflows, reviewed the latest `origin/main` coworker commits, and fixed the regressions found in that review.
 **Why**: The app needed a cleaner, more polished user experience with smoother edges, a better font, mobile-friendly daily workflows, and a safe merge of concurrent remote work before pushing to GitHub main.
