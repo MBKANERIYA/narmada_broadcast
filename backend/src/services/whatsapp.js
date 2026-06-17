@@ -183,6 +183,34 @@ export async function sendTemplateMessage(phone, campaignName, templateParams = 
 }
 
 /**
+ * Send an interactive message (buttons, list, catalog)
+ */
+export async function sendInteractiveMessage(phone, interactivePayload, tenant) {
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) throw new Error(`Invalid phone number: ${phone}`);
+
+    const { token, phoneId } = getCredentials(tenant);
+
+    const payload = {
+        messaging_product: "whatsapp",
+        to: normalizedPhone,
+        type: "interactive",
+        interactive: interactivePayload
+    };
+
+    const response = await fetch(`${WHATSAPP_API_URL}/${phoneId}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(formatMetaError(data, `WhatsApp API error (${response.status})`));
+
+    return { messageId: data.messages?.[0]?.id || null, data };
+}
+
+/**
  * Send a free-form text message (within 24h window)
  */
 export async function sendTextMessage(phone, text, tenant) {
@@ -616,7 +644,7 @@ export async function deleteProductFromMeta(tenant, metaProductId) {
 }
 
 export default {
-    normalizePhone, sendTemplateMessage, sendTextMessage, sendMediaMessage,
+    normalizePhone, sendTemplateMessage, sendTextMessage, sendMediaMessage, sendInteractiveMessage,
     getMediaUrl, sendBulkMessages, uploadMediaForTemplate, createTemplate,
     editTemplate, fetchTemplates, deleteTemplate, getTemplateDefinition,
     syncProductToMeta, deleteProductFromMeta,

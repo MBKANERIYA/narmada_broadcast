@@ -440,6 +440,18 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         } catch (omsErr) {
             console.error('[Order] Failed to save to OMS:', omsErr.message);
         }
+    } else if (msg.type === 'interactive') {
+        const interactiveType = msg.interactive?.type;
+        if (interactiveType === 'button_reply') {
+            body = msg.interactive.button_reply.title;
+            messageType = 'interactive_button';
+        } else if (interactiveType === 'list_reply') {
+            body = msg.interactive.list_reply.title;
+            messageType = 'interactive_list';
+        } else {
+            body = '[Interactive]';
+            messageType = 'interactive';
+        }
     } else {
         body = `[${msg.type}]`;
     }
@@ -630,10 +642,102 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     }
 
     // ============================================================
-    // AI CHATBOT LOGIC
+    // AI CHATBOT LOGIC / CUSTOM SHOPPING FLOW
     // ============================================================
-    if (messageType === 'text' && body && !addressProcessed) {
+    if ((messageType === 'text' || messageType === 'interactive_button') && body && !addressProcessed) {
         try {
+            const { sendInteractiveMessage } = await import('./services/whatsapp.js');
+            
+            // Custom Demo Shopping Flow
+            if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'btn_blouses') {
+                // Fetch blouse products and send Catalog Multi-Product Message
+                const blouses = await query(`SELECT * FROM products WHERE tenant_id = ? AND category LIKE '%blouse%' LIMIT 5`, [tenantId]);
+                if (blouses && blouses.length > 0 && tenant.whatsapp_catalog_id) {
+                    const catalogPayload = {
+                        type: "product_list",
+                        header: { type: "text", text: "Latest Blouses" },
+                        body: { text: "Tap a product below to view details or add to cart." },
+                        action: {
+                            catalog_id: tenant.whatsapp_catalog_id,
+                            sections: [
+                                {
+                                    title: "Blouses",
+                                    product_items: blouses.map(p => ({ product_retailer_id: p.sku || String(p.id) }))
+                                }
+                            ]
+                        }
+                    };
+                    const result = await sendInteractiveMessage(fromPhone, catalogPayload, tenant);
+                    if (result && result.messageId) {
+                        const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(
+                            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`,
+                            [tenantId, conversation.id, "Sent Blouse Catalog", result.messageId]
+                        );
+                        await run(
+                            `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`,
+                            ["Sent Blouse Catalog", outNow, conversation.id]
+                        );
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                    }
+                } else {
+                    const { sendTextMessage } = await import('./services/whatsapp.js');
+                    await sendTextMessage(fromPhone, "Sorry, no blouses are available right now.", tenant);
+                }
+                return; // End flow
+            } else if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'btn_shapewear') {
+                const shapewear = await query(`SELECT * FROM products WHERE tenant_id = ? AND category LIKE '%shapewear%' LIMIT 5`, [tenantId]);
+                if (shapewear && shapewear.length > 0 && tenant.whatsapp_catalog_id) {
+                    const catalogPayload = {
+                        type: "product_list",
+                        header: { type: "text", text: "Premium Shapewear" },
+                        body: { text: "Tap a product below to view details or add to cart." },
+                        action: {
+                            catalog_id: tenant.whatsapp_catalog_id,
+                            sections: [
+                                {
+                                    title: "Shapewear",
+                                    product_items: shapewear.map(p => ({ product_retailer_id: p.sku || String(p.id) }))
+                                }
+                            ]
+                        }
+                    };
+                    const result = await sendInteractiveMessage(fromPhone, catalogPayload, tenant);
+                    if (result && result.messageId) {
+                        const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`, [tenantId, conversation.id, "Sent Shapewear Catalog", result.messageId]);
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["Sent Shapewear Catalog", outNow, conversation.id]);
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                    }
+                } else {
+                    const { sendTextMessage } = await import('./services/whatsapp.js');
+                    await sendTextMessage(fromPhone, "Sorry, no shapewear available right now.", tenant);
+                }
+                return; // End flow
+            } else if (messageType === 'text') {
+                // For ANY text message that wasn't handled, send the 2 options.
+                const interactiveOptions = {
+                    type: "button",
+                    body: { text: "What would you like to explore today?" },
+                    action: {
+                        buttons: [
+                            { type: "reply", reply: { id: "btn_blouses", title: "Blouses" } },
+                            { type: "reply", reply: { id: "btn_shapewear", title: "Shapewear" } }
+                        ]
+                    }
+                };
+                const result = await sendInteractiveMessage(fromPhone, interactiveOptions, tenant);
+                if (result && result.messageId) {
+                    const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                    await run(
+                        `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`,
+                        [tenantId, conversation.id, "[Interactive Options]", result.messageId]
+                    );
+                    await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["[Interactive Options]", outNow, conversation.id]);
+                    emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                }
+                return; // Skip normal bot logic to enforce this flow
+            }
 
             // Check if chatbot is enabled overall
             let shouldReply = botSettings.enabled !== false; // Default to true if not set
