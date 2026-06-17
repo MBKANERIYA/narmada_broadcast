@@ -2,6 +2,14 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-17 — Feature: Auto-Resume Bot on Interactive Options
+**What**: Added logic to automatically unpause the AI bot if a customer clicks any menu option (interactive list or button) while in a paused/live-agent state.
+**Why**: To prevent the bot from ignoring user commands if they voluntarily try to return to the automated flow (e.g. by clicking "Shop Categories" from an older message). Text messages remain paused so agents can chat freely, but menu interactions immediately hand control back to the bot.
+**Files Changed**:
+- `backend/src/app.js`: Updated the early return condition for `bot_paused` in `processIncomingMessage` to automatically unset the pause flag in the database and emit a WebSocket event if the incoming message is an `interactive_button` or `interactive_list`.
+
+---
+
 ## 2026-06-17 — UX: Expanded Customer Support Availability & Options
 **What**: 
 1. Injected the "Customer Support" interactive button into two critical transactional messages: the Payment Link message and the Order Cancellation confirmation message. 

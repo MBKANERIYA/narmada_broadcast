@@ -492,8 +492,15 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
 
     if (conversation.bot_paused) {
-        console.log(`[Bot] Conversation #${conversation.id} is paused. Skipping automated replies.`);
-        return;
+        if (messageType === 'interactive_button' || messageType === 'interactive_list') {
+            console.log(`[Bot] Conversation #${conversation.id} was paused, but user interacted with a menu. Unpausing automatically.`);
+            await run(`UPDATE whatsapp_conversations SET bot_paused = 0 WHERE id = ?`, [conversation.id]);
+            conversation.bot_paused = false;
+            emitToTenant(tenantId, 'chat_updated', { type: 'bot_resumed', conversationId: conversation.id });
+        } else {
+            console.log(`[Bot] Conversation #${conversation.id} is paused. Skipping automated replies.`);
+            return;
+        }
     }
 
     // ============================================================
