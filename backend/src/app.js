@@ -883,6 +883,21 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                     }
                     return; // End flow
                 }
+                if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id?.startsWith('feedback_')) {
+                    const feedbackType = msg.interactive.button_reply.id === 'feedback_good' ? 'positive' : 'negative';
+                    const replyText = feedbackType === 'positive' 
+                        ? "Thank you for the positive feedback! We're glad we could help." 
+                        : "Thank you for your feedback. We're sorry to hear about your experience and will use this to improve our support.";
+                    
+                    const result = await sendTextMessage(fromPhone, replyText, tenant);
+                    if (result && result.messageId) {
+                        const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent')`, [tenantId, conversation.id, replyText, result.messageId]);
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, [replyText, outNow, conversation.id]);
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                    }
+                    return; // End flow
+                }
 
                 // Default auto-reply for any generic text message
                 if (shouldOfferShoppingOptions) {

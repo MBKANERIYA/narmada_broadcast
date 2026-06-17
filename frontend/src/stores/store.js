@@ -504,10 +504,10 @@ export const useStore = create(
                 get().fetchConversations();
             },
 
-            updateConversationBotPause: async (conversationId, paused) => {
+            updateConversationBotPause: async (conversationId, paused, sendFeedback = false) => {
                 const result = await api(`/whatsapp/chat/conversations/${conversationId}/bot-pause`, {
                     method: 'PATCH',
-                    body: JSON.stringify({ paused }),
+                    body: JSON.stringify({ paused, send_feedback: sendFeedback }),
                 });
                 const botPaused = result.bot_paused;
                 set(state => ({

@@ -532,13 +532,13 @@ router.patch('/conversations/:id/archive', async (req, res) => {
  */
 router.patch('/conversations/:id/bot-pause', async (req, res) => {
     try {
-        const { paused } = req.body;
+        const { paused, send_feedback } = req.body;
         if (typeof paused !== 'boolean') {
             return res.status(400).json({ error: 'paused must be a boolean' });
         }
 
         const conv = await get(
-            'SELECT id FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
+            'SELECT id, phone FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
             [req.params.id, req.tenantId]
         );
         if (!conv) return res.status(404).json({ error: 'Conversation not found' });
@@ -547,6 +547,27 @@ router.patch('/conversations/:id/bot-pause', async (req, res) => {
             'UPDATE whatsapp_conversations SET bot_paused = ? WHERE id = ? AND tenant_id = ?',
             [paused, req.params.id, req.tenantId]
         );
+
+        if (send_feedback && !paused) {
+            const { sendInteractiveMessage } = await import('../services/whatsapp.js');
+            const interactiveOptions = {
+                type: "button",
+                body: { text: "Your support chat has been resolved. Please rate your experience:" },
+                action: {
+                    buttons: [
+                        { type: "reply", reply: { id: "feedback_good", title: "👍 Good" } },
+                        { type: "reply", reply: { id: "feedback_bad", title: "👎 Bad" } }
+                    ]
+                }
+            };
+            const result = await sendInteractiveMessage(conv.phone, interactiveOptions, req.tenant);
+            if (result && result.messageId) {
+                const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent', ?)`, [req.tenantId, conv.id, "[Feedback Request Sent]", result.messageId, req.user.userId]);
+                await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["[Feedback Request Sent]", outNow, conv.id]);
+                emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conv.id });
+            }
+        }
 
         res.json({ success: true, bot_paused: paused });
     } catch (error) {

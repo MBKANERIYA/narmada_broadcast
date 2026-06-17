@@ -2,6 +2,17 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-17 — Feature: Chat Resolution and Automated Feedback
+**What**: Added a "Resolve Chat" button to the WhatsApp Inbox UI when the AI bot is paused during live agent support. Clicking this instantly reactivates the bot and sends an interactive feedback request (Thumbs Up/Down) to the customer. We also added automated handlers to process their feedback selection and send an appropriate thank-you message.
+**Why**: To provide a clean closure to manual support interactions and gather customer satisfaction data. The system now seamlessly transitions between automated shopping, manual agent intervention (with bot paused), and back to full automation upon resolution.
+**Files Changed**:
+- `backend/src/routes/whatsapp-chat.js`: Upgraded the `/bot-pause` endpoint to accept a `send_feedback` flag and dispatch an interactive feedback message when resolving chats.
+- `backend/src/app.js`: Added handlers for `feedback_good` and `feedback_bad` interactive buttons. Verified that the `bot_paused` flag actively suppresses automated shopping replies during live chat.
+- `frontend/src/stores/store.js`: Updated `updateConversationBotPause` to pass the `send_feedback` parameter to the backend.
+- `frontend/src/components/WhatsAppChat.jsx`: Enhanced the chat header UI with a dedicated "Resolve Chat" button that appears when the bot is paused.
+
+---
+
 ## 2026-06-17 — Feature: Interactive Customer Support Menu
 **What**: Transformed the primary fallback auto-responder from a direct category list into a high-level Welcome Menu with "Shop Categories" and "Customer Support" buttons. Added an interactive support triage flow that guides users through selecting their issue (Payment, Shipping, Product) and preferred contact method (WhatsApp Chat vs Phone Call). If the user chooses a Phone Call, the bot automatically sends a native WhatsApp Contact Card (vCard) with the tenant's support number.
 **Why**: To provide a more robust and professional automated assistant experience, ensuring users who need help can easily reach human agents, while shoppers can still browse seamlessly. The vCard specifically allows customers to instantly save the support number or dial it with one tap.

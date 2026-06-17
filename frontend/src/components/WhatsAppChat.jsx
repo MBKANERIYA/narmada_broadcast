@@ -790,9 +790,32 @@ export default function WhatsAppChat() {
                                         <Icon name={isBotPaused ? 'play' : 'pause'} size={18} />
                                     </button>
                                     {isBotPaused && (
-                                        <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '10px', background: '#FEF2F2', color: '#EF4444', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                            Bot Paused
-                                        </span>
+                                        <>
+                                            <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '10px', background: '#FEF2F2', color: '#EF4444', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                Bot Paused
+                                            </span>
+                                            <button
+                                                className="btn btn--outline"
+                                                onClick={async () => {
+                                                    if (window.confirm('Resolve this support chat and send a feedback request?')) {
+                                                        try {
+                                                            await updateConversationBotPause(selectedConvId, false, true);
+                                                            showToast('Support chat resolved and feedback sent', 'success');
+                                                        } catch (e) {
+                                                            showToast(e.message || 'Failed to resolve chat', 'error');
+                                                        }
+                                                    }
+                                                }}
+                                                style={{
+                                                    fontSize: '12px', padding: '4px 10px',
+                                                    borderColor: '#10b981', color: '#10b981', background: '#ecfdf5',
+                                                    display: 'flex', alignItems: 'center', gap: '4px'
+                                                }}
+                                                title="Resolve Chat & Send Feedback"
+                                            >
+                                                <Icon name="check-circle" size={14} /> Resolve Chat
+                                            </button>
+                                        </>
                                     )}
                                     <button className="btn-icon" onClick={() => setShowManageQR(true)} title="Quick Replies">
                                         <Icon name="zap" size={18} />
