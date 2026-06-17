@@ -2,6 +2,14 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-17 — Feature: Chat Inbox Date Separators
+**What**: Added date separators (e.g., "Today", "Yesterday", "15 Jun 2026") between chat messages in the WhatsApp Chat Inbox.
+**Why**: To improve readability and match the native WhatsApp chat experience, making it easier for users to track conversation timelines.
+**Files Changed**:
+- `frontend/src/components/WhatsAppChat.jsx`: Implemented `formatDateSeparator` and added logic to render date blocks between messages when the date changes.
+
+---
+
 ## 2026-06-16 — Feature: WhatsApp Broadcast UI Polish
 **What**: Removed the "By Tag" filter option from the WhatsApp Broadcast interface and fixed the missing icon for "Smart FAQs" in the sidebar navigation.
 **Why**: Based on user request, the tag filter was removed to simplify the recipient selection options. The Smart FAQs icon was not rendering due to an invalid icon name mapping, which has now been corrected.
@@ -560,3 +568,5 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - Auto-disables at Meta limits (1 call, 2 URL)
 - Backend `createTemplate` accepts generic `buttons[]` array
 - Live preview renders all button types with correct WhatsApp icons
+ 
+ 

@@ -357,6 +357,17 @@ export default function WhatsAppChat() {
         return parseUTC(dateStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
     };
 
+    const formatDateSeparator = (dateStr) => {
+        if (!dateStr) return '';
+        const d = parseUTC(dateStr);
+        const now = new Date();
+        const isToday = d.toDateString() === now.toDateString();
+        if (isToday) return 'Today';
+        const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+        if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+        return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+
     const statusIcon = (status) => {
         if (status === 'sent') return '\u2713';
         if (status === 'delivered') return '\u2713\u2713';
@@ -867,14 +878,19 @@ export default function WhatsAppChat() {
                                         </button>
                                     </div>
                                 )}
-                                {chatMessages.map(msg => {
+                                {chatMessages.map((msg, index) => {
+                                    const currentDate = formatDateSeparator(msg.created_at);
+                                    const prevDate = index > 0 ? formatDateSeparator(chatMessages[index - 1].created_at) : null;
+                                    const showDateSeparator = currentDate !== prevDate;
+                                    
+                                    let messageContent = null;
+
                                     // Check if this is a rich template message
                                     if (msg.message_type === 'template') {
                                         const tplData = parseTemplateBody(msg.body);
                                         if (tplData) {
-                                            return (
+                                            messageContent = (
                                                 <TemplateCard
-                                                    key={msg.id}
                                                     data={tplData}
                                                     time={msg.created_at}
                                                     status={msg.status}
@@ -886,12 +902,13 @@ export default function WhatsAppChat() {
                                     }
 
                                     // Default rendering for text, media, and old-format template messages
-                                    return (
-                                    <div key={msg.id} style={{
-                                        display: 'flex',
-                                        justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start',
-                                        marginBottom: '2px',
-                                    }}>
+                                    if (!messageContent) {
+                                        messageContent = (
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start',
+                                            marginBottom: '2px',
+                                        }}>
                                         <div style={{
                                             maxWidth: '70%', padding: '8px 12px', borderRadius: '8px',
                                             background: msg.direction === 'outbound' ? '#dcf8c6' : '#fff',
@@ -947,6 +964,24 @@ export default function WhatsAppChat() {
                                             )}
                                         </div>
                                     </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div key={msg.id}>
+                                            {showDateSeparator && (
+                                                <div style={{ textAlign: 'center', margin: '16px 0 12px' }}>
+                                                    <span style={{
+                                                        background: '#fff', padding: '6px 12px', borderRadius: '8px',
+                                                        fontSize: '12px', fontWeight: 500, color: '#54656f',
+                                                        boxShadow: '0 1px 1px rgba(0,0,0,0.05)',
+                                                    }}>
+                                                        {currentDate}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {messageContent}
+                                        </div>
                                     );
                                 })}
                                 <div ref={messagesEndRef} />
