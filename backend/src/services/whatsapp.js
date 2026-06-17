@@ -239,6 +239,34 @@ export async function sendTextMessage(phone, text, tenant) {
 }
 
 /**
+ * Send a contact (vCard) message
+ */
+export async function sendContactMessage(phone, contactInfo, tenant) {
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) throw new Error(`Invalid phone number: ${phone}`);
+
+    const { token, phoneId } = getCredentials(tenant);
+
+    const payload = {
+        messaging_product: "whatsapp",
+        to: normalizedPhone,
+        type: "contacts",
+        contacts: [contactInfo]
+    };
+
+    const response = await fetch(`${WHATSAPP_API_URL}/${phoneId}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(formatMetaError(data, `WhatsApp API error (${response.status})`));
+
+    return { messageId: data.messages?.[0]?.id || null, data };
+}
+
+/**
  * Upload binary buffer directly to Meta API to get a media ID for messaging
  */
 export async function uploadMediaForMessage(buffer, mimeType, filename, tenant) {

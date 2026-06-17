@@ -856,7 +856,24 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                 }
 
                 if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'support_contact_call') {
-                    const replyText = `Our support team has been notified and will call you soon on ${fromPhone}. If you need immediate assistance, you can reach us directly at ${tenant.phone || '+91'}.`;
+                    const supportPhone = tenant.phone || "+919876543210";
+                    const formattedPhone = supportPhone.startsWith('+') ? supportPhone : `+${supportPhone}`;
+                    const contactInfo = {
+                        name: {
+                            first_name: "Support",
+                            formatted_name: "Customer Support"
+                        },
+                        phones: [{
+                            phone: formattedPhone,
+                            type: "WORK",
+                            wa_id: formattedPhone.replace(/\D/g, '')
+                        }]
+                    };
+                    
+                    const { sendContactMessage } = await import('./services/whatsapp.js');
+                    await sendContactMessage(fromPhone, contactInfo, tenant);
+
+                    const replyText = `Our support team has been notified and will call you soon on ${fromPhone}.\n\nYou can also click the contact card above to reach us immediately!`;
                     const result = await sendTextMessage(fromPhone, replyText, tenant);
                     if (result && result.messageId) {
                         const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');

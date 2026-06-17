@@ -3,10 +3,11 @@
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
 ## 2026-06-17 — Feature: Interactive Customer Support Menu
-**What**: Transformed the primary fallback auto-responder from a direct category list into a high-level Welcome Menu with "Shop Categories" and "Customer Support" buttons. Added an interactive support triage flow that guides users through selecting their issue (Payment, Shipping, Product) and preferred contact method (WhatsApp Chat vs Phone Call).
-**Why**: To provide a more robust and professional automated assistant experience, ensuring users who need help can easily reach human agents, while shoppers can still browse seamlessly.
+**What**: Transformed the primary fallback auto-responder from a direct category list into a high-level Welcome Menu with "Shop Categories" and "Customer Support" buttons. Added an interactive support triage flow that guides users through selecting their issue (Payment, Shipping, Product) and preferred contact method (WhatsApp Chat vs Phone Call). If the user chooses a Phone Call, the bot automatically sends a native WhatsApp Contact Card (vCard) with the tenant's support number.
+**Why**: To provide a more robust and professional automated assistant experience, ensuring users who need help can easily reach human agents, while shoppers can still browse seamlessly. The vCard specifically allows customers to instantly save the support number or dial it with one tap.
 **Files Changed**:
-- `backend/src/app.js`: Intercepted text messages to serve the new Welcome Menu. Handled payloads for `menu_customer_support`, support topics, and support contact methods. Integrated bot-pausing logic for live agent handoff.
+- `backend/src/services/whatsapp.js`: Added a new `sendContactMessage` function to support native Meta API `contacts` message types.
+- `backend/src/app.js`: Intercepted text messages to serve the new Welcome Menu. Handled payloads for `menu_customer_support`, support topics, and support contact methods. Integrated bot-pausing logic for live agent handoff and implemented the vCard dispatch when a call is requested.
 
 ---
 
