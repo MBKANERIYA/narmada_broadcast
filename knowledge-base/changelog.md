@@ -2,11 +2,15 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
-## 2026-06-17 — UX: Expanded Customer Support Availability
-**What**: Injected the "Customer Support" interactive button into two critical transactional messages: the Payment Link message and the Order Cancellation confirmation message. 
-**Why**: To ensure users always have a direct, one-tap route to human assistance exactly when they might need it most (when paying or when cancelling an order), drastically reducing friction for users experiencing issues.
+## 2026-06-17 — UX: Expanded Customer Support Availability & Options
+**What**: 
+1. Injected the "Customer Support" interactive button into two critical transactional messages: the Payment Link message and the Order Cancellation confirmation message. 
+2. Upgraded the main Customer Support triage menu from an interactive button message (which was limited to 3 options) to a full interactive list message, allowing us to include: Order Status, Payment Issues, Shipping & Delivery, Returns & Refunds, Product Info, and General Inquiry.
+**Why**: 
+1. To ensure users always have a direct, one-tap route to human assistance exactly when they might need it most (when paying or when cancelling an order).
+2. To provide a more comprehensive taxonomy of support issues, which helps agents better understand the customer's intent before they even join the chat.
 **Files Changed**:
-- `backend/src/app.js`: Updated both the Razorpay payment link dispatcher and the cancellation success webhook to send interactive payloads containing the `menu_customer_support` button payload.
+- `backend/src/app.js`: Updated both the Razorpay payment link dispatcher and the cancellation success webhook to send interactive payloads containing the `menu_customer_support` button payload. Converted `menu_customer_support` handler to dispatch a `type: "list"` message instead of `type: "button"` and added `interactive_list` handlers for the new `support_topic_*` IDs.
 
 ---
 

@@ -802,13 +802,24 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                 // If the user clicks Customer Support
                 if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'menu_customer_support') {
                     const interactiveOptions = {
-                        type: "button",
-                        body: { text: "What do you need help with?" },
+                        type: "list",
+                        header: { type: "text", text: "Customer Support" },
+                        body: { text: "What do you need help with? Please select a topic from the menu below." },
+                        footer: { text: "Select an option" },
                         action: {
-                            buttons: [
-                                { type: "reply", reply: { id: "support_topic_payment", title: "💳 Payment" } },
-                                { type: "reply", reply: { id: "support_topic_shipping", title: "🚚 Shipping" } },
-                                { type: "reply", reply: { id: "support_topic_product", title: "📦 Product Info" } }
+                            button: "Support Topics",
+                            sections: [
+                                {
+                                    title: "Select a Topic",
+                                    rows: [
+                                        { id: "support_topic_order", title: "🛍️ Order Status" },
+                                        { id: "support_topic_payment", title: "💳 Payment Issues" },
+                                        { id: "support_topic_shipping", title: "🚚 Shipping & Delivery" },
+                                        { id: "support_topic_returns", title: "🔄 Returns & Refunds" },
+                                        { id: "support_topic_product", title: "📦 Product Info" },
+                                        { id: "support_topic_other", title: "❓ Other / General" }
+                                    ]
+                                }
                             ]
                         }
                     };
@@ -822,14 +833,21 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                     return; // End flow
                 }
 
+                const isButtonTopic = messageType === 'interactive_button' && msg.interactive?.button_reply?.id?.startsWith('support_topic_');
+                const isListTopic = messageType === 'interactive_list' && msg.interactive?.list_reply?.id?.startsWith('support_topic_');
+
                 // If the user selects a specific support topic
-                if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id?.startsWith('support_topic_')) {
+                if (isButtonTopic || isListTopic) {
+                    const topicId = isButtonTopic ? msg.interactive.button_reply.id : msg.interactive.list_reply.id;
                     const topicMap = {
-                        'support_topic_payment': 'Payment',
-                        'support_topic_shipping': 'Shipping',
-                        'support_topic_product': 'Product Info'
+                        'support_topic_order': 'Order Status',
+                        'support_topic_payment': 'Payment Issues',
+                        'support_topic_shipping': 'Shipping & Delivery',
+                        'support_topic_returns': 'Returns & Refunds',
+                        'support_topic_product': 'Product Info',
+                        'support_topic_other': 'General Inquiry'
                     };
-                    const selectedTopic = topicMap[msg.interactive.button_reply.id] || 'Support';
+                    const selectedTopic = topicMap[topicId] || 'Support';
                     
                     const interactiveOptions = {
                         type: "button",
