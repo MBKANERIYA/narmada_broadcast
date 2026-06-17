@@ -628,7 +628,8 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                     body: { text: replyText },
                     action: {
                         buttons: [
-                            { type: "reply", reply: { id: `cancel_order_${orderId}`, title: "Cancel Order" } }
+                            { type: "reply", reply: { id: `cancel_order_${orderId}`, title: "Cancel Order" } },
+                            { type: "reply", reply: { id: "menu_customer_support", title: "🎧 Customer Support" } }
                         ]
                     }
                 };
@@ -683,11 +684,21 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                 await run(`UPDATE orders SET fulfillment_status = 'cancelled', payment_status = 'failed' WHERE id = ? AND tenant_id = ?`, [orderId, tenantId]);
                 
                 const replyText = `Your order #${orderId} has been successfully cancelled. Please let us know if there is anything else we can help you with!`;
-                const result = await sendTextMessage(fromPhone, replyText, tenant);
+                const interactiveOptions = {
+                    type: "button",
+                    body: { text: replyText },
+                    action: {
+                        buttons: [
+                            { type: "reply", reply: { id: "menu_shop_categories", title: "🛍️ Shop Categories" } },
+                            { type: "reply", reply: { id: "menu_customer_support", title: "🎧 Customer Support" } }
+                        ]
+                    }
+                };
+                const result = await sendInteractiveMessage(fromPhone, interactiveOptions, tenant);
                 if (result && result.messageId) {
                     const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
                     await run(
-                        `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent')`,
+                        `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`,
                         [tenantId, conversation.id, replyText, result.messageId]
                     );
                     await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, [replyText, outNow, conversation.id]);

@@ -2,6 +2,14 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-17 — UX: Expanded Customer Support Availability
+**What**: Injected the "Customer Support" interactive button into two critical transactional messages: the Payment Link message and the Order Cancellation confirmation message. 
+**Why**: To ensure users always have a direct, one-tap route to human assistance exactly when they might need it most (when paying or when cancelling an order), drastically reducing friction for users experiencing issues.
+**Files Changed**:
+- `backend/src/app.js`: Updated both the Razorpay payment link dispatcher and the cancellation success webhook to send interactive payloads containing the `menu_customer_support` button payload.
+
+---
+
 ## 2026-06-17 — Feature: Chat Resolution and Automated Feedback
 **What**: Added a "Resolve Chat" button to the WhatsApp Inbox UI when the AI bot is paused during live agent support. Clicking this instantly reactivates the bot and sends an interactive feedback request (Thumbs Up/Down) to the customer. We also added automated handlers to process their feedback selection and send an appropriate thank-you message.
 **Why**: To provide a clean closure to manual support interactions and gather customer satisfaction data. The system now seamlessly transitions between automated shopping, manual agent intervention (with bot paused), and back to full automation upon resolution.
