@@ -2,6 +2,14 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-17 — Feature: Contextual Order Selection in Support Flow
+**What**: Modified the customer support flow so that when a customer selects any support topic (like "Payment Issues" or "Order Status"), the system now checks if they have any recent orders. If they do, it automatically sends an interactive list of their last 5 orders, prompting them to select which order they need help with *before* asking them how they want to contact us.
+**Why**: To provide agents with immediate, exact context about which order the customer is asking about, dramatically reducing back-and-forth and improving resolution times.
+**Files Changed**:
+- `backend/src/app.js`: Updated the support topic handler to query the `orders` table by `tenant_id` and `phone`. If orders exist, it serves a `type: "list"` message containing those orders. Added a new handler for `support_order_*` list replies to proceed to the Chat/Call contact options.
+
+---
+
 ## 2026-06-17 — Feature: Auto-Resume Bot on Interactive Options
 **What**: Added logic to automatically unpause the AI bot if a customer clicks any menu option (interactive list or button) while in a paused/live-agent state.
 **Why**: To prevent the bot from ignoring user commands if they voluntarily try to return to the automated flow (e.g. by clicking "Shop Categories" from an older message). Text messages remain paused so agents can chat freely, but menu interactions immediately hand control back to the bot.

@@ -856,9 +856,61 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                     };
                     const selectedTopic = topicMap[topicId] || 'Support';
                     
+                    // Check for recent orders
+                    const recentOrders = await query(`SELECT id, total_amount, currency, created_at FROM orders WHERE tenant_id = ? AND phone = ? ORDER BY created_at DESC LIMIT 5`, [tenantId, fromPhone]);
+
+                    let interactiveOptions;
+                    if (recentOrders && recentOrders.length > 0) {
+                        interactiveOptions = {
+                            type: "list",
+                            header: { type: "text", text: "Recent Orders" },
+                            body: { text: `You selected "${selectedTopic}". Which order do you need help with?` },
+                            footer: { text: "Select an order" },
+                            action: {
+                                button: "Select Order",
+                                sections: [
+                                    {
+                                        title: "Recent Orders",
+                                        rows: recentOrders.map(order => ({
+                                            id: `support_order_${order.id}`,
+                                            title: `Order #${order.id}`,
+                                            description: `${order.currency || 'INR'} ${order.total_amount} - ${new Date(order.created_at).toLocaleDateString()}`.substring(0, 72)
+                                        }))
+                                    }
+                                ]
+                            }
+                        };
+                    } else {
+                        interactiveOptions = {
+                            type: "button",
+                            body: { text: `For help with ${selectedTopic}, how would you like to connect with us?` },
+                            action: {
+                                buttons: [
+                                    { type: "reply", reply: { id: "support_contact_chat", title: "💬 Chat in WhatsApp" } },
+                                    { type: "reply", reply: { id: "support_contact_call", title: "📞 Request a Call" } }
+                                ]
+                            }
+                        };
+                    }
+
+                    const result = await sendInteractiveMessage(fromPhone, interactiveOptions, tenant);
+                    if (result && result.messageId) {
+                        const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        const logText = recentOrders && recentOrders.length > 0 ? "[Support Order Selection Sent]" : "[Support Contact Methods Sent]";
+                        await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`, [tenantId, conversation.id, logText, result.messageId]);
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, [logText, outNow, conversation.id]);
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                    }
+                    return; // End flow
+                }
+
+                // If the user selects a specific order for support
+                const isOrderSelection = messageType === 'interactive_list' && msg.interactive?.list_reply?.id?.startsWith('support_order_');
+                if (isOrderSelection) {
+                    const orderId = msg.interactive.list_reply.id.replace('support_order_', '');
                     const interactiveOptions = {
                         type: "button",
-                        body: { text: `For help with ${selectedTopic}, how would you like to connect with us?` },
+                        body: { text: `For help with Order #${orderId}, how would you like to connect with us?` },
                         action: {
                             buttons: [
                                 { type: "reply", reply: { id: "support_contact_chat", title: "💬 Chat in WhatsApp" } },
