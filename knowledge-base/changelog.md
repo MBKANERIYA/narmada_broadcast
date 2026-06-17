@@ -2,6 +2,14 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-17 — Feature: Interactive Customer Support Menu
+**What**: Transformed the primary fallback auto-responder from a direct category list into a high-level Welcome Menu with "Shop Categories" and "Customer Support" buttons. Added an interactive support triage flow that guides users through selecting their issue (Payment, Shipping, Product) and preferred contact method (WhatsApp Chat vs Phone Call).
+**Why**: To provide a more robust and professional automated assistant experience, ensuring users who need help can easily reach human agents, while shoppers can still browse seamlessly.
+**Files Changed**:
+- `backend/src/app.js`: Intercepted text messages to serve the new Welcome Menu. Handled payloads for `menu_customer_support`, support topics, and support contact methods. Integrated bot-pausing logic for live agent handoff.
+
+---
+
 ## 2026-06-17 — Feature: Order Cancellation and Payment Reminders
 **What**: Added a "Cancel Order" interactive button to the payment link message and implemented an automated 15-minute payment reminder system for pending orders. Clicking "Cancel Order" now automatically voids and expires the associated Razorpay payment link.
 **Why**: To improve conversion rates by automatically reminding customers to complete their payments, while giving them a quick option to cancel if they changed their mind, keeping the order queue clean and preventing accidental late payments on cancelled orders.

@@ -749,37 +749,144 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                     await sendTextMessage(fromPhone, `Sorry, no products available in ${categoryName} right now.`, tenant);
                 }
                 return; // End flow
-            } else if (automationEnabled && shouldOfferShoppingOptions) {
-                const categories = await query(`SELECT DISTINCT category FROM products WHERE tenant_id = ? AND category IS NOT NULL AND category != '' LIMIT 10`, [tenantId]);
+            } else if (automationEnabled) {
+                // If the user clicks Shop Categories
+                if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'menu_shop_categories') {
+                    const categories = await query(`SELECT DISTINCT category FROM products WHERE tenant_id = ? AND category IS NOT NULL AND category != '' LIMIT 10`, [tenantId]);
+                    if (categories && categories.length > 0) {
+                        const interactiveOptions = {
+                            type: "list",
+                            header: { type: "text", text: "Our Categories" },
+                            body: { text: "What would you like to explore today?" },
+                            footer: { text: "Tap below to view categories" },
+                            action: {
+                                button: "View Categories",
+                                sections: [
+                                    {
+                                        title: "Available Categories",
+                                        rows: categories.map((c) => ({
+                                            id: `cat_${encodeURIComponent(c.category)}`.substring(0, 200),
+                                            title: c.category.substring(0, 24)
+                                        }))
+                                    }
+                                ]
+                            }
+                        };
+                        const result = await sendInteractiveMessage(fromPhone, interactiveOptions, tenant);
+                        if (result && result.messageId) {
+                            const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                            await run(
+                                `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`,
+                                [tenantId, conversation.id, "[Category List Sent]", result.messageId]
+                            );
+                            await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["[Category List Sent]", outNow, conversation.id]);
+                            emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                        }
+                    } else {
+                        await sendTextMessage(fromPhone, "Sorry, we don't have any categories available right now.", tenant);
+                    }
+                    return; // End flow
+                }
 
-                if (categories && categories.length > 0) {
+                // If the user clicks Customer Support
+                if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'menu_customer_support') {
                     const interactiveOptions = {
-                        type: "list",
-                        header: { type: "text", text: "Our Categories" },
-                        body: { text: "What would you like to explore today?" },
-                        footer: { text: "Tap below to view categories" },
+                        type: "button",
+                        body: { text: "What do you need help with?" },
                         action: {
-                            button: "View Categories",
-                            sections: [
-                                {
-                                    title: "Available Categories",
-                                    rows: categories.map((c) => ({
-                                        id: `cat_${encodeURIComponent(c.category)}`.substring(0, 200),
-                                        title: c.category.substring(0, 24)
-                                    }))
-                                }
+                            buttons: [
+                                { type: "reply", reply: { id: "support_topic_payment", title: "💳 Payment" } },
+                                { type: "reply", reply: { id: "support_topic_shipping", title: "🚚 Shipping" } },
+                                { type: "reply", reply: { id: "support_topic_product", title: "📦 Product Info" } }
                             ]
                         }
                     };
+                    const result = await sendInteractiveMessage(fromPhone, interactiveOptions, tenant);
+                    if (result && result.messageId) {
+                        const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`, [tenantId, conversation.id, "[Support Options Sent]", result.messageId]);
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["[Support Options Sent]", outNow, conversation.id]);
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                    }
+                    return; // End flow
+                }
+
+                // If the user selects a specific support topic
+                if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id?.startsWith('support_topic_')) {
+                    const topicMap = {
+                        'support_topic_payment': 'Payment',
+                        'support_topic_shipping': 'Shipping',
+                        'support_topic_product': 'Product Info'
+                    };
+                    const selectedTopic = topicMap[msg.interactive.button_reply.id] || 'Support';
                     
+                    const interactiveOptions = {
+                        type: "button",
+                        body: { text: `For help with ${selectedTopic}, how would you like to connect with us?` },
+                        action: {
+                            buttons: [
+                                { type: "reply", reply: { id: "support_contact_chat", title: "💬 Chat in WhatsApp" } },
+                                { type: "reply", reply: { id: "support_contact_call", title: "📞 Request a Call" } }
+                            ]
+                        }
+                    };
+                    const result = await sendInteractiveMessage(fromPhone, interactiveOptions, tenant);
+                    if (result && result.messageId) {
+                        const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`, [tenantId, conversation.id, "[Support Contact Methods Sent]", result.messageId]);
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["[Support Contact Methods Sent]", outNow, conversation.id]);
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                    }
+                    return; // End flow
+                }
+
+                // If the user selects a contact method
+                if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'support_contact_chat') {
+                    // Pause bot and notify agent
+                    await run(`UPDATE whatsapp_conversations SET bot_paused = 1 WHERE id = ?`, [conversation.id]);
+                    const replyText = "We have notified our support team. An agent will join this chat to help you shortly.";
+                    const result = await sendTextMessage(fromPhone, replyText, tenant);
+                    if (result && result.messageId) {
+                        const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent')`, [tenantId, conversation.id, replyText, result.messageId]);
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, [replyText, outNow, conversation.id]);
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                    }
+                    return; // End flow
+                }
+
+                if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'support_contact_call') {
+                    const replyText = `Our support team has been notified and will call you soon on ${fromPhone}. If you need immediate assistance, you can reach us directly at ${tenant.phone || '+91'}.`;
+                    const result = await sendTextMessage(fromPhone, replyText, tenant);
+                    if (result && result.messageId) {
+                        const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent')`, [tenantId, conversation.id, replyText, result.messageId]);
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, [replyText, outNow, conversation.id]);
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                    }
+                    return; // End flow
+                }
+
+                // Default auto-reply for any generic text message
+                if (shouldOfferShoppingOptions) {
+                    const interactiveOptions = {
+                        type: "button",
+                        body: { text: "Hi! How can we help you today?" },
+                        action: {
+                            buttons: [
+                                { type: "reply", reply: { id: "menu_shop_categories", title: "🛍️ Shop Categories" } },
+                                { type: "reply", reply: { id: "menu_customer_support", title: "🎧 Customer Support" } }
+                            ]
+                        }
+                    };
                     const result = await sendInteractiveMessage(fromPhone, interactiveOptions, tenant);
                     if (result && result.messageId) {
                         const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
                         await run(
                             `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent')`,
-                            [tenantId, conversation.id, "[Category List Sent]", result.messageId]
+                            [tenantId, conversation.id, "[Welcome Menu Sent]", result.messageId]
                         );
-                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["[Category List Sent]", outNow, conversation.id]);
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["[Welcome Menu Sent]", outNow, conversation.id]);
                         emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
                     }
                     return; // End flow
