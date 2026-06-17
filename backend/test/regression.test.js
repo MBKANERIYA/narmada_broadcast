@@ -73,14 +73,26 @@ test('interactive shopping flow does not override every smart bot text reply', (
   const appSource = readRepoFile('backend/src/app.js');
 
   assert.match(appSource, /const automationEnabled = botSettings\.enabled !== false/);
-  assert.match(appSource, /const shouldOfferShoppingOptions = messageType === 'text'/);
+  assert.match(
+    appSource,
+    /const shouldOfferShoppingOptions = messageType === 'text'\s*&&\s*\/\\b\(shop\|shopping\|catalog\|catalogue\|category\|categories\|product\|products\|blouse\|blouses\|shapewear\)\\b\/i\.test\(body\)/
+  );
   assert.match(appSource, /category\|categories\|product\|products/);
   assert.match(appSource, /SELECT DISTINCT category FROM products/);
   assert.match(appSource, /startsWith\('cat_'\)/);
-  assert.match(appSource, /automationEnabled && shouldOfferShoppingOptions/);
+  assert.match(appSource, /else if \(automationEnabled\)[\s\S]*if \(shouldOfferShoppingOptions\)/);
   assert.match(appSource, /let shouldReply = automationEnabled/);
   assert.doesNotMatch(appSource, /For ANY text message/);
   assert.doesNotMatch(appSource, /Skip normal bot logic to enforce this flow/);
+});
+
+test('customer order support actions stay scoped to the requesting phone', () => {
+  const appSource = readRepoFile('backend/src/app.js');
+
+  assert.match(appSource, /SELECT payment_link_id FROM orders WHERE id = \? AND tenant_id = \? AND phone = \?/);
+  assert.match(appSource, /UPDATE orders SET fulfillment_status = 'cancelled', payment_status = 'failed' WHERE id = \? AND tenant_id = \? AND phone = \?/);
+  assert.match(appSource, /SELECT id, total_amount, currency, created_at FROM orders WHERE tenant_id = \? AND phone = \?/);
+  assert.doesNotMatch(appSource, /\+919876543210/);
 });
 
 test('tenant settings mask payment secrets before returning to the browser', async () => {

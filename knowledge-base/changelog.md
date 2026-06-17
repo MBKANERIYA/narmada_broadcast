@@ -2,6 +2,19 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-17 - Coworker Support Flow Review Fixes
+**What**: Reviewed the latest `origin/main` support-flow/payment-reminder batch, restored the shopping-intent gate, phone-scoped customer order cancellation, removed the placeholder support phone fallback, and strengthened backend regression coverage.
+**Why**: The pulled coworker implementation made every customer text bypass Smart Responder with the generic menu, allowed cancel-order actions to address any same-tenant order ID, and could expose a fake support number when tenant phone was not configured.
+**Impact**: General FAQ/customer text messages can reach Smart Responder again, cancel-order button actions only affect orders owned by the requesting WhatsApp phone, and call-request support responses no longer send a placeholder contact card.
+**Files Changed**: `backend/src/app.js`, `backend/test/regression.test.js`, `knowledge-base/active-context.md`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/testing.md`
+**Tests**: PASS - `npm test` from `backend/` after first verifying the new regression assertions failed on the pulled remote state; PASS - backend `node --check`; PASS - `npm run lint` and `npm run build` from `frontend/`; PASS - high-severity npm audits in both apps; PASS - `git diff --check`.
+**Commit**: Not available
+
+- Pulled `origin/main` at `de02ca0` and reviewed commits after `91eb6a0`.
+- Fixed the broad `messageType === 'text'` shopping menu gate by restoring explicit product/category intent keywords.
+- Scoped cancel-order lookup/update SQL by `tenant_id` and `phone`, with a safe no-order response instead of false cancellation success.
+- Replaced the hardcoded `+919876543210` support fallback with a tenant-phone-required contact-card path.
+
 ## 2026-06-17 — Feature: Contextual Order Selection in Support Flow
 **What**: Modified the customer support flow so that when a customer selects any support topic (like "Payment Issues" or "Order Status"), the system now checks if they have any recent orders. If they do, it automatically sends an interactive list of their last 5 orders, prompting them to select which order they need help with *before* asking them how they want to contact us.
 **Why**: To provide agents with immediate, exact context about which order the customer is asking about, dramatically reducing back-and-forth and improving resolution times.

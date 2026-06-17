@@ -673,7 +673,21 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                 const orderId = msg.interactive.button_reply.id.replace('cancel_order_', '');
                 
                 // Fetch order details to get payment_link_id
-                const orderToCancel = await get(`SELECT payment_link_id FROM orders WHERE id = ? AND tenant_id = ?`, [orderId, tenantId]);
+                const orderToCancel = await get(`SELECT payment_link_id FROM orders WHERE id = ? AND tenant_id = ? AND phone = ?`, [orderId, tenantId, fromPhone]);
+                if (!orderToCancel) {
+                    const replyText = `We could not find order #${orderId} for this WhatsApp number. Please contact support if you need help with this order.`;
+                    const result = await sendTextMessage(fromPhone, replyText, tenant);
+                    if (result && result.messageId) {
+                        const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(
+                            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent')`,
+                            [tenantId, conversation.id, replyText, result.messageId]
+                        );
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, [replyText, outNow, conversation.id]);
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                    }
+                    return;
+                }
                 
                 if (orderToCancel && orderToCancel.payment_link_id && botSettings.razorpay_key_id && botSettings.razorpay_key_secret) {
                     try {
@@ -688,7 +702,21 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                     }
                 }
 
-                await run(`UPDATE orders SET fulfillment_status = 'cancelled', payment_status = 'failed' WHERE id = ? AND tenant_id = ?`, [orderId, tenantId]);
+                const cancelResult = await run(`UPDATE orders SET fulfillment_status = 'cancelled', payment_status = 'failed' WHERE id = ? AND tenant_id = ? AND phone = ?`, [orderId, tenantId, fromPhone]);
+                if (cancelResult.changes === 0) {
+                    const replyText = `We could not cancel order #${orderId}. Please contact support if you still need help.`;
+                    const result = await sendTextMessage(fromPhone, replyText, tenant);
+                    if (result && result.messageId) {
+                        const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                        await run(
+                            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent')`,
+                            [tenantId, conversation.id, replyText, result.messageId]
+                        );
+                        await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, [replyText, outNow, conversation.id]);
+                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                    }
+                    return;
+                }
                 
                 const replyText = `Your order #${orderId} has been successfully cancelled. Please let us know if there is anything else we can help you with!`;
                 const interactiveOptions = {
@@ -715,7 +743,8 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             }
 
             const automationEnabled = botSettings.enabled !== false;
-            const shouldOfferShoppingOptions = messageType === 'text';
+            const shouldOfferShoppingOptions = messageType === 'text'
+                && /\b(shop|shopping|catalog|catalogue|category|categories|product|products|blouse|blouses|shapewear)\b/i.test(body);
 
             // Custom shopping flow - handle dynamic category selection.
             let selectedCategory = null;
@@ -944,7 +973,18 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                 }
 
                 if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id === 'support_contact_call') {
-                    const supportPhone = tenant.phone || "+919876543210";
+                    const supportPhone = tenant.phone?.trim();
+                    if (!supportPhone) {
+                        const replyText = `Our support team has been notified and will call you soon on ${fromPhone}.`;
+                        const result = await sendTextMessage(fromPhone, replyText, tenant);
+                        if (result && result.messageId) {
+                            const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                            await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status) VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent')`, [tenantId, conversation.id, replyText, result.messageId]);
+                            await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, [replyText, outNow, conversation.id]);
+                            emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+                        }
+                        return;
+                    }
                     const formattedPhone = supportPhone.startsWith('+') ? supportPhone : `+${supportPhone}`;
                     const contactInfo = {
                         name: {

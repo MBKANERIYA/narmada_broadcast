@@ -164,3 +164,14 @@ A registry of active bugs, limitations, and workarounds.
 **Workaround**: None needed.
 **Fix**: Kept catalogue button replies, but gated free-text shopping prompts behind bot automation being enabled and explicit product/category intent keywords.
 **Regression Test**: `backend/test/regression.test.js` asserts the shopping flow is intent-gated and no longer contains the broad "any text" override.
+
+## ISSUE-016: Coworker Support Flow Regressions
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-06-17
+**Resolved**: 2026-06-17
+**Symptom**: The pulled support-flow batch made every inbound customer text trigger the generic shop/support menu, cancel-order button payloads were scoped only by tenant/order ID, and call-request support could send a placeholder `+919876543210` contact card.
+**Root Cause**: The text-intent guard was broadened to `messageType === 'text'`, order cancellation queries did not include the requesting WhatsApp phone number, and the support call path used a hardcoded fallback instead of requiring a configured tenant support phone.
+**Workaround**: None needed.
+**Fix**: Restored explicit product/category intent keywords for free-text shopping prompts, scoped cancellation lookup/update by `tenant_id` and `phone`, added safe no-order/no-update responses, and replaced the placeholder support number with a tenant-phone-required path.
+**Regression Test**: `backend/test/regression.test.js` asserts shopping prompts are intent-gated, cancel-order SQL is phone-scoped, recent support orders are phone-scoped, and the placeholder support number is absent.

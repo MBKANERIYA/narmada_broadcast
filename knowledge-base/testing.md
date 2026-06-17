@@ -39,6 +39,8 @@ Frontend automated component tests are not configured yet. Until they exist, kee
 - Auth and tenant isolation must cover allowed and denied tenant access.
 - Webhooks must cover valid and invalid signature paths before they update payments, messages, or orders.
 - WhatsApp chat behavior must cover inbound message storage, realtime event refresh, 24-hour window enforcement, template sends, and bot auto-replies.
+- WhatsApp customer self-service actions must stay tenant-scoped and phone-scoped when acting on orders; cancel-order payloads must never update an order using only `tenant_id` and `id`.
+- WhatsApp support contact cards must use a configured tenant phone number; do not send placeholder or sample phone numbers to customers.
 - Broadcast targeting must cover all recipient types, including tags, labels, and custom selections.
 - Settings must cover secret masking so tokens and payment secrets are not rehydrated into browser form state after reload.
 
