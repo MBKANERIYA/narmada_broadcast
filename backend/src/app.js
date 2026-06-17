@@ -620,7 +620,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
 
                 // Update order with payment link and last_reminder_at
                 const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                await run(`UPDATE orders SET payment_link = ?, last_reminder_at = ? WHERE id = ?`, [paymentLink.short_url, outNow, orderId]);
+                await run(`UPDATE orders SET payment_link = ?, payment_link_id = ?, last_reminder_at = ? WHERE id = ?`, [paymentLink.short_url, paymentLink.id, outNow, orderId]);
 
                 const { sendInteractiveMessage } = await import('./services/whatsapp.js');
                 const interactiveOptions = {
@@ -663,6 +663,23 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             // Handle Cancel Order Button
             if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id?.startsWith('cancel_order_')) {
                 const orderId = msg.interactive.button_reply.id.replace('cancel_order_', '');
+                
+                // Fetch order details to get payment_link_id
+                const orderToCancel = await get(`SELECT payment_link_id FROM orders WHERE id = ? AND tenant_id = ?`, [orderId, tenantId]);
+                
+                if (orderToCancel && orderToCancel.payment_link_id && botSettings.razorpay_key_id && botSettings.razorpay_key_secret) {
+                    try {
+                        const rzp = new Razorpay({
+                            key_id: botSettings.razorpay_key_id,
+                            key_secret: botSettings.razorpay_key_secret,
+                        });
+                        await rzp.paymentLink.cancel(orderToCancel.payment_link_id);
+                        console.log(`[Order] Successfully cancelled Razorpay payment link ${orderToCancel.payment_link_id} for order #${orderId}`);
+                    } catch (rzpErr) {
+                        console.error(`[Order] Failed to cancel Razorpay payment link for order #${orderId}:`, rzpErr.message);
+                    }
+                }
+
                 await run(`UPDATE orders SET fulfillment_status = 'cancelled', payment_status = 'failed' WHERE id = ? AND tenant_id = ?`, [orderId, tenantId]);
                 
                 const replyText = `Your order #${orderId} has been successfully cancelled. Please let us know if there is anything else we can help you with!`;
