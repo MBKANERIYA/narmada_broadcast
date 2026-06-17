@@ -58,7 +58,7 @@ const MediaMessage = ({ mediaId, type }) => {
             </div>
         );
     }
-    
+
     return <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>📎 {type}</div>;
 };
 
@@ -70,13 +70,13 @@ const formatWhatsAppText = (text) => {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
-    
+
     // WhatsApp Markdown (with explicit inline styles to survive CSS resets)
     html = html.replace(/\*([^\*\n]+)\*/g, '<strong style="font-weight: 700;">$1</strong>');
     html = html.replace(/_([^_]+)_/g, '<em style="font-style: italic;">$1</em>');
     html = html.replace(/~([^~]+)~/g, '<del style="text-decoration: line-through;">$1</del>');
     html = html.replace(/```([^`]+)```/g, '<code style="background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 4px; font-family: monospace;">$1</code>');
-    
+
     return html;
 };
 
@@ -120,7 +120,7 @@ export default function WhatsAppChat() {
     const [selectedConvId, setSelectedConvId] = useState(null);
     const [messageText, setMessageText] = useState('');
     const [sending, setSending] = useState(false);
-    
+
     // File attachment states
     const [selectedFile, setSelectedFile] = useState(null);
     const [filePreviewUrl, setFilePreviewUrl] = useState(null);
@@ -149,7 +149,7 @@ export default function WhatsAppChat() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             audioChunksRef.current = [];
-            
+
             const options = { mimeType: 'audio/webm' };
             let mediaRecorder;
             try {
@@ -158,7 +158,7 @@ export default function WhatsAppChat() {
                 // Fallback for Safari/iOS
                 mediaRecorder = new MediaRecorder(stream);
             }
-            
+
             mediaRecorderRef.current = mediaRecorder;
 
             mediaRecorder.ondataavailable = (event) => {
@@ -195,9 +195,9 @@ export default function WhatsAppChat() {
 
     const stopAndSendRecording = () => {
         if (!selectedConvId) return;
-        
+
         if (timerRef.current) clearInterval(timerRef.current);
-        
+
         if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
             return;
         }
@@ -208,7 +208,7 @@ export default function WhatsAppChat() {
                 const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
                 const extension = mimeType.includes('ogg') ? 'ogg' : 'webm';
                 const file = new File([audioBlob], `voice_note_${Date.now()}.${extension}`, { type: mimeType });
-                
+
                 setSending(true);
                 await sendChatMedia(selectedConvId, file, '');
                 showToast('Voice note sent!');
@@ -435,7 +435,7 @@ export default function WhatsAppChat() {
                 {/* Body */}
                 <div style={{ padding: '8px 12px' }}>
                     <div style={{ fontSize: '10px', opacity: 0.5, marginBottom: '4px', fontStyle: 'italic' }}>Template</div>
-                    <div 
+                    <div
                         style={{ fontSize: '14px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
                         dangerouslySetInnerHTML={{ __html: formatWhatsAppText(data.body) }}
                     />
@@ -649,19 +649,19 @@ export default function WhatsAppChat() {
 
                     {/* Tabs */}
                     <div style={{ display: 'flex', borderBottom: '1px solid var(--border, #e2e8f0)', background: '#f8fafc' }}>
-                        <button 
+                        <button
                             style={{ flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600, border: 'none', background: 'transparent', cursor: 'pointer', borderBottom: activeTab === 'all' ? '2px solid #25d366' : '2px solid transparent', color: activeTab === 'all' ? '#1e293b' : '#64748b' }}
                             onClick={() => setActiveTab('all')}
                         >
                             All
                         </button>
-                        <button 
+                        <button
                             style={{ flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600, border: 'none', background: 'transparent', cursor: 'pointer', borderBottom: activeTab === 'unread' ? '2px solid #25d366' : '2px solid transparent', color: activeTab === 'unread' ? '#1e293b' : '#64748b' }}
                             onClick={() => setActiveTab('unread')}
                         >
                             Unread
                         </button>
-                        <button 
+                        <button
                             style={{ flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600, border: 'none', background: 'transparent', cursor: 'pointer', borderBottom: activeTab === 'paid' ? '2px solid #25d366' : '2px solid transparent', color: activeTab === 'paid' ? '#1e293b' : '#64748b' }}
                             onClick={() => setActiveTab('paid')}
                         >
@@ -882,7 +882,7 @@ export default function WhatsAppChat() {
                                     const currentDate = formatDateSeparator(msg.created_at);
                                     const prevDate = index > 0 ? formatDateSeparator(chatMessages[index - 1].created_at) : null;
                                     const showDateSeparator = currentDate !== prevDate;
-                                    
+
                                     let messageContent = null;
 
                                     // Check if this is a rich template message
@@ -937,14 +937,14 @@ export default function WhatsAppChat() {
                                                 </>
                                             )}
                                             {msg.message_type === 'order' && msg.media_id && (
-                                                <img 
-                                                    src={msg.media_id} 
-                                                    alt="Product Thumbnail" 
-                                                    style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px', border: '1px solid rgba(0,0,0,0.1)' }} 
-                                                    onError={e => { e.target.style.display = 'none'; }} 
+                                                <img
+                                                    src={msg.media_id}
+                                                    alt="Product Thumbnail"
+                                                    style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px', border: '1px solid rgba(0,0,0,0.1)' }}
+                                                    onError={e => { e.target.style.display = 'none'; }}
                                                 />
                                             )}
-                                            <div 
+                                            <div
                                                 style={{ fontSize: '14px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
                                                 dangerouslySetInnerHTML={{ __html: formatWhatsAppText(msg.body) }}
                                             />
@@ -1089,12 +1089,12 @@ export default function WhatsAppChat() {
                                                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
                                             </svg>
                                         </button>
-                                        <input 
-                                            type="file" 
-                                            accept="image/*,application/pdf" 
-                                            ref={fileInputRef} 
-                                            onChange={handleFileChange} 
-                                            style={{ display: 'none' }} 
+                                        <input
+                                            type="file"
+                                            accept="image/*,application/pdf"
+                                            ref={fileInputRef}
+                                            onChange={handleFileChange}
+                                            style={{ display: 'none' }}
                                         />
                                         <textarea
                                             value={messageText}
@@ -1114,7 +1114,7 @@ export default function WhatsAppChat() {
                                             }}
                                             rows={1}
                                         />
-                                        
+
                                         {(!messageText.trim() && !selectedFile) ? (
                                             <button
                                                 onClick={startRecording}

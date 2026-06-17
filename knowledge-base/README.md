@@ -54,10 +54,11 @@ whatsapp-broadcast-saas/
 | 3 | `ARCHITECTURE.md` | Database schema, API endpoints, data flow |
 | 4 | `DEPLOYMENT.md` | VPS setup, Nginx, PM2, MySQL, environment variables |
 | 5 | `DEVELOPMENT_GUIDE.md` | Local dev setup, coding patterns, how to add features |
-| 6 | `security.md` | Webhook signatures, tenant scoping, secret masking, dependency audit rules |
-| 7 | `testing.md` | Current verification commands, test gaps, future test rules |
-| 8 | `CREDENTIALS_AND_INFRA.md` | Server details, domains, database credentials, API keys |
-| 9 | `changelog.md` | Chronological history of all changes |
+| 6 | `frontend.md` | App shell, responsive UI rules, browser QA notes |
+| 7 | `security.md` | Webhook signatures, tenant scoping, secret masking, dependency audit rules |
+| 8 | `testing.md` | Current verification commands, test gaps, future test rules |
+| 9 | `CREDENTIALS_AND_INFRA.md` | Server details, domains, database credentials, API keys |
+| 10 | `changelog.md` | Chronological history of all changes |
 
 ## Critical Rules
 

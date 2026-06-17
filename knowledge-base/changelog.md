@@ -2,6 +2,19 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-17 - Option C UI Polish and Remote Review Fixes
+**What**: Polished the dashboard UI, improved responsive store-owner workflows, reviewed the latest `origin/main` coworker commits, and fixed the regressions found in that review.
+**Why**: The app needed a cleaner, more polished user experience with smoother edges, a better font, mobile-friendly daily workflows, and a safe merge of concurrent remote work before pushing to GitHub main.
+**Impact**: Authenticated users now land on Overview, tenant admins no longer see the super-admin panel link, mobile navigation and Orders cards are usable on phone widths, product uploads reject non-image files, Razorpay webhooks again require tenant webhook secrets/signatures, product Meta sync uses normalized image data, and interactive shopping prompts no longer override normal Smart FAQ replies for every text message.
+**Files Changed**: `backend/src/app.js`, `backend/src/routes/products.js`, `backend/test/regression.test.js`, `frontend/src/App.jsx`, `frontend/src/components/Catalogue.jsx`, `frontend/src/components/Login.jsx`, `frontend/src/components/Orders.jsx`, `frontend/src/components/Sidebar.jsx`, `frontend/src/stores/store.js`, `frontend/src/styles/landing.css`, `frontend/src/styles/main.css`, `frontend/vite.config.js`, `knowledge-base/README.md`, `knowledge-base/active-context.md`, `knowledge-base/changelog.md`, `knowledge-base/frontend.md`, `knowledge-base/known-issues.md`, `knowledge-base/testing.md`, `docs/superpowers/specs/2026-06-16-option-c-ui-ux-overhaul-design.md`, `docs/superpowers/plans/2026-06-16-option-c-ui-ux-overhaul.md`
+**Tests**: PASS - `npm test` from `backend/`; PASS - backend `node --check` across `backend/src/**/*.js`; PASS - `npm run lint` from `frontend/`; PASS - `npm run build` from `frontend/`; PASS - `npm audit --audit-level=high` from both `frontend/` and `backend/`; PASS - `git diff --check`; PASS - in-app browser QA against `https://broadcast.innodify.in` through local Vite proxy at desktop and 390px phone widths.
+**Commit**: Not available
+
+- Replaced the dark login surface and older dashboard styling with a cleaner Plus Jakarta Sans UI layer, lighter app surfaces, improved cards, buttons, forms, tables, chat, catalogue, orders, and landing page polish.
+- Added mobile Orders cards, fixed the drawer class contract, and covered those contracts in backend static regression tests.
+- Reviewed coworker commits from `origin/main` before pushing; fixed the optional Razorpay signature bypass, upload MIME/type validation gap, Meta product sync normalization, interactive shopping text-message override, and a Catalogue lint warning.
+- Added `frontend.md` to document app-shell conventions, responsive rules, and browser QA expectations.
+
 ## 2026-06-17 — Feature: Interactive Shopping Auto-Responder
 **What**: Updated the native WhatsApp interactive flow to automatically read dynamic product categories from the database instead of hardcoded options, presenting them as an interactive List message.
 **Why**: To allow businesses to dynamically update their product categories in the dashboard and have them automatically reflect in the WhatsApp shopping auto-responder flow.

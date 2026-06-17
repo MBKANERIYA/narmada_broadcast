@@ -49,11 +49,11 @@ export default function App() {
         const firmName = tenant?.name || 'WhatsApp Broadcast';
 
         return (
-            <div className="app-layout">
+            <div className={`app-layout ${isMobileMenuOpen ? 'nav-open' : ''}`}>
                 <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
 
                 <header className="mobile-header">
-                    <button className="btn-icon" onClick={() => setIsMobileMenuOpen(true)}>
+                    <button className="btn-icon" onClick={() => setIsMobileMenuOpen(true)} aria-label="Open navigation">
                         <Icon name="menu" size={22} />
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -68,7 +68,7 @@ export default function App() {
                 </main>
 
                 {isMobileMenuOpen && (
-                    <div className="sidebar-overlay" onClick={() => setIsMobileMenuOpen(false)} />
+                    <div className="sidebar-overlay" onClick={() => setIsMobileMenuOpen(false)} aria-hidden="true" />
                 )}
 
                 <Toast />

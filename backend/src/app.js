@@ -51,8 +51,7 @@ app.get('/health', (req, res) => res.json({ status: 'healthy' }));
 app.get('/', (req, res) => res.json({ message: 'WhatsApp Marketing Platform API' }));
 
 // Serve uploads publicly
-import path from 'path';
-app.use('/api/v1/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/api/v1/uploads', express.static(join(process.cwd(), 'uploads')));
 
 // ============================================================
 // WhatsApp Webhook — Public endpoint (no tenant/auth needed)
@@ -85,31 +84,32 @@ app.post('/api/v1/razorpay-webhook', async (req, res) => {
     try {
         const signature = req.headers['x-razorpay-signature'];
         const body = req.body;
-        
+
         console.log(`[Razorpay Webhook] Received event: ${body.event}`);
-        
+
         if (body.event === 'payment_link.paid') {
             const paymentLink = body.payload.payment_link.entity;
             const orderIdStr = paymentLink.notes?.order_id;
-            
+
             if (orderIdStr) {
                 const orderId = parseInt(orderIdStr, 10);
-                
+
                 // Get the order to find the tenant
                 const order = await get('SELECT * FROM orders WHERE id = ?', [orderId]);
-                
+
                 if (order && order.payment_status !== 'paid') {
                     const tenant = await get('SELECT * FROM tenants WHERE id = ?', [order.tenant_id]);
                     const botSettings = parseJsonObject(tenant?.bot_settings);
                     const webhookSecret = botSettings.razorpay_webhook_secret;
 
-                    if (webhookSecret) {
-                        if (!verifyRazorpayWebhookSignature(req.rawBody, signature, webhookSecret)) {
-                            console.warn(`[Razorpay Webhook] Invalid signature for order #${orderId}`);
-                            return res.status(401).json({ error: 'Invalid webhook signature' });
-                        }
-                    } else {
-                        console.warn(`[Razorpay Webhook] Warning: Webhook secret not configured. Processing unsigned webhook for order #${orderId}.`);
+                    if (!webhookSecret) {
+                        console.warn(`[Razorpay Webhook] Webhook secret not configured for order #${orderId}. Rejecting unsigned payment update.`);
+                        return res.status(400).json({ error: 'Razorpay webhook secret not configured' });
+                    }
+
+                    if (!verifyRazorpayWebhookSignature(req.rawBody, signature, webhookSecret)) {
+                        console.warn(`[Razorpay Webhook] Invalid signature for order #${orderId}`);
+                        return res.status(401).json({ error: 'Invalid webhook signature' });
                     }
 
                     // Update order status atomically to prevent race conditions
@@ -119,20 +119,20 @@ app.post('/api/v1/razorpay-webhook', async (req, res) => {
                         return res.json({ status: 'ok' });
                     }
                     console.log(`[Razorpay Webhook] Order #${orderId} marked as paid.`);
-                    
+
                     // Send WhatsApp confirmation
                     const { sendTextMessage } = await import('./services/whatsapp.js');
-                    
+
                     let confirmationMsg = botSettings.payment_success_template || '🎉 *Payment Received!*\n\nThank you for your payment of {currency} {total}. Your order #{order_id} is now confirmed and being processed.';
                     confirmationMsg = confirmationMsg.replace('{currency}', order.currency || 'INR')
                                                      .replace('{total}', order.total_amount)
                                                      .replace('{order_id}', orderId);
-                    
+
                     await sendTextMessage(order.phone, confirmationMsg, tenant);
-                    
+
                     // Update chat inbox UI real-time
                     emitToTenant(order.tenant_id, 'order_updated', { orderId, status: 'paid' });
-                    
+
                     // Find conversation to emit chat update
                     const conv = await get('SELECT id FROM whatsapp_conversations WHERE tenant_id = ? AND phone = ?', [order.tenant_id, order.phone]);
                     if (conv) {
@@ -151,7 +151,7 @@ app.post('/api/v1/razorpay-webhook', async (req, res) => {
                 }
             }
         }
-        
+
         res.sendStatus(200);
     } catch (err) {
         console.error('[Razorpay Webhook] Error:', err.message);
@@ -391,14 +391,14 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
         let totalAmount = 0;
         let currency = 'INR';
         const parsedItems = [];
-        
+
         let text = '🛒 *New Order Received*\n\n';
         for (const item of items) {
             const price = parseFloat(item.item_price || 0);
             const qty = parseInt(item.quantity || 1);
             totalAmount += price * qty;
             currency = item.currency || currency;
-            
+
             let productId = null;
             let itemName = `Item #${item.product_retailer_id}`;
             try {
@@ -413,7 +413,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             } catch(e) {
                 console.error('[Order] Product lookup error:', e.message);
             }
-            
+
             text += `${qty}x ${itemName} — ${price.toFixed(2)} ${currency}\n`;
             parsedItems.push({ product_id: productId, sku: item.product_retailer_id, item_name: itemName, quantity: qty, price });
         }
@@ -578,19 +578,19 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             if (pendingOrder) {
                 addressProcessed = true;
                 const orderId = pendingOrder.id;
-                
+
                 // Save address
                 await run(`UPDATE orders SET shipping_address = ? WHERE id = ? AND tenant_id = ?`, [body, orderId, tenantId]);
                 console.log(`[Order] Saved address for order #${orderId}`);
-                
+
                 // Generate Razorpay Link
                 const rzp = new Razorpay({
                     key_id: botSettings.razorpay_key_id,
                     key_secret: botSettings.razorpay_key_secret,
                 });
-                
+
                 const amountInPaise = Math.round(pendingOrder.total_amount * 100);
-                
+
                 const paymentLinkRequest = {
                     amount: amountInPaise,
                     currency: pendingOrder.currency || 'INR',
@@ -610,17 +610,17 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                         tenant_id: tenantId.toString()
                     }
                 };
-                
+
                 const paymentLink = await rzp.paymentLink.create(paymentLinkRequest);
-                
+
                 let replyText = botSettings.payment_link_template || 'Thanks for the address!\n\nPlease complete your payment of {currency} {total} here:\n{link}';
                 replyText = replyText.replace('{currency}', pendingOrder.currency || 'INR')
                                      .replace('{total}', pendingOrder.total_amount)
                                      .replace('{link}', paymentLink.short_url);
-                
+
                 const { sendTextMessage } = await import('./services/whatsapp.js');
                 const result = await sendTextMessage(fromPhone, replyText, tenant);
-                
+
                 if (result && result.messageId) {
                     const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
                     await run(
@@ -647,22 +647,28 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
     if ((messageType === 'text' || messageType === 'interactive_button' || messageType === 'interactive_list') && body && !addressProcessed) {
         try {
             const { sendInteractiveMessage, sendTextMessage } = await import('./services/whatsapp.js');
-            
-            // Custom Demo Shopping Flow - Handle Category Selection
+            const automationEnabled = botSettings.enabled !== false;
+            const shouldOfferShoppingOptions = messageType === 'text'
+                && /\b(shop|shopping|catalog|catalogue|category|categories|product|products|blouse|blouses|shapewear)\b/i.test(body);
+
+            // Custom shopping flow - handle dynamic category selection.
             let selectedCategory = null;
-            if (messageType === 'interactive_button' && msg.interactive?.button_reply?.id?.startsWith('cat_')) {
+            if (automationEnabled && messageType === 'interactive_button' && msg.interactive?.button_reply?.id?.startsWith('cat_')) {
                 selectedCategory = msg.interactive.button_reply.id.replace('cat_', '');
-            } else if (messageType === 'interactive_list' && msg.interactive?.list_reply?.id?.startsWith('cat_')) {
+            } else if (automationEnabled && messageType === 'interactive_list' && msg.interactive?.list_reply?.id?.startsWith('cat_')) {
                 selectedCategory = msg.interactive.list_reply.id.replace('cat_', '');
             }
 
             if (selectedCategory) {
-                // Decode category name
-                const categoryName = decodeURIComponent(selectedCategory);
-                
-                // Fetch products for this category
+                let categoryName = selectedCategory;
+                try {
+                    categoryName = decodeURIComponent(selectedCategory);
+                } catch (decodeError) {
+                    console.warn('[Bot] Failed to decode selected category:', decodeError.message);
+                }
+
                 const products = await query(`SELECT * FROM products WHERE tenant_id = ? AND category = ? LIMIT 30`, [tenantId, categoryName]);
-                
+
                 if (products && products.length > 0 && tenant.whatsapp_catalog_id) {
                     const catalogPayload = {
                         type: "product_list",
@@ -695,12 +701,10 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                     await sendTextMessage(fromPhone, `Sorry, no products available in ${categoryName} right now.`, tenant);
                 }
                 return; // End flow
-            } else if (messageType === 'text') {
-                // Fetch distinct categories
+            } else if (automationEnabled && shouldOfferShoppingOptions) {
                 const categories = await query(`SELECT DISTINCT category FROM products WHERE tenant_id = ? AND category IS NOT NULL AND category != '' LIMIT 10`, [tenantId]);
-                
+
                 if (categories && categories.length > 0) {
-                    // Send list of categories
                     const interactiveOptions = {
                         type: "list",
                         header: { type: "text", text: "Our Categories" },
@@ -711,7 +715,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                             sections: [
                                 {
                                     title: "Available Categories",
-                                    rows: categories.map((c, i) => ({
+                                    rows: categories.map((c) => ({
                                         id: `cat_${encodeURIComponent(c.category)}`.substring(0, 200),
                                         title: c.category.substring(0, 24)
                                     }))
@@ -735,7 +739,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             }
 
             // Check if chatbot is enabled overall
-            let shouldReply = botSettings.enabled !== false; // Default to true if not set
+            let shouldReply = automationEnabled; // Default to true if not set
             let awayReplyText = null;
 
             if (shouldReply) {
@@ -778,7 +782,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
 
                 if (botReply) {
                     const { sendTextMessage, sendMediaMessage } = await import('./services/whatsapp.js');
-                    
+
                     let result;
                     let textToSave = '';
                     let typeToSave = 'text';
@@ -791,7 +795,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
                         // Send Product as image (if available) + text
                         const product = botReply.data;
                         const caption = `*${product.name}*\n${product.description ? product.description + '\n' : ''}\nPrice: ₹${product.selling_price || product.mrp}`;
-                        
+
                         if (product.image_url) {
                             result = await sendMediaMessage(fromPhone, 'image', { link: product.image_url }, caption, tenant);
                             textToSave = caption;

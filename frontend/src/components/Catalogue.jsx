@@ -73,7 +73,7 @@ export default function Catalogue() {
             try {
                 if (product.images) parsedImages = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
                 if (!parsedImages || parsedImages.length === 0) parsedImages = product.image_url ? [product.image_url] : [];
-            } catch(e) { parsedImages = product.image_url ? [product.image_url] : []; }
+            } catch { parsedImages = product.image_url ? [product.image_url] : []; }
 
             setFormData({
                 name: product.name || '',
@@ -163,14 +163,14 @@ export default function Catalogue() {
                     body: JSON.stringify(formData)
                 });
             }
-            
+
             // Check if there was a sync error warning in the message
             if (response && response.message && response.message.includes('Facebook Sync Failed')) {
                 showToast(response.message, 'error');
             } else {
                 showToast(response?.message || 'Product saved successfully');
             }
-            
+
             setShowModal(false);
             fetchProducts();
         } catch (err) {
@@ -301,13 +301,13 @@ export default function Catalogue() {
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                     {filteredProducts.map(product => (
-                        <div 
-                            key={product.id} 
-                            className="card" 
-                            style={{ 
-                                padding: 0, 
-                                overflow: 'hidden', 
-                                display: 'flex', 
+                        <div
+                            key={product.id}
+                            className="card"
+                            style={{
+                                padding: 0,
+                                overflow: 'hidden',
+                                display: 'flex',
                                 flexDirection: 'column',
                                 transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                                 border: '1px solid var(--border)',
@@ -339,11 +339,11 @@ export default function Catalogue() {
                                         zIndex: 0
                                     }} />
                                 )}
-                                
+
                                 {/* Foreground Image */}
                                 {product.image_url ? (
-                                    <img 
-                                        src={product.image_url} 
+                                    <img
+                                        src={product.image_url}
                                         alt={product.name}
                                         style={{
                                             width: '100%',
@@ -441,7 +441,7 @@ export default function Catalogue() {
                                                     <div key={index} style={{ position: 'relative', width: '100px', height: '100px' }}>
                                                         <img src={img} alt={`Preview ${index}`} style={{ width: '100%', height: '100%', borderRadius: '8px', objectFit: 'cover', border: index === 0 ? '2px solid #6366f1' : '1px solid #e2e8f0' }} />
                                                         {index === 0 && <span style={{ position: 'absolute', bottom: '4px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '10px' }}>Primary</span>}
-                                                        <button 
+                                                        <button
                                                             type="button"
                                                             onClick={() => removeImage(index)}
                                                             style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '12px' }}>

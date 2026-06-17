@@ -24,7 +24,7 @@ router.get('/recipients', async (req, res) => {
     try {
         const { tag, label, search, location, min_ticket, max_ticket } = req.query;
 
-        let sql = `SELECT id, name, phone, email, location, ticket_size, tags, labels, whatsapp_consent 
+        let sql = `SELECT id, name, phone, email, location, ticket_size, tags, labels, whatsapp_consent
                     FROM contacts WHERE tenant_id = ? AND phone IS NOT NULL AND phone != '' AND whatsapp_consent = TRUE`;
         const params = [req.tenantId];
 
@@ -220,7 +220,7 @@ async function processBroadcast(campaignId, recipients, campaignName, templatePa
 
         // Step 5: Mark campaign completed
         await run(`
-            UPDATE whatsapp_campaigns 
+            UPDATE whatsapp_campaigns
             SET status = 'completed', successful_count = ?, failed_count = ?, completed_at = NOW(), error_log = ?
             WHERE id = ? AND tenant_id = ?
         `, [

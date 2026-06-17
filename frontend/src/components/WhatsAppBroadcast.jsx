@@ -88,9 +88,9 @@ export default function WhatsAppBroadcast() {
     useEffect(() => {
         const timer = setTimeout(() => {
             if (recipientType !== 'direct') {
-                fetchWhatsAppRecipients({ 
-                    label: recipientType === 'labeled' ? filterLabel : '', 
-                    search: searchQuery 
+                fetchWhatsAppRecipients({
+                    label: recipientType === 'labeled' ? filterLabel : '',
+                    search: searchQuery
                 });
             }
         }, 300);
@@ -1004,7 +1004,7 @@ export default function WhatsAppBroadcast() {
                                 {/* ── Action Buttons Builder ── */}
                                 <div className="form-group">
                                     <label className="form-label">Buttons <span style={{ opacity: 0.5, fontSize: '11px' }}>(optional · max 10)</span></label>
-                                    
+
                                     {tplButtons.map((btn, idx) => (
                                         <div key={idx} style={{
                                             display: 'flex', gap: '8px', alignItems: 'flex-start',

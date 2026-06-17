@@ -120,3 +120,47 @@ A registry of active bugs, limitations, and workarounds.
 **Workaround**: None needed.
 **Fix**: Ran non-forced audit fixes, upgraded Vite to 8, added an npm `ws` override to 8.21.0, and migrated local semantic embeddings from `@xenova/transformers` to `@huggingface/transformers`.
 **Regression Test**: `npm audit --audit-level=high` from both `frontend/` and `backend/` exits 0.
+
+## ISSUE-012: Razorpay Webhook Signature Bypass Regression
+**Status**: Resolved
+**Severity**: Critical
+**Discovered**: 2026-06-17
+**Resolved**: 2026-06-17
+**Symptom**: A tenant without a configured Razorpay webhook secret could still have payment webhook processing continue without a verified signature.
+**Root Cause**: A remote change made the signature requirement optional for backward compatibility, which reopened the forged payment update path.
+**Workaround**: None needed.
+**Fix**: Reject Razorpay webhook requests with HTTP 400 when the tenant webhook secret is missing, and keep invalid signatures rejected before any order update.
+**Regression Test**: `backend/test/regression.test.js` asserts the route rejects missing webhook-secret processing and does not log/continue unsigned webhooks.
+
+## ISSUE-013: Product Uploads Accepted Non-Image Files
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-06-17
+**Resolved**: 2026-06-17
+**Symptom**: Product catalogue upload routes could accept arbitrary files and serve them publicly from the uploads directory.
+**Root Cause**: The product upload middleware used disk storage without a MIME type and extension allowlist.
+**Workaround**: None needed.
+**Fix**: Added image MIME and file-extension validation, safe upload names, upload error handling, and kept the single-image route for backward compatibility.
+**Regression Test**: `backend/test/regression.test.js` asserts image MIME/type validation and the `/upload-image` route contract.
+
+## ISSUE-014: Mobile App Shell and Orders Table Were Not Phone-Friendly
+**Status**: Resolved
+**Severity**: Medium
+**Discovered**: 2026-06-17
+**Resolved**: 2026-06-17
+**Symptom**: Store owners on phone widths needed a reliable drawer navigation flow and a scannable Orders view instead of a desktop table surface.
+**Root Cause**: The responsive shell relied on matching drawer state classes, and Orders only had a desktop table presentation.
+**Workaround**: None needed.
+**Fix**: Standardized the `sidebar--open` drawer class contract, added mobile Orders cards, and verified the flows in the in-app browser at 390px width.
+**Regression Test**: `backend/test/regression.test.js` statically asserts the mobile drawer and Orders mobile-card contracts.
+
+## ISSUE-015: Interactive Shopping Flow Overrode Smart FAQ Replies
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-06-17
+**Resolved**: 2026-06-17
+**Symptom**: Any inbound text message could trigger the Blouses/Shapewear interactive prompt and return before the normal Smart FAQ/product responder ran.
+**Root Cause**: The interactive shopping flow was inserted before the Smart Responder branch and used a broad `messageType === 'text'` condition.
+**Workaround**: None needed.
+**Fix**: Kept catalogue button replies, but gated free-text shopping prompts behind bot automation being enabled and explicit product/category intent keywords.
+**Regression Test**: `backend/test/regression.test.js` asserts the shopping flow is intent-gated and no longer contains the broad "any text" override.

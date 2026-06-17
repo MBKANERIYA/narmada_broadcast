@@ -1,18 +1,15 @@
 ## Current Status
-**Last Updated**: 2026-06-16
-**Last Agent Session**: Fixed the documented code-review issues: removed the public debug endpoint, enforced Razorpay webhook signatures, added persisted bot pause, fixed labeled campaign schema support, accepted both realtime event key shapes, masked Razorpay settings secrets, made frontend lint deterministic, replaced deployment-doc secrets with placeholders, and cleared high/critical dependency audit findings.
-**Test Suite Status**: PASS - `npm test` from `backend/` (8 tests); PASS - backend `node --check` across `backend/src/**/*.js`; PASS - `npm run lint` from `frontend/`; PASS - `npm run build` from `frontend/` with only the existing bundle-size warning; PASS - `npm audit --audit-level=high` from both `frontend/` and `backend/`; PASS - targeted secret-pattern scan returned no matches.
+**Last Updated**: 2026-06-17
+**Last Agent Session**: Completed the Option C UI/UX polish, reviewed the latest coworker commits on `origin/main`, fixed the remote-review regressions, performed store-owner browser QA against the live production API through the local Vite proxy, and prepared the work for a direct push to GitHub `main`.
+**Test Suite Status**: PASS - `npm test` from `backend/` (14 tests); PASS - backend `node --check` across `backend/src/**/*.js`; PASS - `npm run lint` from `frontend/`; PASS - `npm run build` from `frontend/` with the existing Vite chunk-size warning only; PASS - `npm audit --audit-level=high` from both `frontend/` and `backend/`; PASS - `git diff --check`.
 
 ## Completed This Session
-- [x] **Orders Overhaul** — search, filters, sorting, pagination, stats cards, CSV export, bulk actions, notes
-- [x] **Analytics Dashboard** — Overview page with custom SVG charts
-- [x] **Contacts Overhaul** — tag/location filters, sortable columns, pagination, CSV export, bulk delete, quick-chat
-- [x] **Catalogue Search/Sort** — search by name/SKU, category filter, sort options
-- [x] **Chat Quick Replies** — `/` trigger popup, manage via ⚡ modal
-- [x] **Bot Pause Toggle** — per-conversation pause/resume in chat header
-- [x] **Load Older Messages** — cursor-based pagination with "↑ Load Older" button
-- [x] **Conversation Labels** — 6 color-coded labels (VIP, Follow Up, Complaint, New Order, Pending Payment, Resolved)
-- [x] **Knowledge Base Test Bot** — "🧪 Test Your Bot" panel with confidence scores
+- [x] **Option C UI Polish** - cleaner Plus Jakarta Sans interface, softer app surfaces, improved cards/buttons/forms/tables, polished login, landing, dashboard, chat, catalogue, orders, and settings surfaces.
+- [x] **Store-Owner Browser QA** - verified Overview, Contacts, Broadcast, Chat Inbox, Catalogue, Orders, Smart FAQs, and Settings through the in-app browser as tenant admin `aaa`.
+- [x] **Phone QA** - verified 390px drawer navigation, Orders mobile cards, Chat list/detail/back flow, Settings secret fields, and no horizontal overflow.
+- [x] **Remote Review** - fetched and reviewed coworker pushes before publishing.
+- [x] **Remote Regression Fixes** - restored mandatory Razorpay webhook-secret/signature rejection, hardened product image uploads, restored the single-image upload route, synced normalized product image data to Meta, guarded interactive shopping prompts so Smart FAQs are not overridden, and cleared the Catalogue lint warning.
+- [x] **Knowledge Base Expansion** - added `frontend.md` and updated testing, changelog, known issues, and README reading order.
 
 ## Remaining Work (Not Started)
 - [ ] Phase 2: Assign to Team Member, Internal Notes
@@ -26,12 +23,12 @@
 - None.
 
 ## Decisions Needed
-- None
+- None.
 
 ## Next Steps (for the next agent session)
-1. Deploy and smoke-test Razorpay webhooks with a real tenant webhook secret and signed event payload.
-2. Smoke-test Smart FAQ/product replies after deployment because the local embedding runtime moved from `@xenova/transformers` to `@huggingface/transformers`.
-3. Continue roadmap work only after the verification gates in `testing.md` stay green.
+1. Deploy `main` to the VPS and smoke-test the public site after `pm2 restart whatsapp-broadcast`.
+2. Smoke-test a signed Razorpay webhook with a real tenant webhook secret configured.
+3. Smoke-test product image upload and Meta catalogue sync on a non-production test product.
 
 ## Do Not Touch
-- N/A
+- `0001-feat-semantic-knowledge-base-engine-and-UI-dashboard.patch` - pre-existing untracked patch file that is not part of this UI/UX change set.

@@ -100,7 +100,7 @@ export const useStore = create(
             isAuthenticated: false,
             isLoading: false,
             error: null,
-            currentView: 'contacts',
+            currentView: 'overview',
 
             toast: null,
             showToast: (message, type = 'success', duration = 3000) => set({ toast: { message, type, duration } }),
@@ -129,7 +129,7 @@ export const useStore = create(
                     const conversationId = data.conversationId ?? data.conversation_id;
                     // Refresh conversations list
                     state.fetchConversations();
-                    
+
                     // If viewing the specific conversation, refresh messages
                     if (state.activeConversation && state.activeConversation.id === conversationId) {
                         state.fetchChatMessages(conversationId);
@@ -158,7 +158,7 @@ export const useStore = create(
                     localStorage.setItem('user', JSON.stringify(data.user));
                     if (data.tenant) localStorage.setItem('tenant_slug', data.tenant.slug);
 
-                    set({ user: data.user, tenant: data.tenant || null, isAuthenticated: true, error: null });
+                    set({ user: data.user, tenant: data.tenant || null, isAuthenticated: true, currentView: 'overview', error: null });
                     return true;
                 } catch (error) {
                     set({ error: error.message });
@@ -171,7 +171,7 @@ export const useStore = create(
                 localStorage.removeItem('user');
                 localStorage.removeItem('tenant_slug');
                 get().disconnectSocket();
-                set({ user: null, tenant: null, isAuthenticated: false, contacts: [], currentView: 'contacts' });
+                set({ user: null, tenant: null, isAuthenticated: false, contacts: [], currentView: 'overview' });
             },
 
             register: async (name, firmName, email, password) => {
@@ -190,7 +190,7 @@ export const useStore = create(
                     localStorage.setItem('user', JSON.stringify(data.user));
                     if (data.tenant) localStorage.setItem('tenant_slug', data.tenant.slug);
 
-                    set({ user: data.user, tenant: data.tenant || null, isAuthenticated: true, isLoading: false, error: null });
+                    set({ user: data.user, tenant: data.tenant || null, isAuthenticated: true, currentView: 'overview', isLoading: false, error: null });
                     return true;
                 } catch (error) {
                     set({ error: error.message, isLoading: false });
@@ -438,7 +438,7 @@ export const useStore = create(
                 const token = localStorage.getItem('token');
                 const slug = getTenantSlug();
                 const url = `${API_BASE_URL}/api/v1/whatsapp/chat/media/${mediaId}`;
-                
+
                 const headers = {
                     ...(token && { Authorization: `Bearer ${token}` }),
                     ...(slug && { 'x-tenant-slug': slug }),
@@ -446,7 +446,7 @@ export const useStore = create(
 
                 const res = await fetch(url, { headers });
                 if (!res.ok) throw new Error('Failed to fetch media');
-                
+
                 const blob = await res.blob();
                 return URL.createObjectURL(blob);
             },
@@ -466,9 +466,9 @@ export const useStore = create(
                 const formData = new FormData();
                 formData.append('media', file);
                 if (caption) formData.append('caption', caption);
-                
+
                 const result = await apiUpload(`/whatsapp/chat/conversations/${conversationId}/send-media`, formData);
-                
+
                 // Refresh messages
                 await get().fetchChatMessages(conversationId);
                 await get().fetchConversations();

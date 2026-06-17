@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 
+const apiProxyTarget = process.env.VITE_DEV_API_PROXY_TARGET || 'http://localhost:3001';
+
 // Web version - configured for production deployment
 export default defineConfig({
   plugins: [preact()],
@@ -13,7 +15,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
     },

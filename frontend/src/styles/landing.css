@@ -4,7 +4,7 @@
  * ═══════════════════════════════════════════════════ */
 
 /* ── Google Font ── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 /* ── Tokens ── */
 :root {
@@ -22,7 +22,7 @@
     --landing-green-light: #00E676;
     --landing-green-glow: rgba(37, 211, 102, 0.15);
     --landing-green-glow-strong: rgba(37, 211, 102, 0.3);
-    --landing-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --landing-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --landing-radius: 16px;
     --landing-radius-sm: 10px;
     --landing-radius-pill: 100px;
@@ -96,7 +96,7 @@
     top: 0; left: 0; right: 0; bottom: 0;
     pointer-events: none;
     z-index: 0;
-    background-image: 
+    background-image:
         linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
     background-size: 60px 60px;
@@ -156,7 +156,7 @@
     font-size: 18px;
     font-weight: 700;
     color: var(--landing-white);
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
 }
 
 .landing-nav-actions {
@@ -269,7 +269,7 @@
     font-size: clamp(36px, 6vw, 64px);
     font-weight: 800;
     line-height: 1.05;
-    letter-spacing: -0.03em;
+    letter-spacing: 0;
     color: var(--landing-white);
     margin: 0 0 24px;
     animation: fadeInUp 0.6s ease-out 0.1s both;
@@ -344,7 +344,7 @@
     font-size: clamp(24px, 3vw, 32px);
     font-weight: 800;
     color: var(--landing-white);
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
     margin-bottom: 4px;
 }
 
@@ -380,7 +380,7 @@
     font-size: clamp(24px, 3.5vw, 36px);
     font-weight: 800;
     color: var(--landing-white);
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
     margin: 0 0 16px;
     line-height: 1.2;
 }
@@ -455,7 +455,7 @@
     font-weight: 700;
     color: var(--landing-white);
     margin-bottom: 8px;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
 }
 
 .landing-feature-desc {
@@ -720,4 +720,145 @@
         flex-direction: column;
         align-items: center;
     }
+}
+
+
+/* Option C landing polish */
+.landing {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 247, 250, 0.82)),
+        radial-gradient(circle at 16% 14%, rgba(18, 140, 126, 0.12), transparent 340px),
+        radial-gradient(circle at 84% 74%, rgba(37, 99, 235, 0.1), transparent 360px),
+        #F5F7FA;
+    color: #111827;
+}
+
+.landing * {
+    letter-spacing: 0 !important;
+}
+
+.landing-bg-orbs,
+.landing-grid-overlay {
+    display: none;
+}
+
+.landing-nav {
+    height: 76px;
+}
+
+.landing-nav.scrolled {
+    background: rgba(255, 255, 255, 0.9);
+    border-bottom: 1px solid #DDE4EC;
+}
+
+.landing-logo-text,
+.landing-hero h1,
+.landing-section-title,
+.landing-feature-title,
+.landing-step-title,
+.landing-stat-value,
+.landing-form-title,
+.landing-form-success h3 {
+    color: #111827;
+}
+
+.landing-logo-icon,
+.landing-btn-primary {
+    background: linear-gradient(135deg, #128C7E, #25D366);
+}
+
+.landing-btn {
+    border-radius: 8px;
+}
+
+.landing-btn-ghost,
+.landing-btn-outline,
+.landing-hero p,
+.landing-section-subtitle,
+.landing-feature-desc,
+.landing-step-desc,
+.landing-stat-label,
+.landing-form-perk,
+.landing-form-group label,
+.landing-footer-text,
+.landing-footer-link {
+    color: #667085;
+}
+
+.landing-btn-ghost:hover,
+.landing-btn-outline:hover {
+    background: #FFFFFF;
+    border-color: #DDE4EC;
+    color: #111827;
+}
+
+.landing-btn-outline {
+    background: #FFFFFF;
+    border-color: #DDE4EC;
+    color: #111827;
+}
+
+.landing-hero {
+    max-width: 940px;
+    padding-bottom: 48px;
+}
+
+.landing-hero-gradient {
+    background: none;
+    -webkit-text-fill-color: #128C7E;
+    color: #128C7E;
+}
+
+.landing-badge {
+    background: #EAF7F3;
+    border-color: rgba(18, 140, 126, 0.18);
+    color: #0D766C;
+}
+
+.landing-stats-inner,
+.landing-feature-card,
+.landing-step-num,
+.landing-form-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #DDE4EC;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+    backdrop-filter: blur(12px);
+}
+
+.landing-feature-card:hover {
+    background: #FFFFFF;
+    border-color: #C6D0DC;
+    transform: translateY(-2px);
+    box-shadow: 0 18px 40px -28px rgba(17, 24, 39, 0.35);
+}
+
+.landing-feature-card::before {
+    display: none;
+}
+
+.landing-feature-icon {
+    background: #EAF7F3;
+    color: #128C7E;
+    border-radius: 8px;
+}
+
+.landing-step-num {
+    -webkit-text-fill-color: #128C7E;
+}
+
+.landing-form-input {
+    background: #FFFFFF;
+    border-color: #DDE4EC;
+    color: #111827;
+    border-radius: 8px;
+}
+
+.landing-form-input:focus {
+    border-color: #128C7E;
+    box-shadow: 0 0 0 3px rgba(18, 140, 126, 0.16);
+}
+
+.landing-footer {
+    border-top-color: #DDE4EC;
 }

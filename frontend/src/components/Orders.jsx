@@ -494,7 +494,7 @@ export default function Orders() {
             )}
 
             {/* Table */}
-            <div className="card" style={{ overflow: 'auto' }}>
+            <div className="card orders-table-card" style={{ overflow: 'auto' }}>
                 <table className="table" style={{ fontSize: '13px' }}>
                     <thead>
                         <tr>
@@ -575,6 +575,56 @@ export default function Orders() {
                         ))}
                     </tbody>
                 </table>
+            </div>
+
+            <div className="orders-mobile-list">
+                {loading ? (
+                    <div className="orders-mobile-card orders-mobile-card--empty">
+                        <Icon name="loader" size={22} className="spin" />
+                        <span>Loading orders...</span>
+                    </div>
+                ) : orders.length === 0 ? (
+                    <div className="orders-mobile-card orders-mobile-card--empty">
+                        <Icon name="clipboard" size={28} color="var(--text-muted)" />
+                        <span>{hasFilters ? 'No orders match your filters' : 'No orders yet'}</span>
+                    </div>
+                ) : orders.map(order => (
+                    <article
+                        key={order.id}
+                        className={`orders-mobile-card ${selectedIds.has(order.id) ? 'is-selected' : ''}`}
+                        onClick={() => openOrderDetails(order.id)}
+                    >
+                        <div className="orders-mobile-card__top">
+                            <div>
+                                <div className="orders-mobile-card__id">Order #{order.id}</div>
+                                <div className="orders-mobile-card__date">{formatDate(order.created_at)}</div>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={selectedIds.has(order.id)}
+                                onClick={e => e.stopPropagation()}
+                                onChange={() => toggleSelect(order.id)}
+                                aria-label={`Select order ${order.id}`}
+                            />
+                        </div>
+                        <div className="orders-mobile-card__customer">
+                            <span>{order.contact_name || 'Walk-in'}</span>
+                            <code>{order.phone || 'No phone'}</code>
+                        </div>
+                        <div className="orders-mobile-card__meta">
+                            <span>{order.items?.length || 0} item{(order.items?.length || 0) !== 1 ? 's' : ''}</span>
+                            <strong>{order.currency} {parseFloat(order.total_amount).toFixed(2)}</strong>
+                        </div>
+                        <div className="orders-mobile-card__status">
+                            <StatusBadge status={order.payment_status} type="payment" />
+                            <StatusBadge status={order.fulfillment_status} type="fulfillment" />
+                        </div>
+                        <button className="btn btn-secondary orders-mobile-card__button" type="button" onClick={(e) => { e.stopPropagation(); openOrderDetails(order.id); }}>
+                            <Icon name="eye" size={14} />
+                            View Details
+                        </button>
+                    </article>
+                ))}
             </div>
 
             {/* Pagination */}

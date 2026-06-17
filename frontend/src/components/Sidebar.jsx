@@ -14,6 +14,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ isOpen, onClose }) {
     const { currentView, setCurrentView, user, tenant, logout, totalUnread } = useStore();
+    const canOpenPlatformAdmin = user?.role === 'super_admin' || user?.is_super_admin === true;
 
     const handleNav = (viewId) => {
         setCurrentView(viewId);
@@ -23,18 +24,14 @@ export default function Sidebar({ isOpen, onClose }) {
     const firmName = tenant?.name || 'WhatsApp Broadcast';
 
     return (
-        <aside className={`sidebar ${isOpen ? 'sidebar--open' : ''}`}>
+        <aside className={`sidebar ${isOpen ? 'sidebar--open' : ''}`} aria-label="Primary navigation">
             {/* Logo */}
             <div className="sidebar-logo">
-                <div style={{
-                    width: '34px', height: '34px',
-                    background: '#25D366',
-                    borderRadius: '8px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '15px', fontWeight: 800, color: 'white',
-                    flexShrink: 0,
-                }}>W</div>
+                <div className="sidebar-logo-mark">W</div>
                 <span className="sidebar-logo-text">{firmName}</span>
+                <button className="btn-icon mobile-close-btn" type="button" onClick={onClose} aria-label="Close navigation">
+                    <Icon name="x" size={18} />
+                </button>
             </div>
 
             {/* Navigation */}
@@ -48,23 +45,15 @@ export default function Sidebar({ isOpen, onClose }) {
                         <Icon name={item.icon} size={18} />
                         <span>{item.label}</span>
                         {item.id === 'chat' && totalUnread > 0 && (
-                            <span style={{
-                                marginLeft: 'auto',
-                                minWidth: '20px', height: '20px',
-                                borderRadius: '10px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '11px', fontWeight: 700,
-                                background: '#EF4444', color: '#fff',
-                                padding: '0 6px',
-                            }}>
+                            <span className="sidebar-unread-badge">
                                 {totalUnread > 99 ? '99+' : totalUnread}
                             </span>
                         )}
                     </button>
                 ))}
 
-                {/* Admin Panel — visible only for admin users */}
-                {user?.role === 'admin' && (
+                {/* Platform admin panel is only useful when the backend grants super-admin access. */}
+                {canOpenPlatformAdmin && (
                     <>
                         <div style={{ height: '1px', background: 'var(--border)', margin: '8px 12px' }} />
                         <button
@@ -82,12 +71,7 @@ export default function Sidebar({ isOpen, onClose }) {
             {/* User */}
             <div className="sidebar-footer">
                 <div className="sidebar-user">
-                    <div style={{
-                        width: '32px', height: '32px', borderRadius: '50%',
-                        background: '#25D366', color: '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontWeight: 700, fontSize: '13px', flexShrink: 0,
-                    }}>
+                    <div className="sidebar-user-avatar">
                         {(user?.name || 'U').charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>

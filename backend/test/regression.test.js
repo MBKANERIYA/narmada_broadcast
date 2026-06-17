@@ -23,6 +23,21 @@ test('Razorpay webhook signatures require a valid HMAC over the raw body', async
   assert.equal(verifyRazorpayWebhookSignature('', validSignature, secret), false);
 });
 
+test('Razorpay webhook route rejects tenants without a configured webhook secret', () => {
+  const appSource = readRepoFile('backend/src/app.js');
+  assert.match(appSource, /if \(!webhookSecret\)/);
+  assert.match(appSource, /Razorpay webhook secret not configured/);
+  assert.doesNotMatch(appSource, /Processing unsigned webhook/);
+});
+
+test('product image uploads only accept image file types', () => {
+  const productsSource = readRepoFile('backend/src/routes/products.js');
+  assert.match(productsSource, /ALLOWED_IMAGE_MIME_TYPES/);
+  assert.match(productsSource, /fileFilter/);
+  assert.match(productsSource, /Only JPG, PNG, WebP, or GIF image uploads are allowed/);
+  assert.match(productsSource, /router\.post\('\/upload-image'/);
+});
+
 test('public debug chat-status endpoint is not registered', () => {
   const appSource = readRepoFile('backend/src/app.js');
   assert.doesNotMatch(appSource, /app\.get\(['"]\/api\/v1\/debug\/chat-status['"]/);
@@ -52,6 +67,20 @@ test('bot pause is persisted server-side and webhook auto-reply respects it', ()
   assert.match(chatRouteSource, /\/conversations\/:id\/bot-pause/);
   assert.match(appSource, /conversation\.bot_paused/);
   assert.doesNotMatch(chatComponentSource, /localStorage\.setItem\(BOT_PAUSE_KEY/);
+});
+
+test('interactive shopping flow does not override every smart bot text reply', () => {
+  const appSource = readRepoFile('backend/src/app.js');
+
+  assert.match(appSource, /const automationEnabled = botSettings\.enabled !== false/);
+  assert.match(appSource, /const shouldOfferShoppingOptions = messageType === 'text'/);
+  assert.match(appSource, /category\|categories\|product\|products/);
+  assert.match(appSource, /SELECT DISTINCT category FROM products/);
+  assert.match(appSource, /startsWith\('cat_'\)/);
+  assert.match(appSource, /automationEnabled && shouldOfferShoppingOptions/);
+  assert.match(appSource, /let shouldReply = automationEnabled/);
+  assert.doesNotMatch(appSource, /For ANY text message/);
+  assert.doesNotMatch(appSource, /Skip normal bot logic to enforce this flow/);
 });
 
 test('tenant settings mask payment secrets before returning to the browser', async () => {
@@ -105,4 +134,32 @@ test('Catalogue declares hooks before any loading return', () => {
   assert.ok(hookIndex > -1, 'search hook exists');
   assert.ok(loadingReturnIndex > -1, 'loading return exists');
   assert.ok(hookIndex < loadingReturnIndex, 'search/sort/filter hooks must be declared before loading return');
+});
+
+test('mobile app shell exposes an openable drawer and avoids misleading admin nav', () => {
+  const sidebarSource = readRepoFile('frontend/src/components/Sidebar.jsx');
+  const mainCss = readRepoFile('frontend/src/styles/main.css');
+  const storeSource = readRepoFile('frontend/src/stores/store.js');
+
+  assert.match(sidebarSource, /sidebar--open/);
+  assert.match(mainCss, /\.sidebar\.sidebar--open\s*\{\s*transform:\s*translateX\(0\)/);
+  assert.doesNotMatch(sidebarSource, /user\?\.role\s*===\s*['"]admin['"]/);
+  assert.match(storeSource, /currentView:\s*['"]overview['"]/);
+});
+
+test('Orders provides a mobile card surface instead of only a wide table', () => {
+  const ordersSource = readRepoFile('frontend/src/components/Orders.jsx');
+  const mainCss = readRepoFile('frontend/src/styles/main.css');
+
+  assert.match(ordersSource, /orders-table-card/);
+  assert.match(ordersSource, /orders-mobile-list/);
+  assert.match(ordersSource, /orders-mobile-card/);
+  assert.match(mainCss, /\.orders-mobile-list/);
+});
+
+test('Vite dev proxy can target live API during browser QA', () => {
+  const viteConfig = readRepoFile('frontend/vite.config.js');
+  assert.match(viteConfig, /VITE_DEV_API_PROXY_TARGET/);
+  assert.match(viteConfig, /process\.env\.VITE_DEV_API_PROXY_TARGET\s*\|\|\s*['"]http:\/\/localhost:3001['"]/);
+  assert.match(viteConfig, /target:\s*apiProxyTarget/);
 });

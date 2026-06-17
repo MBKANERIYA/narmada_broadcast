@@ -18,11 +18,22 @@
 | `npm run build` from `frontend/` | Vite production build for the Preact SPA |
 | `npm audit --audit-level=high` from `frontend/` | Frontend dependency vulnerability gate |
 | `npm audit --audit-level=high` from `backend/` | Backend dependency vulnerability gate |
+| `$env:VITE_DEV_API_PROXY_TARGET='https://broadcast.innodify.in'; npm run dev -- --host 127.0.0.1` from `frontend/` | Local Vite app pointed at the live production API for browser QA without CORS issues |
 
 ## Test File Conventions
 Backend regression tests live in `backend/test/*.test.js` and should use the built-in Node test runner unless a broader integration framework is deliberately introduced and logged in `decisions.md`.
 
 Frontend automated component tests are not configured yet. Until they exist, keep frontend behavior covered by deterministic lint/build checks and add backend/static regression tests for cross-stack contract bugs when possible.
+
+## Browser QA Checklist
+- Test the authenticated app shell at desktop width and at a 390px phone viewport.
+- Verify Overview is the default authenticated landing view.
+- Verify tenant admins do not see the Admin Panel navigation item.
+- Verify the mobile drawer opens, exposes all primary nav items, closes after navigation, and does not create horizontal overflow.
+- Verify Orders uses `.orders-mobile-list` on phone widths and hides the desktop table.
+- Verify Chat Inbox supports list, detail, and back navigation on phone widths.
+- Verify Settings does not populate password/secret/token/key fields with stored secret values.
+- Do not send messages, submit settings, delete records, or upload files during QA unless the user explicitly authorizes those side effects.
 
 ## What Must Be Tested
 - Auth and tenant isolation must cover allowed and denied tenant access.
