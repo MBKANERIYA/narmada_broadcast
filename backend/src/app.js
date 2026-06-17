@@ -743,8 +743,7 @@ async function processIncomingMessage(msg, contacts, phoneNumberId) {
             }
 
             const automationEnabled = botSettings.enabled !== false;
-            const shouldOfferShoppingOptions = messageType === 'text'
-                && /\b(shop|shopping|catalog|catalogue|category|categories|product|products|blouse|blouses|shapewear)\b/i.test(body);
+            const shouldOfferShoppingOptions = messageType === 'text';
 
             // Custom shopping flow - handle dynamic category selection.
             let selectedCategory = null;

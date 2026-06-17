@@ -15,6 +15,14 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - Scoped cancel-order lookup/update SQL by `tenant_id` and `phone`, with a safe no-order response instead of false cancellation success.
 - Replaced the hardcoded `+919876543210` support fallback with a tenant-phone-required contact-card path.
 
+## 2026-06-17 — Fix: Welcome Menu Auto-Responder Override
+**What**: Removed the regex constraint (`/\b(shop|shopping.../i`) that was recently added to the `shouldOfferShoppingOptions` flag. 
+**Why**: The regex restricted the "Welcome Menu" (Shop Categories / Customer Support) to only trigger if the customer used specific shopping keywords. This caused a bug where standard messages like "Hi" or "Hello" received no auto-reply menu. Reverting this ensures the Welcome Menu acts as the global default auto-responder for all unhandled text messages.
+**Files Changed**:
+- `backend/src/app.js`: Reverted `shouldOfferShoppingOptions` back to strictly `messageType === 'text'`.
+
+---
+
 ## 2026-06-17 — Feature: Contextual Order Selection in Support Flow
 **What**: Modified the customer support flow so that when a customer selects any support topic (like "Payment Issues" or "Order Status"), the system now checks if they have any recent orders. If they do, it automatically sends an interactive list of their last 5 orders, prompting them to select which order they need help with *before* asking them how they want to contact us.
 **Why**: To provide agents with immediate, exact context about which order the customer is asking about, dramatically reducing back-and-forth and improving resolution times.
