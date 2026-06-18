@@ -2,6 +2,13 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-18 — Feature: Password Visibility Toggle
+**What**: Added a show/hide password toggle button to the login and registration forms.
+**Why**: Enhances user experience by allowing users to verify their typed passwords before submission, reducing login errors.
+**Files Changed**:
+- `frontend/src/components/Login.jsx`: Implemented the `showPassword` state and an inline absolute-positioned icon button within the password input wrapper.
+- `frontend/src/components/Icons.jsx`: Added the `eye-off` icon SVG definition.
+
 ## 2026-06-18 — Feature: WhatsApp Call Functionality in Chat Inbox
 **What**: Added Voice Call and Video Call buttons directly within the Chat Inbox header.
 **Why**: Agents need a quick way to initiate calls with customers directly from their conversation view. Since the Meta WhatsApp API does not support native programmatic outbound web calls, these buttons use standard phone dialer links (`tel:` protocol) as a seamless fallback.

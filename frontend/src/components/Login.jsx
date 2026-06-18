@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import { useStore } from '../stores/store';
+import Icon from './Icons';
 
 /**
  * Auth Component — Login / Register with tab toggle
@@ -9,6 +10,7 @@ export default function AuthPage({ initialMode = 'login', onBack }) {
     const { login, register, isLoading, error, clearError } = useStore();
     const [mode, setMode] = useState(initialMode);
     const [form, setForm] = useState({ name: '', firmName: '', email: '', password: '' });
+    const [showPassword, setShowPassword] = useState(false);
 
     const switchMode = (m) => {
         setMode(m);
@@ -86,7 +88,34 @@ export default function AuthPage({ initialMode = 'login', onBack }) {
 
                     <label>
                         <span>Password</span>
-                        <input type="password" value={form.password} onInput={update('password')} placeholder="Enter password" required minLength={6} />
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <input 
+                                type={showPassword ? 'text' : 'password'} 
+                                value={form.password} 
+                                onInput={update('password')} 
+                                placeholder="Enter password" 
+                                required 
+                                minLength={6} 
+                                style={{ width: '100%', paddingRight: '40px' }}
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => setShowPassword(!showPassword)}
+                                style={{ 
+                                    position: 'absolute', 
+                                    right: '12px', 
+                                    background: 'none', 
+                                    border: 'none', 
+                                    cursor: 'pointer', 
+                                    color: '#94a3b8', 
+                                    display: 'flex', 
+                                    padding: 0 
+                                }}
+                                title={showPassword ? "Hide password" : "Show password"}
+                            >
+                                <Icon name={showPassword ? 'eye-off' : 'eye'} size={18} />
+                            </button>
+                        </div>
                     </label>
 
                     <button type="submit" className="auth-submit" disabled={isLoading}>
