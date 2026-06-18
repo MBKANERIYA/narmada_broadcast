@@ -2,6 +2,13 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-18 — Feature: WhatsApp Call Functionality in Chat Inbox
+**What**: Added Voice Call and Video Call buttons directly within the Chat Inbox header.
+**Why**: Agents need a quick way to initiate calls with customers directly from their conversation view. Since the Meta WhatsApp API does not support native programmatic outbound web calls, these buttons use standard phone dialer links (`tel:` protocol) as a seamless fallback.
+**Files Changed**:
+- `frontend/src/components/WhatsAppChat.jsx`: Inserted `phone` and `video` icon buttons in the chat header, triggering the device's native dialer. Added informational toast for video calls.
+- `frontend/src/components/Icons.jsx`: Added the `video` icon SVG definition.
+
 ## 2026-06-17 - Coworker Support Flow Review Fixes
 **What**: Reviewed the latest `origin/main` support-flow/payment-reminder batch, restored the shopping-intent gate, phone-scoped customer order cancellation, removed the placeholder support phone fallback, and strengthened backend regression coverage.
 **Why**: The pulled coworker implementation made every customer text bypass Smart Responder with the generic menu, allowed cancel-order actions to address any same-tenant order ID, and could expose a fake support number when tenant phone was not configured.

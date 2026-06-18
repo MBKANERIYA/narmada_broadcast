@@ -1,6 +1,6 @@
 ## Current Status
 **Last Updated**: 2026-06-17
-**Last Agent Session**: Pulled `origin/main` at coworker commit `de02ca0`, reviewed the support-flow/payment-reminder batch, found backend regressions, restored the shopping-intent gate, phone-scoped cancel-order handling, removed the placeholder support phone fallback, and prepared the fix for GitHub `main`.
+**Last Agent Session**: Added Voice and Video Call functionality to the Chat Inbox using `tel:` dialer links. Updated `WhatsAppChat.jsx` and `Icons.jsx` to support this feature.
 **Test Suite Status**: PASS - `npm test` from `backend/` (15 tests); PASS - backend `node --check` across `backend/src/**/*.js`; PASS - `npm run lint` from `frontend/`; PASS - `npm run build` from `frontend/` with the existing Vite chunk-size warning only; PASS - `npm audit --audit-level=high` from both `frontend/` and `backend/`; PASS - `git diff --check`.
 
 ## Completed This Session
@@ -11,6 +11,7 @@
 - [x] **Remote Regression Fixes** - restored mandatory Razorpay webhook-secret/signature rejection, hardened product image uploads, restored the single-image upload route, synced normalized product image data to Meta, guarded interactive shopping prompts so Smart FAQs are not overridden, and cleared the Catalogue lint warning.
 - [x] **Coworker Support Flow Review** - reviewed commits after `91eb6a0`, fixed broad text-menu interception, phone-scoped cancel-order actions, removed placeholder support phone fallback, and added regression coverage.
 - [x] **Knowledge Base Expansion** - added `frontend.md` and updated testing, changelog, known issues, and README reading order.
+- [x] **WhatsApp Call Functionality** - Added Voice and Video Call buttons in the Chat Inbox using standard dialer links.
 
 ## Remaining Work (Not Started)
 - [ ] Phase 2: Assign to Team Member, Internal Notes

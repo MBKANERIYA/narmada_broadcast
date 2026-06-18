@@ -783,6 +783,25 @@ export default function WhatsAppChat() {
                                     )}
                                     <button
                                         className="btn-icon"
+                                        onClick={() => window.open(`tel:${conv?.phone}`)}
+                                        title="Voice Call"
+                                        style={{ color: '#64748b' }}
+                                    >
+                                        <Icon name="phone" size={18} />
+                                    </button>
+                                    <button
+                                        className="btn-icon"
+                                        onClick={() => {
+                                            showToast('WhatsApp native calls require the mobile or desktop app. Initiating a standard phone call.', 'info');
+                                            window.open(`tel:${conv?.phone}`);
+                                        }}
+                                        title="Video Call (Requires Desktop App)"
+                                        style={{ color: '#64748b' }}
+                                    >
+                                        <Icon name="video" size={18} />
+                                    </button>
+                                    <button
+                                        className="btn-icon"
                                         onClick={() => toggleBotPause(selectedConvId)}
                                         title={isBotPaused ? 'Resume AI Bot' : 'Pause AI Bot'}
                                         style={{ color: isBotPaused ? '#EF4444' : '#64748b' }}
