@@ -11,7 +11,7 @@
 - [x] **Remote Regression Fixes** - restored mandatory Razorpay webhook-secret/signature rejection, hardened product image uploads, restored the single-image upload route, synced normalized product image data to Meta, guarded interactive shopping prompts so Smart FAQs are not overridden, and cleared the Catalogue lint warning.
 - [x] **Coworker Support Flow Review** - reviewed commits after `91eb6a0`, fixed broad text-menu interception, phone-scoped cancel-order actions, removed placeholder support phone fallback, and added regression coverage.
 - [x] **Knowledge Base Expansion** - added `frontend.md` and updated testing, changelog, known issues, and README reading order.
-- [x] **WhatsApp Call Functionality** - Added Voice and Video Call buttons in the Chat Inbox using standard dialer links.
+- [x] **WhatsApp Call Functionality** - Added Voice and Video Call buttons in the Chat Inbox using `wa.me` WhatsApp deep links.
 - [x] **Password Visibility Toggle** - Added a show/hide password toggle to the authentication screen.
 
 ## Remaining Work (Not Started)

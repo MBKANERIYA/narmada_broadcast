@@ -11,9 +11,9 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 
 ## 2026-06-18 — Feature: WhatsApp Call Functionality in Chat Inbox
 **What**: Added Voice Call and Video Call buttons directly within the Chat Inbox header.
-**Why**: Agents need a quick way to initiate calls with customers directly from their conversation view. Since the Meta WhatsApp API does not support native programmatic outbound web calls, these buttons use standard phone dialer links (`tel:` protocol) as a seamless fallback.
+**Why**: Agents need a quick way to initiate calls with customers directly from their conversation view. The buttons now utilize the WhatsApp `wa.me` deep link protocol to instantly open the customer's chat inside the native WhatsApp Desktop or Web app, from where the agent can click the call button.
 **Files Changed**:
-- `frontend/src/components/WhatsAppChat.jsx`: Inserted `phone` and `video` icon buttons in the chat header, triggering the device's native dialer. Added informational toast for video calls.
+- `frontend/src/components/WhatsAppChat.jsx`: Inserted `phone` and `video` icon buttons in the chat header, triggering the `wa.me` deep link. Added informational toast.
 - `frontend/src/components/Icons.jsx`: Added the `video` icon SVG definition.
 
 ## 2026-06-17 - Coworker Support Flow Review Fixes

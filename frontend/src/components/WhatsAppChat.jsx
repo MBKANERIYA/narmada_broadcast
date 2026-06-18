@@ -783,8 +783,11 @@ export default function WhatsAppChat() {
                                     )}
                                     <button
                                         className="btn-icon"
-                                        onClick={() => window.open(`tel:${conv?.phone}`)}
-                                        title="Voice Call"
+                                        onClick={() => {
+                                            showToast('Opening WhatsApp to start a call.', 'info');
+                                            window.open(`https://wa.me/${conv?.phone?.replace(/\D/g, '')}`, '_blank');
+                                        }}
+                                        title="WhatsApp Voice Call"
                                         style={{ color: '#64748b' }}
                                     >
                                         <Icon name="phone" size={18} />
@@ -792,10 +795,10 @@ export default function WhatsAppChat() {
                                     <button
                                         className="btn-icon"
                                         onClick={() => {
-                                            showToast('WhatsApp native calls require the mobile or desktop app. Initiating a standard phone call.', 'info');
-                                            window.open(`tel:${conv?.phone}`);
+                                            showToast('Opening WhatsApp to start a video call.', 'info');
+                                            window.open(`https://wa.me/${conv?.phone?.replace(/\D/g, '')}`, '_blank');
                                         }}
-                                        title="Video Call (Requires Desktop App)"
+                                        title="WhatsApp Video Call"
                                         style={{ color: '#64748b' }}
                                     >
                                         <Icon name="video" size={18} />
