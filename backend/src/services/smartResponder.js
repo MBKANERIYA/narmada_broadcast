@@ -1,40 +1,51 @@
-import { pipeline } from '@huggingface/transformers';
 import { query, run } from '../database.js';
 
-let extractor = null;
+let isModelWarmed = false;
 
 /**
  * Initialize the embedding model.
- * This runs locally on the CPU and downloads a tiny (~90MB) model on first run.
+ * Since we migrated to Google Gemini API for Vercel compatibility,
+ * this just checks if the API key is present.
  */
 export async function getExtractor() {
-    if (!extractor) {
-        console.log('[SmartResponder] Loading all-MiniLM-L6-v2 model...');
-        // Use the feature extraction pipeline
-        extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-        console.log('[SmartResponder] Model loaded successfully.');
+    if (!process.env.AI_API_KEY) {
+        console.warn('[SmartResponder] Warning: AI_API_KEY is missing. Smart replies will fail.');
     }
-    return extractor;
+    return true;
 }
 
 /**
  * Pre-warm the model on server startup.
  */
 export async function initModel() {
-    try {
-        await getExtractor();
-    } catch (err) {
-        console.error('[SmartResponder] Error pre-warming model:', err);
+    if (!isModelWarmed) {
+        console.log('[SmartResponder] Initializing Google Gemini Embeddings API...');
+        isModelWarmed = true;
     }
 }
 
 /**
- * Generate a vector embedding for a given text.
+ * Generate a vector embedding for a given text using Google Gemini API.
  */
 export async function generateEmbedding(text) {
-    const extract = await getExtractor();
-    const output = await extract(text, { pooling: 'mean', normalize: true });
-    return Array.from(output.data);
+    if (!process.env.AI_API_KEY) throw new Error('AI_API_KEY missing');
+    
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${process.env.AI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model: "models/text-embedding-004",
+            content: { parts: [{ text }] }
+        })
+    });
+    
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(`Gemini API Error: ${err.error?.message || response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.embedding.values;
 }
 
 /**
