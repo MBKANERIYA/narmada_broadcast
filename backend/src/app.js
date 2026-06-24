@@ -5,6 +5,10 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import config from './config.js';
 import { auth } from './middleware/auth.js';
+import { initDatabase } from './database.js';
+
+// Initialize DB for serverless environment
+initDatabase().catch(console.error);
 
 // Routes
 import authRoutes from './routes/auth.js';
