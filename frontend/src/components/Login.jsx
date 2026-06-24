@@ -82,8 +82,8 @@ export default function AuthPage({ initialMode = 'login', onBack }) {
                     )}
 
                     <label>
-                        <span>Email</span>
-                        <input type="email" value={form.email} onInput={update('email')} placeholder="you@business.com" required />
+                        <span>Email or Username</span>
+                        <input type="text" value={form.email} onInput={update('email')} placeholder="admin" required />
                     </label>
 
                     <label>

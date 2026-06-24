@@ -1,200 +1,102 @@
-import express from 'express';
-import { query, run } from '../database.js';
+import { Router } from 'express';
+import KnowledgeBase from '../models/KnowledgeBase.js';
 import { generateEmbedding } from '../services/smartResponder.js';
 
-const router = express.Router();
+const router = Router();
 
-/**
- * GET /api/v1/knowledge-base
- * Fetch all FAQs for the authenticated tenant.
- */
 router.get('/', async (req, res) => {
     try {
-        const faqs = await query(
-            'SELECT id, question, answer, is_active, created_at FROM whatsapp_knowledge_base WHERE tenant_id = ? ORDER BY created_at DESC',
-            [req.tenant.id]
-        );
-        res.json({ faqs });
+        const faqs = await KnowledgeBase.find().sort({ created_at: -1 });
+        res.json(faqs.map(f => {
+            const doc = f.toObject();
+            doc.id = doc._id;
+            return doc;
+        }));
     } catch (error) {
-        console.error('[KnowledgeBase] Fetch error:', error);
-        res.status(500).json({ error: 'Failed to fetch knowledge base' });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
-/**
- * POST /api/v1/knowledge-base
- * Add a new FAQ. Automatically generates the vector embedding.
- */
 router.post('/', async (req, res) => {
     try {
         const { question, answer } = req.body;
-        if (!question || !answer) {
-            return res.status(400).json({ error: 'Question and answer are required' });
-        }
+        if (!question || !answer) return res.status(400).json({ error: 'Question and answer required' });
 
-        // Generate the semantic vector for the question
-        console.log(`[KnowledgeBase] Generating embedding for: "${question}"`);
-        const vectorArray = await generateEmbedding(question);
-        const vectorJson = JSON.stringify(vectorArray);
-
-        const result = await run(
-            'INSERT INTO whatsapp_knowledge_base (tenant_id, question, answer, question_vector) VALUES (?, ?, ?, ?)',
-            [req.tenant.id, question, answer, vectorJson]
-        );
-
-        res.status(201).json({ 
-            id: result.lastInsertRowid,
-            question, 
-            answer,
-            is_active: 1,
-            message: 'FAQ added successfully with semantic embedding'
-        });
-
+        const vector = await generateEmbedding(question);
+        
+        const faq = new KnowledgeBase({ question, answer, question_vector: vector, is_active: true });
+        await faq.save();
+        res.status(201).json({ id: faq._id });
     } catch (error) {
-        console.error('[KnowledgeBase] Create error:', error);
-        res.status(500).json({ error: 'Failed to create FAQ' });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
-/**
- * PUT /api/v1/knowledge-base/:id
- * Toggle active status or update text
- */
 router.put('/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        const { is_active, question, answer } = req.body;
+        const { question, answer, is_active } = req.body;
+        if (!question || !answer) return res.status(400).json({ error: 'Question and answer required' });
 
-        let queryStr = 'UPDATE whatsapp_knowledge_base SET ';
-        const params = [];
-
-        if (is_active !== undefined) {
-            queryStr += 'is_active = ?, ';
-            params.push(is_active ? 1 : 0);
-        }
-
-        if (question !== undefined && question.trim() !== '') {
-            queryStr += 'question = ?, ';
-            params.push(question);
-            
-            console.log(`[KnowledgeBase] Updating embedding for: "${question}"`);
-            const vectorArray = await generateEmbedding(question);
-            const vectorJson = JSON.stringify(vectorArray);
-            
-            queryStr += 'question_vector = ?, ';
-            params.push(vectorJson);
-        }
-
-        if (answer !== undefined && answer.trim() !== '') {
-            queryStr += 'answer = ?, ';
-            params.push(answer);
-        }
-
-        if (params.length === 0) {
-            return res.status(400).json({ error: 'No fields to update' });
-        }
-
-        // Remove trailing comma and space
-        queryStr = queryStr.slice(0, -2);
+        const vector = await generateEmbedding(question);
         
-        queryStr += ' WHERE id = ? AND tenant_id = ?';
-        params.push(id, req.tenant.id);
-
-        await run(queryStr, params);
-
+        const faq = await KnowledgeBase.findByIdAndUpdate(req.params.id, {
+            question, answer, question_vector: vector, is_active: is_active ?? true
+        });
+        
+        if (!faq) return res.status(404).json({ error: 'Not found' });
         res.json({ success: true });
     } catch (error) {
-        console.error('[KnowledgeBase] Update error:', error);
-        res.status(500).json({ error: 'Failed to update FAQ' });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
-/**
- * DELETE /api/v1/knowledge-base/:id
- * Remove an FAQ
- */
 router.delete('/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        await run(
-            'DELETE FROM whatsapp_knowledge_base WHERE id = ? AND tenant_id = ?',
-            [id, req.tenant.id]
-        );
+        const faq = await KnowledgeBase.findByIdAndDelete(req.params.id);
+        if (!faq) return res.status(404).json({ error: 'Not found' });
+        res.status(204).send();
+    } catch (error) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.patch('/:id/toggle', async (req, res) => {
+    try {
+        const { is_active } = req.body;
+        const faq = await KnowledgeBase.findByIdAndUpdate(req.params.id, { is_active });
+        if (!faq) return res.status(404).json({ error: 'Not found' });
         res.json({ success: true });
     } catch (error) {
-        console.error('[KnowledgeBase] Delete error:', error);
-        res.status(500).json({ error: 'Failed to delete FAQ' });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
-/**
- * POST /api/v1/knowledge-base/test
- * Test bot: simulate a customer message and see what the AI would match
- */
-router.post('/test', async (req, res) => {
+router.post('/import', async (req, res) => {
     try {
-        const { message } = req.body;
-        if (!message || !message.trim()) {
-            return res.status(400).json({ error: 'Message is required' });
-        }
+        const { faqs } = req.body;
+        if (!Array.isArray(faqs)) return res.status(400).json({ error: 'Array required' });
 
-        // Get all active FAQs with vectors
-        const faqs = await query(
-            'SELECT id, question, answer, question_vector FROM whatsapp_knowledge_base WHERE tenant_id = ? AND is_active = 1',
-            [req.tenant.id]
-        );
+        let imported = 0;
+        let skipped = 0;
 
-        if (!faqs.length) {
-            return res.json({ matches: [], message: 'No FAQs in knowledge base' });
-        }
-
-        // Generate embedding for the test message
-        const messageVector = await generateEmbedding(message);
-
-        // Compute similarity for each FAQ
-        const scored = [];
-        for (const faq of faqs) {
-            if (!faq.question_vector) continue;
-            let faqVector;
+        for (const f of faqs) {
+            if (!f.question || !f.answer) {
+                skipped++;
+                continue;
+            }
             try {
-                faqVector = typeof faq.question_vector === 'string' ? JSON.parse(faq.question_vector) : faq.question_vector;
-            } catch { continue; }
-
-            const score = cosineSimilarity(messageVector, faqVector);
-            scored.push({ id: faq.id, question: faq.question, answer: faq.answer, score: Math.round(score * 1000) / 1000 });
+                const vector = await generateEmbedding(f.question);
+                const faq = new KnowledgeBase({ question: f.question, answer: f.answer, question_vector: vector });
+                await faq.save();
+                imported++;
+            } catch (err) {
+                skipped++;
+            }
         }
-
-        // Sort by score descending and return top 3
-        scored.sort((a, b) => b.score - a.score);
-        const THRESHOLD = 0.45;
-        const topMatches = scored.slice(0, 3);
-        const wouldReply = topMatches.length > 0 && topMatches[0].score >= THRESHOLD;
-
-        res.json({
-            test_message: message,
-            would_reply: wouldReply,
-            threshold: THRESHOLD,
-            best_score: topMatches[0]?.score || 0,
-            matched_answer: wouldReply ? topMatches[0].answer : null,
-            matches: topMatches,
-        });
+        res.json({ imported, skipped });
     } catch (error) {
-        console.error('[KnowledgeBase] Test error:', error);
-        res.status(500).json({ error: 'Failed to test bot' });
+        res.status(500).json({ error: 'Server error' });
     }
 });
-
-// Import cosineSimilarity locally for the test endpoint
-function cosineSimilarity(vecA, vecB) {
-    if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
-    let dot = 0, magA = 0, magB = 0;
-    for (let i = 0; i < vecA.length; i++) {
-        dot += vecA[i] * vecB[i];
-        magA += vecA[i] * vecA[i];
-        magB += vecB[i] * vecB[i];
-    }
-    const mag = Math.sqrt(magA) * Math.sqrt(magB);
-    return mag === 0 ? 0 : dot / mag;
-}
 
 export default router;

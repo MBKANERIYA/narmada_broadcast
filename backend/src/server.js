@@ -4,7 +4,7 @@ import config from './config.js';
 import { initDatabase } from './database.js';
 import { initModel } from './services/smartResponder.js';
 import { initWebSocket } from './services/websocket.js';
-import { startPaymentReminderCron } from './services/paymentReminder.js';
+
 
 const startServer = async () => {
     try {
@@ -19,9 +19,6 @@ const startServer = async () => {
 
         // Initialize WebSocket
         initWebSocket(server);
-
-        // Start background tasks
-        startPaymentReminderCron();
 
         // Start server
         server.listen(config.port, () => {

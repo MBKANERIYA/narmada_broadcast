@@ -1,63 +1,28 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
-import { query, run, get } from '../database.js';
-import { generateToken, auth as authMiddleware } from '../middleware/auth.js';
-import { checkUserLimit } from '../middleware/limits.js';
+import { generateToken } from '../middleware/auth.js';
 
 const router = Router();
 
 /**
  * POST /api/v1/auth/login
- * Tenant-scoped login: looks up user within the current tenant
+ * Hardcoded authentication as requested
  */
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+        if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
-        if (!email || !password) {
-            return res.status(400).json({ error: 'Email and password required' });
+        // Hardcoded check
+        if ((email === 'admin' || email === 'admin@localhost' || email === 'admin@innodify.in') && password === 'admin123') {
+            const token = generateToken('admin-user-id', 'admin', 'admin');
+            return res.json({
+                token,
+                user: { id: 'admin-user-id', name: 'Admin User', email: 'admin', role: 'admin' },
+                tenant: { id: 'single-tenant', name: 'Admin Account', slug: 'admin', subscription_status: 'active' } // Fake tenant to keep frontend happy
+            });
         }
 
-        // Look up user across all tenants (single-domain SaaS)
-        const user = await get(
-            'SELECT u.*, t.name AS tenant_name, t.slug AS tenant_slug, t.logo_url, t.primary_color, t.subscription_plan, t.subscription_status, t.trial_ends_at FROM users u JOIN tenants t ON u.tenant_id = t.id WHERE u.email = ?',
-            [email]
-        );
-
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        const validPassword = bcrypt.compareSync(password, user.password_hash);
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        // Check subscription status
-        if (user.subscription_status === 'cancelled') {
-            return res.status(403).json({ error: 'This account has been deactivated.' });
-        }
-
-        // Generate token with user's actual tenantId
-        const token = generateToken(user.id, user.email, user.role, user.tenant_id);
-
-        res.json({
-            token,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-            },
-            tenant: {
-                id: user.tenant_id,
-                name: user.tenant_name,
-                slug: user.tenant_slug,
-                logo_url: user.logo_url,
-                primary_color: user.primary_color,
-                subscription_plan: user.subscription_plan,
-            },
-        });
+        return res.status(401).json({ error: 'Invalid credentials. Use admin / admin123' });
     } catch (error) {
         console.error('[LOGIN ERROR]', error.message);
         res.status(500).json({ error: 'Server error' });
@@ -66,116 +31,23 @@ router.post('/login', async (req, res) => {
 
 /**
  * POST /api/v1/auth/signup
- * Public self-service signup — creates a new tenant + admin user
  */
 router.post('/signup', async (req, res) => {
-    try {
-        const { name, firmName, email, password } = req.body;
-
-        if (!name || !firmName || !email || !password) {
-            return res.status(400).json({ error: 'Name, business name, email, and password are required' });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
-        }
-
-        // Generate slug from firm name
-        const slug = firmName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        if (!slug) {
-            return res.status(400).json({ error: 'Invalid business name' });
-        }
-
-        // Check if slug already exists
-        const existingTenant = await get('SELECT id FROM tenants WHERE slug = ?', [slug]);
-        if (existingTenant) {
-            return res.status(409).json({ error: 'A business with a similar name already exists. Try a different name.' });
-        }
-
-        // Check if email already exists globally
-        const existingUser = await get('SELECT id FROM users WHERE email = ?', [email]);
-        if (existingUser) {
-            return res.status(409).json({ error: 'This email is already registered. Try signing in.' });
-        }
-
-        // Create tenant with 14-day trial
-        const trialEnds = new Date();
-        trialEnds.setDate(trialEnds.getDate() + 14);
-        const trialEndsStr = trialEnds.toISOString().slice(0, 19).replace('T', ' ');
-
-        const tenantResult = await run(
-            `INSERT INTO tenants (name, slug, email, subscription_plan, subscription_status, trial_ends_at)
-             VALUES (?, ?, ?, 'trial', 'active', ?)`,
-            [firmName, slug, email, trialEndsStr]
-        );
-        const tenantId = tenantResult.lastInsertRowid;
-
-        // Create admin user
-        const passwordHash = bcrypt.hashSync(password, 10);
-        const userResult = await run(
-            'INSERT INTO users (tenant_id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
-            [tenantId, name, email, passwordHash, 'admin']
-        );
-        const userId = userResult.insertId || userResult.lastInsertRowid;
-
-        // Auto-login: generate token
-        const token = generateToken(userId, email, 'admin', tenantId);
-
-        res.status(201).json({
-            token,
-            user: { id: userId, name, email, role: 'admin' },
-            tenant: {
-                id: tenantId, name: firmName, slug,
-                subscription_plan: 'trial', subscription_status: 'active',
-            },
-        });
-    } catch (error) {
-        console.error('Signup error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
+    res.status(403).json({ error: 'Signup is disabled in this single-user version.' });
 });
 
 /**
  * GET /api/v1/users
- * List users within the current tenant
  */
 router.get('/', async (req, res) => {
-    try {
-        const users = await query(
-            'SELECT id, name, email, role, created_at FROM users WHERE tenant_id = ? ORDER BY created_at DESC',
-            [req.tenantId]
-        );
-        res.json(users);
-    } catch (error) {
-        console.error('Users error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
+    res.json([{ id: 'admin-user-id', name: 'Admin User', email: 'admin', role: 'admin', created_at: new Date() }]);
 });
 
 /**
  * DELETE /api/v1/users/:id
- * Delete a user within the current tenant (admin only)
  */
 router.delete('/:id', async (req, res) => {
-    try {
-        if (!req.user || req.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Admin access required' });
-        }
-
-        const userId = req.params.id;
-
-        // Prevent self-deletion
-        if (parseInt(userId) === req.user.userId) {
-            return res.status(400).json({ error: 'Cannot delete your own account' });
-        }
-
-        // Only delete within this tenant
-        await run('DELETE FROM users WHERE id = ? AND tenant_id = ?', [userId, req.tenantId]);
-        res.status(204).send();
-    } catch (error) {
-        console.error('User delete error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
+    res.status(403).json({ error: 'Cannot delete the hardcoded admin user' });
 });
 
 export default router;

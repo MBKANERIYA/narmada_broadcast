@@ -327,11 +327,15 @@ export const useStore = create(
 
             fetchWhatsAppTemplates: async () => {
                 try {
-                    const templates = await api('/whatsapp/templates');
+                    const response = await api('/whatsapp/templates');
+                    // Defensive: Meta API wraps in { data: [...] }, backend should unwrap
+                    // but handle both shapes just in case
+                    const templates = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
                     set({ whatsappTemplates: templates });
                     return templates;
                 } catch (error) {
                     console.error('Failed to fetch templates:', error);
+                    set({ whatsappTemplates: [] });
                     return [];
                 }
             },

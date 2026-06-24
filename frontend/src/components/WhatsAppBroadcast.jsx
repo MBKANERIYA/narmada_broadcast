@@ -124,7 +124,8 @@ export default function WhatsAppBroadcast() {
     const deselectAll = () => setSelectedIds([]);
 
     // Templates for dropdown
-    const approvedTemplates = (whatsappTemplates || []).filter(t => t.status === 'APPROVED');
+    const templatesList = Array.isArray(whatsappTemplates) ? whatsappTemplates : [];
+    const approvedTemplates = templatesList.filter(t => t.status === 'APPROVED');
 
     const selectedTemplate = approvedTemplates.find(t => t.name === campaignName);
     const templateVariables = selectedTemplate?.components?.find(c => c.type === 'BODY')?.text?.match(/\{\{\d+\}\}/g) || [];
@@ -628,6 +629,7 @@ export default function WhatsAppBroadcast() {
                         ].map(opt => (
                             <button
                                 key={opt.id}
+                                type="button"
                                 className={`btn ${recipientType === opt.id ? 'btn--primary' : 'btn--outline'}`}
                                 onClick={() => { setRecipientType(opt.id); setSelectedIds([]); }}
                                 style={{ fontSize: '13px' }}
@@ -1183,9 +1185,9 @@ export default function WhatsAppBroadcast() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {(whatsappTemplates || []).length === 0 ? (
+                                {templatesList.length === 0 ? (
                                     <tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px', opacity: 0.5 }}>No templates found</td></tr>
-                                ) : whatsappTemplates.map(t => (
+                                ) : templatesList.map(t => (
                                     <tr key={t.id || t.name}>
                                         <td style={{ fontWeight: 600 }}>{t.name}</td>
                                         <td>{t.category}</td>

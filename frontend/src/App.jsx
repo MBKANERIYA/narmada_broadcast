@@ -49,30 +49,15 @@ export default function App() {
         const firmName = tenant?.name || 'WhatsApp Broadcast';
 
         return (
-            <div className={`app-layout ${isMobileMenuOpen ? 'nav-open' : ''}`}>
-                <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
-
-                <header className="mobile-header">
-                    <button className="btn-icon" onClick={() => setIsMobileMenuOpen(true)} aria-label="Open navigation">
-                        <Icon name="menu" size={22} />
-                    </button>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {logoUrl && <img src={logoUrl} alt={firmName} style={{ height: '40px', width: 'auto' }} />}
-                        <span style={{ fontWeight: 600, fontSize: '14px' }}>{firmName}</span>
-                    </div>
-                    <div style={{ width: '32px' }}></div>
-                </header>
-
-                <main className="main-content">
-                    {renderView()}
-                </main>
-
-                {isMobileMenuOpen && (
-                    <div className="sidebar-overlay" onClick={() => setIsMobileMenuOpen(false)} aria-hidden="true" />
-                )}
-
+            <>
+                <div className="app-layout">
+                    <Sidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
+                    <main className="main-content">
+                        {renderView()}
+                    </main>
+                </div>
                 <Toast />
-            </div>
+            </>
         );
     }
 

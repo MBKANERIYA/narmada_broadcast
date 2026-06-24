@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-017: whatsappTemplates.filter TypeError Crashes Broadcast & Chat
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-06-24
+**Resolved**: 2026-06-24
+**Symptom**: Opening the Broadcast or Chat Inbox pages throws `Uncaught (in promise) TypeError: (whatsappTemplates || []).filter is not a function` repeatedly in the console, preventing template selection and broadcast functionality.
+**Root Cause**: The `fetchWhatsAppTemplates` store function set `whatsappTemplates` directly from the API response without verifying it was an array. If the API returned an object (e.g., `{ data: [...] }` or an error shape), the `|| []` fallback in consumers only caught falsy values, not truthy non-array objects. Additionally, the catch block didn't reset the state to `[]`.
+**Workaround**: None needed.
+**Fix**: Made `fetchWhatsAppTemplates` in `store.js` defensive with `Array.isArray` checks and `response.data` fallback. Updated all consumers in `WhatsAppBroadcast.jsx` and `WhatsAppChat.jsx` to use `Array.isArray` guard instead of `|| []`.
+
+
 ## ISSUE-001: MySQL LIMIT/OFFSET Prepared Statement Failures
 **Status**: Resolved
 **Severity**: High

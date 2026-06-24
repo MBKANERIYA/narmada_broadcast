@@ -376,7 +376,7 @@ export default function WhatsAppChat() {
         return '\u23F3';
     };
 
-    const approvedTemplates = (whatsappTemplates || []).filter(t => t.status === 'APPROVED');
+    const approvedTemplates = (Array.isArray(whatsappTemplates) ? whatsappTemplates : []).filter(t => t.status === 'APPROVED');
     const conv = activeConversation;
     const isWindowOpen = conv?.is_window_open;
     const windowMinutes = conv?.window_remaining_minutes || 0;

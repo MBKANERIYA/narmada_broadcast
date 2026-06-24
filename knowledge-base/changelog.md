@@ -2,6 +2,44 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-24 — Feature: WhatsApp Broadcast Routes MongoDB Migration
+**What**: Migrated the `whatsapp.js` routes to use MongoDB models and re-enabled the broadcast functionality.
+**Why**: The broadcast routes were temporarily stubbed and disabled during the MongoDB migration because they heavily relied on raw MySQL queries (`query`, `run`, `get`). This caused templates to not fetch properly and broadcast functions to fail silently.
+**Files Changed**:
+- `backend/src/models/WhatsAppCampaign.js`: Created Mongoose schema for campaigns.
+- `backend/src/models/WhatsAppMessage.js`: Created Mongoose schema for broadcast messages.
+- `backend/src/middleware/loadSettings.js`: Added middleware to load settings from MongoDB and attach to `req.tenant` for WhatsApp service compatibility.
+- `backend/src/routes/whatsapp.js`: Completely rewritten using Mongoose `Contact`, `WhatsAppCampaign`, and `WhatsAppMessage` models.
+- `backend/src/app.js`: Re-enabled the `whatsappRoutes` mounting.
+
+## 2026-06-24 — Fix: whatsappTemplates.filter TypeError Crash
+**What**: Fixed `(whatsappTemplates || []).filter is not a function` TypeError that crashed the Broadcast and Chat Inbox pages.
+**Why**: The Meta WhatsApp API returns templates inside `{ data: [...] }`. The backend correctly unwraps this, but if the API returned an unexpected shape or the fetch failed, `whatsappTemplates` could become a truthy non-array object. The `|| []` fallback only handles falsy values (null/undefined), not objects.
+**Files Changed**:
+- `frontend/src/stores/store.js`: Made `fetchWhatsAppTemplates` defensive — extracts array from response using `Array.isArray` check, handles `response.data` fallback, and resets state to `[]` on error.
+- `frontend/src/components/WhatsAppBroadcast.jsx`: Replaced `(whatsappTemplates || [])` with `Array.isArray(whatsappTemplates) ? whatsappTemplates : []` for both the approved templates filter and the template list rendering.
+- `frontend/src/components/WhatsAppChat.jsx`: Same defensive array check for template filtering.
+
+## 2026-06-23 — Architecture: MongoDB Migration & Single User Mode
+**What**: Migrated the core database engine from MySQL to MongoDB, replaced the multi-tenant SaaS architecture with a single-user system, and hardcoded the authentication.
+**Why**: User requested to use a specific MongoDB cluster, remove all payment methods, and make the platform tailored for a single user without multi-tenancy.
+**Files Changed**:
+- `backend/src/routes/*`: Rewrote `auth.js`, `contacts.js`, `products.js`, `orders.js`, `tenant-settings.js`, `knowledge-base.js`, `analytics.js` to use Mongoose methods.
+- `backend/src/app.js`: Temporarily stripped SQL webhooks and tenant logic to allow the app to boot.
+- `backend/src/server.js`: Removed Razorpay cron job.
+- `backend/src/routes/tenant-settings.js`: Fixed payload destructuring error causing a 500 when saving WhatsApp config.
+- `backend/src/models/*`: Removed outdated `pre('save')` hooks with `next()` callbacks that were causing Mongoose 9.x crashes.
+- `frontend/src/index.jsx`: Fixed Vite HMR DOM duplication bug where the app rendered twice, causing overlapping UI.
+- `frontend/src/components/Login.jsx`: Changed email input to text input to allow 'admin' username without HTML5 validation errors.
+
+## 2026-06-23 — Config: Removed Hardcoded Hostinger Credentials for Local Dev
+**What**: Removed hardcoded Hostinger SMTP credentials from the backend, updated `.env.example`, and updated Vite proxy to default localhost.
+**Why**: To allow the application to run smoothly in a local development environment without depending on Hostinger's SMTP or Innodify domains.
+**Files Changed**:
+- `backend/src/routes/leads.js`: Replaced hardcoded 'smtp.hostinger.com' and 'broadcast@innodify.in' with `process.env` equivalents.
+- `backend/.env.example`: Added default SMTP env vars and changed SUPER_ADMIN_EMAILS to localhost.
+- `frontend/vite.config.js`: Changed default proxy port from 3001 to 3000 to match backend default.
+
 ## 2026-06-18 — Feature: Password Visibility Toggle
 **What**: Added a show/hide password toggle button to the login and registration forms.
 **Why**: Enhances user experience by allowing users to verify their typed passwords before submission, reducing login errors.

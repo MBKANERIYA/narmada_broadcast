@@ -3,13 +3,13 @@ import nodemailer from 'nodemailer';
 
 const router = Router();
 
-// SMTP transport for broadcast@innodify.in (Hostinger)
+// SMTP transport configuration
 const transporter = nodemailer.createTransport({
-    host: 'smtp.hostinger.com',
-    port: 465,
-    secure: true,
+    host: process.env.SMTP_HOST || 'localhost',
+    port: process.env.SMTP_PORT || 1025,
+    secure: process.env.SMTP_SECURE === 'true',
     auth: {
-        user: process.env.SMTP_USER || 'broadcast@innodify.in',
+        user: process.env.SMTP_USER || '',
         pass: process.env.SMTP_PASS || '',
     },
 });
@@ -53,8 +53,8 @@ Submitted at: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
         `.trim();
 
         await transporter.sendMail({
-            from: `"WhatsApp Broadcast" <${process.env.SMTP_USER || 'broadcast@innodify.in'}>`,
-            to: process.env.SMTP_USER || 'broadcast@innodify.in',
+            from: `"WhatsApp Broadcast" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'noreply@localhost'}>`,
+            to: process.env.SMTP_TO_EMAIL || process.env.SMTP_USER || 'admin@localhost',
             subject: `New Lead: ${safeName} — ${safeBusiness || safeEmail}`,
             text: mailBody,
             replyTo: safeEmail,

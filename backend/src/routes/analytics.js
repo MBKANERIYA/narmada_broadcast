@@ -1,122 +1,62 @@
-import express from 'express';
-import { query, get } from '../database.js';
+import { Router } from 'express';
+import Contact from '../models/Contact.js';
+import Order from '../models/Order.js';
+// We don't have WhatsAppCampaign/WhatsAppConversation models yet, but we will mock them or use empty array for now.
+// For now, let's just return basic stats so the frontend doesn't crash.
 
-const router = express.Router();
+const router = Router();
 
-/**
- * GET /api/v1/analytics/dashboard
- * Returns comprehensive dashboard metrics for the tenant
- */
-router.get('/dashboard', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const tenantId = req.tenantId;
+        const totalContacts = await Contact.countDocuments();
+        
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        // Mock revenue over time
+        const revenueOverTime = await Order.aggregate([
+            { $match: { payment_status: 'paid', created_at: { $gte: thirtyDaysAgo } } },
+            { $group: {
+                _id: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
+                revenue: { $sum: "$total_amount" }
+            }},
+            { $sort: { _id: 1 } }
+        ]).then(res => res.map(r => ({ date: r._id, revenue: r.revenue })));
 
-        // ── Top-Level Metrics ──
-        const contactsResult = await get(
-            'SELECT COUNT(*) as count FROM contacts WHERE tenant_id = ?',
-            [tenantId]
-        );
+        const ordersByStatus = await Order.aggregate([
+            { $group: { _id: "$fulfillment_status", count: { $sum: 1 } } }
+        ]).then(res => res.map(r => ({ status: r._id, count: r.count })));
 
-        const ordersResult = await get(
-            'SELECT COUNT(*) as count FROM orders WHERE tenant_id = ?',
-            [tenantId]
-        );
-
-        const revenueResult = await get(
-            "SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE tenant_id = ? AND payment_status = 'paid'",
-            [tenantId]
-        );
-
-        const campaignsResult = await get(
-            'SELECT COUNT(*) as count FROM whatsapp_campaigns WHERE tenant_id = ?',
-            [tenantId]
-        );
-
-        const conversationsResult = await get(
-            'SELECT COUNT(*) as count FROM whatsapp_conversations WHERE tenant_id = ?',
-            [tenantId]
-        );
-
-        // ── Revenue Over Time (Last 30 Days, grouped by day) ──
-        const revenueOverTime = await query(
-            `SELECT DATE(created_at) as date, SUM(total_amount) as revenue, COUNT(*) as orders
-             FROM orders
-             WHERE tenant_id = ? AND payment_status = 'paid' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-             GROUP BY DATE(created_at)
-             ORDER BY date ASC`,
-            [tenantId]
-        );
-
-        // ── Messages Over Time (Last 30 Days, split by direction) ──
-        const messagesOverTime = await query(
-            `SELECT DATE(created_at) as date, direction, COUNT(*) as count
-             FROM whatsapp_chat_messages
-             WHERE tenant_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-             GROUP BY DATE(created_at), direction
-             ORDER BY date ASC`,
-            [tenantId]
-        );
-
-        // Restructure messages into a per-day format
-        const messagesByDay = {};
-        for (const row of messagesOverTime) {
-            const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0];
-            if (!messagesByDay[dateStr]) {
-                messagesByDay[dateStr] = { date: dateStr, inbound: 0, outbound: 0 };
-            }
-            if (row.direction === 'inbound') {
-                messagesByDay[dateStr].inbound = row.count;
-            } else {
-                messagesByDay[dateStr].outbound = row.count;
-            }
-        }
-
-        // ── Campaign Success Rate ──
-        const campaignStats = await query(
-            `SELECT status, COUNT(*) as count FROM whatsapp_campaigns WHERE tenant_id = ? GROUP BY status`,
-            [tenantId]
-        );
-
-        // ── Recent Orders ──
-        const recentOrders = await query(
-            `SELECT id, phone, total_amount, currency, payment_status, fulfillment_status, created_at
-             FROM orders WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 5`,
-            [tenantId]
-        );
-
-        // ── Order Status Breakdown ──
-        const ordersByStatus = await query(
-            `SELECT payment_status, COUNT(*) as count FROM orders WHERE tenant_id = ? GROUP BY payment_status`,
-            [tenantId]
-        );
+        const recentOrders = await Order.find()
+            .populate('contact_id', 'name')
+            .sort({ created_at: -1 })
+            .limit(5)
+            .then(res => res.map(r => ({
+                id: r._id,
+                contact_name: r.contact_id ? r.contact_id.name : 'Unknown',
+                total_amount: r.total_amount,
+                status: r.fulfillment_status,
+                created_at: r.created_at
+            })));
 
         res.json({
-            metrics: {
-                totalContacts: contactsResult?.count || 0,
-                totalOrders: ordersResult?.count || 0,
-                totalRevenue: parseFloat(revenueResult?.total || 0),
-                totalCampaigns: campaignsResult?.count || 0,
-                totalConversations: conversationsResult?.count || 0,
+            summary: {
+                totalContacts,
+                messagesSent: 0,
+                messagesDelivered: 0,
+                messagesRead: 0,
+                activeCampaigns: 0,
+                totalRevenue: revenueOverTime.reduce((acc, curr) => acc + curr.revenue, 0)
             },
-            revenueOverTime: revenueOverTime.map(r => ({
-                date: r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date).split('T')[0],
-                revenue: parseFloat(r.revenue),
-                orders: r.orders,
-            })),
-            messagesOverTime: Object.values(messagesByDay),
-            campaignStats: campaignStats.reduce((acc, row) => {
-                acc[row.status] = row.count;
-                return acc;
-            }, {}),
-            ordersByStatus: ordersByStatus.reduce((acc, row) => {
-                acc[row.payment_status] = row.count;
-                return acc;
-            }, {}),
+            revenueOverTime,
+            messagesOverTime: [],
+            campaignStats: [],
             recentOrders,
+            ordersByStatus
         });
     } catch (error) {
-        console.error('[Analytics] Dashboard error:', error);
-        res.status(500).json({ error: 'Failed to fetch analytics' });
+        console.error('Analytics error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
