@@ -337,9 +337,13 @@ export default function WhatsAppChat() {
         }
     };
 
-    // Backend stores timestamps in UTC — append 'Z' so JS Date parses as UTC
-    // toLocaleTimeString then auto-converts to user's local timezone
-    const parseUTC = (dateStr) => new Date(dateStr?.replace(' ', 'T') + 'Z');
+    // Backend stores timestamps in UTC (SQLite/MySQL format 'YYYY-MM-DD HH:MM:SS')
+    // MongoDB returns standard ISO strings ('YYYY-MM-DDTHH:MM:SS.mmmZ')
+    const parseUTC = (dateStr) => {
+        if (!dateStr) return new Date();
+        if (dateStr.includes('T')) return new Date(dateStr);
+        return new Date(dateStr.replace(' ', 'T') + 'Z');
+    };
 
     const formatTime = (dateStr) => {
         if (!dateStr) return '';

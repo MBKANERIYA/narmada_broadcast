@@ -2,6 +2,23 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-06-30 — Feature: WhatsApp Chat Inbox MongoDB Migration
+**What**: Migrated the `whatsapp-chat.js` routes and Meta `webhook.js` to use MongoDB models and re-enabled the chat inbox functionality.
+**Why**: The chat inbox routes were temporarily stubbed during the MongoDB migration because they relied on raw MySQL queries. This caused the chat inbox to show "No conversations found" and "replies not shows" on incoming messages. The webhooks now correctly process and store incoming messages into MongoDB, creating conversations seamlessly.
+**Files Changed**:
+- `backend/src/models/WhatsAppConversation.js`: Created Mongoose schema for chat conversations.
+- `backend/src/models/WhatsAppChatMessage.js`: Created Mongoose schema for chat messages.
+- `backend/src/routes/whatsapp-chat.js`: Completely rewritten using Mongoose models.
+- `backend/src/routes/webhook.js`: Rewritten to process incoming messages from Meta and store them into MongoDB.
+- `backend/src/app.js`: Re-enabled the `whatsappChatRoutes` mounting.
+- `frontend/src/components/WhatsAppChat.jsx`: Updated `parseUTC` to correctly handle ISO date strings returned by MongoDB.
+
+## 2026-06-29 — Fix: WhatsApp Templates Not Fetching (WABA ID Setup)
+**What**: Fixed an issue where the frontend dropdown for WhatsApp Broadcast templates was empty because the Meta Graph API returned an error `(#100) Tried accessing nonexisting field (message_templates)`.
+**Why**: The user had mistakenly configured their `whatsapp_business_account_id` in the Settings tab using the Meta App ID instead of the actual WhatsApp Business Account ID. This caused the backend template fetching to fail silently in the API payload, resulting in an empty templates list on the frontend. The `whatsapp_business_account_id` setting was directly corrected in the MongoDB `settings` collection to the correct WABA ID.
+**Files Changed**:
+- Database: Updated `settings` collection document to correct `whatsapp_business_account_id`.
+
 ## 2026-06-24 — Feature: WhatsApp Broadcast Routes MongoDB Migration
 **What**: Migrated the `whatsapp.js` routes to use MongoDB models and re-enabled the broadcast functionality.
 **Why**: The broadcast routes were temporarily stubbed and disabled during the MongoDB migration because they heavily relied on raw MySQL queries (`query`, `run`, `get`). This caused templates to not fetch properly and broadcast functions to fail silently.

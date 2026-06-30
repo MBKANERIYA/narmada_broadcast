@@ -22,7 +22,7 @@ import analyticsRoutes from './routes/analytics.js';
 // WhatsApp routes (migrated to MongoDB)
 import whatsappRoutes from './routes/whatsapp.js';
 import webhookRoutes from './routes/webhook.js';
-// import whatsappChatRoutes from './routes/whatsapp-chat.js'; // TODO: migrate to MongoDB
+import whatsappChatRoutes from './routes/whatsapp-chat.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -61,7 +61,7 @@ app.use('/api/v1/analytics', analyticsRoutes);
 
 // WhatsApp broadcast routes (migrated to MongoDB)
 app.use('/api/v1/whatsapp', whatsappRoutes);
-// WhatsApp chat routes — still needs MongoDB migration
-app.use('/api/v1/whatsapp/chat', (req, res) => res.json({}));
+// WhatsApp chat routes
+app.use('/api/v1/whatsapp/chat', whatsappChatRoutes);
 
 export default app;

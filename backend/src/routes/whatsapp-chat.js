@@ -2,19 +2,19 @@ import { Router } from 'express';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
-import { query, run, get } from '../database.js';
 import { sendTextMessage, sendMediaMessage, sendTemplateMessage, normalizePhone, getTemplateDefinition, uploadMediaForMessage } from '../services/whatsapp.js';
 import { emitToTenant } from '../services/websocket.js';
 import { checkWhatsAppEnabled } from '../middleware/limits.js';
+import WhatsAppConversation from '../models/WhatsAppConversation.js';
+import WhatsAppChatMessage from '../models/WhatsAppChatMessage.js';
+import Contact from '../models/Contact.js';
+import User from '../models/User.js';
+import Setting from '../models/Setting.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = Router();
 
-/**
- * Resolve full template content as JSON string for rich display
- * Returns JSON with all components: header, body, footer, buttons
- */
 async function resolveTemplateBody(templateName, templateParams = [], tenant) {
     try {
         const tpl = await getTemplateDefinition(templateName, tenant);
@@ -26,21 +26,18 @@ async function resolveTemplateBody(templateName, templateParams = [], tenant) {
         const footerComp = components.find(c => c.type === 'FOOTER');
         const buttonsComp = components.find(c => c.type === 'BUTTONS');
 
-        // Resolve body text with variables
         let bodyText = bodyComp?.text || '';
         bodyText = bodyText.replace(/\{\{(\d+)\}\}/g, (_, idx) => {
             const paramIdx = parseInt(idx) - 1;
             return templateParams[paramIdx] || `{{${idx}}}`;
         });
 
-        // Build rich template data
         const templateData = {
             _type: 'template_rich',
             template_name: templateName,
             body: bodyText,
         };
 
-        // Header
         if (headerComp) {
             templateData.header = { format: headerComp.format };
             if (headerComp.format === 'TEXT') {
@@ -50,12 +47,10 @@ async function resolveTemplateBody(templateName, templateParams = [], tenant) {
             }
         }
 
-        // Footer
         if (footerComp?.text) {
             templateData.footer = footerComp.text;
         }
 
-        // Buttons
         if (buttonsComp?.buttons?.length) {
             templateData.buttons = buttonsComp.buttons.map(btn => ({
                 type: btn.type,
@@ -70,9 +65,6 @@ async function resolveTemplateBody(templateName, templateParams = [], tenant) {
     }
 }
 
-/**
- * Extract plain text summary from template body (for sidebar preview)
- */
 function getTemplatePlainText(resolvedBody) {
     try {
         const data = JSON.parse(resolvedBody);
@@ -83,7 +75,6 @@ function getTemplatePlainText(resolvedBody) {
     return resolvedBody;
 }
 
-// Admin-only + WhatsApp enabled
 router.use((req, res, next) => {
     if (!req.user || req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Admin access required' });
@@ -92,10 +83,6 @@ router.use((req, res, next) => {
 });
 router.use(checkWhatsAppEnabled);
 
-/**
- * POST /api/v1/whatsapp/chat/conversations/new
- * Start a new conversation by sending a template to a phone number
- */
 router.post('/conversations/new', async (req, res) => {
     try {
         const { phone, contactName, templateName, templateParams = [], languageCode = 'en_US' } = req.body;
@@ -108,116 +95,109 @@ router.post('/conversations/new', async (req, res) => {
             return res.status(400).json({ error: 'Invalid phone number' });
         }
 
-        // Check if conversation already exists for this phone
-        let conversation = await get(
-            'SELECT * FROM whatsapp_conversations WHERE phone = ? AND tenant_id = ?',
-            [normalized, req.tenantId]
-        );
+        let conversation = await WhatsAppConversation.findOne({ phone: normalized, tenant_id: req.tenantId });
 
         if (!conversation) {
-            // Try to find matching contact
-            const contact = await get(
-                'SELECT id, name FROM contacts WHERE phone LIKE ? AND tenant_id = ?',
-                [`%${normalized.slice(-10)}%`, req.tenantId]
-            );
-
-            // Create new conversation
-            // Resolve template body for initial conversation preview
+            const contact = await Contact.findOne({ phone: { $regex: new RegExp(`${normalized.slice(-10)}$`) }, tenant_id: req.tenantId });
+            
             const initialBody = await resolveTemplateBody(templateName, templateParams, req.tenant);
 
-            await run(
-                `INSERT INTO whatsapp_conversations (tenant_id, phone, contact_name, contact_id, last_message_text, last_message_at, window_expires_at)
-                 VALUES (?, ?, ?, ?, ?, NOW(), NULL)`,
-                [req.tenantId, normalized, contactName || contact?.name || normalized, contact?.id || null, getTemplatePlainText(initialBody).substring(0, 100)]
-            );
-
-            conversation = await get(
-                'SELECT * FROM whatsapp_conversations WHERE phone = ? AND tenant_id = ?',
-                [normalized, req.tenantId]
-            );
+            conversation = await WhatsAppConversation.create({
+                tenant_id: req.tenantId,
+                phone: normalized,
+                contact_name: contactName || contact?.name || normalized,
+                contact_id: contact?._id || null,
+                last_message_text: getTemplatePlainText(initialBody).substring(0, 100),
+                last_message_at: new Date(),
+                window_expires_at: null
+            });
         }
 
-        // Resolve actual template body text
         const resolvedBody = await resolveTemplateBody(templateName, templateParams, req.tenant);
 
-        // Send template via Meta API
         const result = await sendTemplateMessage(
             normalized, templateName, templateParams,
             contactName || conversation.contact_name || 'Customer',
             languageCode, req.tenant
         );
 
-        // Store outbound message with actual template content
-        await run(
-            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
-             VALUES (?, ?, 'outbound', 'template', ?, ?, 'sent', ?)`,
-            [req.tenantId, conversation.id, resolvedBody, result.messageId, req.user.userId]
-        );
+        await WhatsAppChatMessage.create({
+            tenant_id: req.tenantId,
+            conversation_id: conversation._id,
+            direction: 'outbound',
+            message_type: 'template',
+            body: resolvedBody,
+            provider_message_id: result.messageId,
+            status: 'sent',
+            sent_by: req.user.userId
+        });
 
-        // Update conversation last message
-        await run(
-            `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = NOW() WHERE id = ?`,
-            [getTemplatePlainText(resolvedBody).substring(0, 100), conversation.id]
-        );
+        conversation.last_message_text = getTemplatePlainText(resolvedBody).substring(0, 100);
+        conversation.last_message_at = new Date();
+        await conversation.save();
 
-        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
 
-        res.json({ success: true, conversationId: conversation.id, messageId: result.messageId });
+        res.json({ success: true, conversationId: conversation._id.toString(), messageId: result.messageId });
     } catch (error) {
         console.error('Start new conversation error:', error);
         res.status(500).json({ error: error.message || 'Failed to start conversation' });
     }
 });
 
-/**
- * GET /api/v1/whatsapp/chat/conversations
- * List all conversations for this tenant
- */
 router.get('/conversations', async (req, res) => {
     try {
         const { search, archived = '0', page = 1, limit = 30, paid } = req.query;
         const offset = (parseInt(page) - 1) * parseInt(limit);
 
-        const isArchived = archived === '1' ? 1 : 0;
-        let sql = `SELECT wc.*, c.name as matched_contact_name, c.email as matched_contact_email
-                    FROM whatsapp_conversations wc
-                    LEFT JOIN contacts c ON wc.contact_id = c.id
-                    WHERE wc.tenant_id = ? AND wc.is_archived = ${isArchived}`;
-        const params = [req.tenantId];
+        const filter = { tenant_id: req.tenantId, is_archived: archived === '1' };
 
+        // For paid, we would ideally need a relationship to Order or check the phone in orders.
+        // Assuming we omit `paid` filtering for simplicity or we should look it up first.
+        // If we strictly need it, we'd do a complex aggregation.
+        // Let's keep it simple for now, as it's a UI filter and `paid` requires orders check.
         if (paid === '1') {
-            // Filter conversations to only those matching a phone number with a paid order
-            sql += ` AND wc.phone IN (SELECT phone FROM orders WHERE payment_status = 'paid' AND tenant_id = ?)`;
-            params.push(req.tenantId);
+            const { default: Order } = await import('../models/Order.js');
+            const paidOrders = await Order.find({ tenant_id: req.tenantId, payment_status: 'paid' }).select('phone').lean();
+            const paidPhones = paidOrders.map(o => o.phone).filter(Boolean);
+            filter.phone = { $in: paidPhones };
         }
 
         if (search) {
-            sql += ' AND (wc.contact_name LIKE ? OR wc.phone LIKE ?)';
-            params.push(`%${search}%`, `%${search}%`);
+            filter.$or = [
+                { contact_name: { $regex: new RegExp(search, 'i') } },
+                { phone: { $regex: new RegExp(search, 'i') } }
+            ];
         }
 
         const safeLimit = parseInt(limit) || 30;
-        const safeOffset = Math.max(0, offset);
-        sql += ` ORDER BY wc.last_message_at DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`;
+        
+        const conversations = await WhatsAppConversation.find(filter)
+            .populate('contact_id', 'name email')
+            .sort({ last_message_at: -1 })
+            .skip(offset)
+            .limit(safeLimit)
+            .lean();
 
-        const conversations = await query(sql, params);
-
-        // Total unread count
-        const unreadResult = await get(
-            'SELECT SUM(unread_count) as total_unread FROM whatsapp_conversations WHERE tenant_id = ? AND is_archived = FALSE',
-            [req.tenantId]
-        );
+        const unreadResult = await WhatsAppConversation.aggregate([
+            { $match: { tenant_id: req.tenantId, is_archived: false } },
+            { $group: { _id: null, total_unread: { $sum: "$unread_count" } } }
+        ]);
+        const totalUnread = unreadResult.length > 0 ? unreadResult[0].total_unread : 0;
 
         res.json({
             conversations: conversations.map(conv => ({
                 ...conv,
-                display_name: conv.matched_contact_name || conv.contact_name || conv.phone,
+                id: conv._id.toString(),
+                display_name: conv.contact_id?.name || conv.contact_name || conv.phone,
+                matched_contact_name: conv.contact_id?.name,
+                matched_contact_email: conv.contact_id?.email,
                 is_window_open: conv.window_expires_at ? new Date(conv.window_expires_at) > new Date() : false,
                 window_remaining_minutes: conv.window_expires_at
                     ? Math.max(0, Math.round((new Date(conv.window_expires_at) - new Date()) / 60000))
                     : 0,
             })),
-            total_unread: unreadResult?.total_unread || 0,
+            total_unread: totalUnread,
         });
     } catch (error) {
         console.error('Fetch conversations error:', error);
@@ -225,69 +205,46 @@ router.get('/conversations', async (req, res) => {
     }
 });
 
-/**
- * GET /api/v1/whatsapp/chat/conversations/:id/messages
- * Get messages for a conversation
- * Supports cursor-based pagination:
- *   ?limit=50          — get latest 50 messages
- *   ?before_id=123     — get messages older than id 123
- */
 router.get('/conversations/:id/messages', async (req, res) => {
     try {
         const { limit = 50, before_id } = req.query;
 
-        const conversation = await get(
-            'SELECT * FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
-            [req.params.id, req.tenantId]
-        );
+        const conversation = await WhatsAppConversation.findOne({ _id: req.params.id, tenant_id: req.tenantId }).lean();
         if (!conversation) return res.status(404).json({ error: 'Conversation not found' });
 
         const safeLimit = Math.min(parseInt(limit) || 50, 200);
 
-        let messages;
+        const filter = { conversation_id: conversation._id, tenant_id: req.tenantId };
         if (before_id) {
-            // Cursor pagination: get messages older than before_id
-            // Fetch DESC to get the N most recent before the cursor, then reverse for ASC display
-            messages = await query(
-                `SELECT wcm.*, u.name as sender_name
-                 FROM whatsapp_chat_messages wcm
-                 LEFT JOIN users u ON wcm.sent_by = u.id
-                 WHERE wcm.conversation_id = ? AND wcm.tenant_id = ? AND wcm.id < ?
-                 ORDER BY wcm.id DESC
-                 LIMIT ${safeLimit}`,
-                [req.params.id, req.tenantId, parseInt(before_id)]
-            );
-            messages.reverse(); // back to chronological order
-        } else {
-            // Default: get latest N messages (fetch DESC, reverse)
-            messages = await query(
-                `SELECT wcm.*, u.name as sender_name
-                 FROM whatsapp_chat_messages wcm
-                 LEFT JOIN users u ON wcm.sent_by = u.id
-                 WHERE wcm.conversation_id = ? AND wcm.tenant_id = ?
-                 ORDER BY wcm.id DESC
-                 LIMIT ${safeLimit}`,
-                [req.params.id, req.tenantId]
-            );
-            messages.reverse(); // back to chronological order
+            filter._id = { $lt: before_id };
         }
 
-        const total = await get(
-            'SELECT COUNT(*) as count FROM whatsapp_chat_messages WHERE conversation_id = ? AND tenant_id = ?',
-            [req.params.id, req.tenantId]
-        );
+        const messages = await WhatsAppChatMessage.find(filter)
+            .populate('sent_by', 'name')
+            .sort({ _id: -1 })
+            .limit(safeLimit)
+            .lean();
+
+        messages.reverse(); // chronological
+
+        const total = await WhatsAppChatMessage.countDocuments({ conversation_id: conversation._id, tenant_id: req.tenantId });
 
         res.json({
             conversation: {
                 ...conversation,
+                id: conversation._id.toString(),
                 is_window_open: conversation.window_expires_at ? new Date(conversation.window_expires_at) > new Date() : false,
                 window_remaining_minutes: conversation.window_expires_at
                     ? Math.max(0, Math.round((new Date(conversation.window_expires_at) - new Date()) / 60000))
                     : 0,
             },
-            messages,
-            total: total?.count || 0,
-            has_more: before_id ? messages.length === safeLimit : (total?.count || 0) > safeLimit,
+            messages: messages.map(m => ({
+                ...m,
+                id: m._id.toString(),
+                sender_name: m.sent_by?.name
+            })),
+            total,
+            has_more: before_id ? messages.length === safeLimit : total > safeLimit,
         });
     } catch (error) {
         console.error('Fetch messages error:', error);
@@ -295,22 +252,14 @@ router.get('/conversations/:id/messages', async (req, res) => {
     }
 });
 
-/**
- * POST /api/v1/whatsapp/chat/conversations/:id/send
- * Send a free-form text reply (within 24h window)
- */
 router.post('/conversations/:id/send', async (req, res) => {
     try {
         const { text } = req.body;
         if (!text || !text.trim()) return res.status(400).json({ error: 'Message text is required' });
 
-        const conversation = await get(
-            'SELECT * FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
-            [req.params.id, req.tenantId]
-        );
+        const conversation = await WhatsAppConversation.findOne({ _id: req.params.id, tenant_id: req.tenantId });
         if (!conversation) return res.status(404).json({ error: 'Conversation not found' });
 
-        // Check 24h window
         const windowOpen = conversation.window_expires_at && new Date(conversation.window_expires_at) > new Date();
         if (!windowOpen) {
             return res.status(400).json({
@@ -319,25 +268,24 @@ router.post('/conversations/:id/send', async (req, res) => {
             });
         }
 
-        // Send via Meta API
         const result = await sendTextMessage(conversation.phone, text.trim(), req.tenant);
 
-        const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        await WhatsAppChatMessage.create({
+            tenant_id: req.tenantId,
+            conversation_id: conversation._id,
+            direction: 'outbound',
+            message_type: 'text',
+            body: text.trim(),
+            provider_message_id: result.messageId,
+            status: 'sent',
+            sent_by: req.user.userId
+        });
 
-        // Store outbound message
-        await run(
-            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
-             VALUES (?, ?, 'outbound', 'text', ?, ?, 'sent', ?)`,
-            [req.tenantId, conversation.id, text.trim(), result.messageId, req.user.userId]
-        );
+        conversation.last_message_text = text.trim().substring(0, 100);
+        conversation.last_message_at = new Date();
+        await conversation.save();
 
-        // Update conversation
-        await run(
-            `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?`,
-            [text.trim().substring(0, 100), now, conversation.id]
-        );
-
-        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
 
         res.json({ success: true, messageId: result.messageId });
     } catch (error) {
@@ -346,18 +294,11 @@ router.post('/conversations/:id/send', async (req, res) => {
     }
 });
 
-/**
- * POST /api/v1/whatsapp/chat/conversations/:id/send-media
- * Send an image or document (within 24h window)
- */
 router.post('/conversations/:id/send-media', upload.single('media'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No media file provided' });
         
-        const conversation = await get(
-            'SELECT * FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
-            [req.params.id, req.tenantId]
-        );
+        const conversation = await WhatsAppConversation.findOne({ _id: req.params.id, tenant_id: req.tenantId });
         if (!conversation) return res.status(404).json({ error: 'Conversation not found' });
 
         const now = new Date();
@@ -366,13 +307,10 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
             return res.status(400).json({ error: '24-hour service window has expired. You can only send template messages.' });
         }
 
-        // 1. Upload media to Meta
         let uploadMime = req.file.mimetype;
         let uploadName = req.file.originalname;
         let uploadBuffer = req.file.buffer;
 
-        // Meta Cloud API does not support audio/webm. If webm audio is received,
-        // we transcode the binary WebM buffer to native OGG Opus container using FFmpeg.
         if (uploadMime.includes('webm') || uploadName.endsWith('.webm')) {
             try {
                 const { transcodeWebmToOgg } = await import('../services/transcoder.js');
@@ -381,7 +319,7 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
                 uploadName = uploadName.replace(/\.webm$/, '.ogg');
                 req.file.mimetype = 'audio/ogg';
                 req.file.originalname = uploadName;
-                req.file.buffer = uploadBuffer; // update in file object too
+                req.file.buffer = uploadBuffer;
             } catch (transcodeErr) {
                 console.error('[Transcoder] WebM to OGG transcoding failed:', transcodeErr.message);
                 return res.status(400).json({ error: 'Failed to process voice note audio format: ' + transcodeErr.message });
@@ -390,7 +328,6 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
 
         const metaMediaId = await uploadMediaForMessage(uploadBuffer, uploadMime, uploadName, req.tenant);
         
-        // 2. Send media message using the Meta ID
         const isImage = req.file.mimetype.startsWith('image/');
         const isAudio = req.file.mimetype.startsWith('audio/');
         const isVideo = req.file.mimetype.startsWith('video/');
@@ -401,8 +338,6 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
         
         const result = await sendMediaMessage(conversation.phone, mediaType, { id: metaMediaId }, req.body.caption || '', req.tenant);
 
-        // 3. Save media locally so we can display it in the chat interface 
-        // (Meta doesn't allow downloading outbound media via API)
         const uploadDir = path.join(process.cwd(), 'uploads');
         if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
         
@@ -411,27 +346,29 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
         fs.writeFileSync(path.join(uploadDir, localFileName), req.file.buffer);
         const localMediaId = `local_media:${localFileName}`;
 
-        const nowStr = now.toISOString().slice(0, 19).replace('T', ' ');
+        await WhatsAppChatMessage.create({
+            tenant_id: req.tenantId,
+            conversation_id: conversation._id,
+            direction: 'outbound',
+            message_type: mediaType,
+            body: req.body.caption || '',
+            media_id: localMediaId,
+            media_mime_type: req.file.mimetype,
+            provider_message_id: result.messageId,
+            status: 'sent',
+            sent_by: req.user.userId
+        });
 
-        // 4. Save to database using the localMediaId
-        await run(
-            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, media_id, media_mime_type, provider_message_id, status, sent_by)
-             VALUES (?, ?, 'outbound', ?, ?, ?, ?, ?, 'sent', ?)`,
-            [req.tenantId, conversation.id, mediaType, req.body.caption || '', localMediaId, req.file.mimetype, result.messageId, req.user.userId]
-        );
-
-        // Update conversation
         let preview = `📎 Document`;
         if (isImage) preview = `📷 Image`;
         else if (isAudio) preview = `🎤 Voice Note`;
         else if (isVideo) preview = `🎥 Video`;
 
-        await run(
-            `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?`,
-            [req.body.caption || preview, nowStr, conversation.id]
-        );
+        conversation.last_message_text = req.body.caption || preview;
+        conversation.last_message_at = new Date();
+        await conversation.save();
 
-        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
 
         res.json({ success: true, messageId: result.messageId });
     } catch (error) {
@@ -440,25 +377,16 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
     }
 });
 
-/**
- * POST /api/v1/whatsapp/chat/conversations/:id/send-template
- * Send a template message (when 24h window expired)
- */
 router.post('/conversations/:id/send-template', async (req, res) => {
     try {
         const { templateName, templateParams = [], languageCode } = req.body;
         if (!templateName) return res.status(400).json({ error: 'Template name is required' });
 
-        const conversation = await get(
-            'SELECT * FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
-            [req.params.id, req.tenantId]
-        );
+        const conversation = await WhatsAppConversation.findOne({ _id: req.params.id, tenant_id: req.tenantId });
         if (!conversation) return res.status(404).json({ error: 'Conversation not found' });
 
-        // Import sendTemplateMessage
         const { sendTemplateMessage } = await import('../services/whatsapp.js');
 
-        // Resolve actual template body text
         const resolvedBody = await resolveTemplateBody(templateName, templateParams, req.tenant);
 
         const result = await sendTemplateMessage(
@@ -466,20 +394,22 @@ router.post('/conversations/:id/send-template', async (req, res) => {
             conversation.contact_name || 'Customer', languageCode, req.tenant
         );
 
-        const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        await WhatsAppChatMessage.create({
+            tenant_id: req.tenantId,
+            conversation_id: conversation._id,
+            direction: 'outbound',
+            message_type: 'template',
+            body: resolvedBody,
+            provider_message_id: result.messageId,
+            status: 'sent',
+            sent_by: req.user.userId
+        });
 
-        await run(
-            `INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by)
-             VALUES (?, ?, 'outbound', 'template', ?, ?, 'sent', ?)`,
-            [req.tenantId, conversation.id, resolvedBody, result.messageId, req.user.userId]
-        );
+        conversation.last_message_text = getTemplatePlainText(resolvedBody).substring(0, 100);
+        conversation.last_message_at = new Date();
+        await conversation.save();
 
-        await run(
-            `UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ? WHERE id = ?`,
-            [getTemplatePlainText(resolvedBody).substring(0, 100), now, conversation.id]
-        );
-
-        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation.id });
+        emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
 
         res.json({ success: true, messageId: result.messageId });
     } catch (error) {
@@ -488,15 +418,11 @@ router.post('/conversations/:id/send-template', async (req, res) => {
     }
 });
 
-/**
- * PATCH /api/v1/whatsapp/chat/conversations/:id/read
- * Mark conversation as read
- */
 router.patch('/conversations/:id/read', async (req, res) => {
     try {
-        await run(
-            'UPDATE whatsapp_conversations SET unread_count = 0 WHERE id = ? AND tenant_id = ?',
-            [req.params.id, req.tenantId]
+        await WhatsAppConversation.updateOne(
+            { _id: req.params.id, tenant_id: req.tenantId },
+            { $set: { unread_count: 0 } }
         );
         res.json({ success: true });
     } catch (error) {
@@ -504,32 +430,20 @@ router.patch('/conversations/:id/read', async (req, res) => {
     }
 });
 
-/**
- * PATCH /api/v1/whatsapp/chat/conversations/:id/archive
- * Toggle archive status
- */
 router.patch('/conversations/:id/archive', async (req, res) => {
     try {
-        const conv = await get(
-            'SELECT is_archived FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
-            [req.params.id, req.tenantId]
-        );
+        const conv = await WhatsAppConversation.findOne({ _id: req.params.id, tenant_id: req.tenantId });
         if (!conv) return res.status(404).json({ error: 'Not found' });
 
-        await run(
-            'UPDATE whatsapp_conversations SET is_archived = ? WHERE id = ? AND tenant_id = ?',
-            [!conv.is_archived, req.params.id, req.tenantId]
-        );
-        res.json({ success: true, is_archived: !conv.is_archived });
+        conv.is_archived = !conv.is_archived;
+        await conv.save();
+        
+        res.json({ success: true, is_archived: conv.is_archived });
     } catch (error) {
         res.status(500).json({ error: 'Failed to update' });
     }
 });
 
-/**
- * PATCH /api/v1/whatsapp/chat/conversations/:id/bot-pause
- * Pause/resume smart bot replies for a conversation.
- */
 router.patch('/conversations/:id/bot-pause', async (req, res) => {
     try {
         const { paused, send_feedback } = req.body;
@@ -537,16 +451,11 @@ router.patch('/conversations/:id/bot-pause', async (req, res) => {
             return res.status(400).json({ error: 'paused must be a boolean' });
         }
 
-        const conv = await get(
-            'SELECT id, phone FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
-            [req.params.id, req.tenantId]
-        );
+        const conv = await WhatsAppConversation.findOne({ _id: req.params.id, tenant_id: req.tenantId });
         if (!conv) return res.status(404).json({ error: 'Conversation not found' });
 
-        await run(
-            'UPDATE whatsapp_conversations SET bot_paused = ? WHERE id = ? AND tenant_id = ?',
-            [paused, req.params.id, req.tenantId]
-        );
+        conv.bot_paused = paused;
+        await conv.save();
 
         if (send_feedback && !paused) {
             const { sendInteractiveMessage } = await import('../services/whatsapp.js');
@@ -562,10 +471,23 @@ router.patch('/conversations/:id/bot-pause', async (req, res) => {
             };
             const result = await sendInteractiveMessage(conv.phone, interactiveOptions, req.tenant);
             if (result && result.messageId) {
-                const outNow = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                await run(`INSERT INTO whatsapp_chat_messages (tenant_id, conversation_id, direction, message_type, body, provider_message_id, status, sent_by) VALUES (?, ?, 'outbound', 'interactive', ?, ?, 'sent', ?)`, [req.tenantId, conv.id, "[Feedback Request Sent]", result.messageId, req.user.userId]);
-                await run(`UPDATE whatsapp_conversations SET last_message_text = ?, last_message_at = ?, unread_count = 0 WHERE id = ?`, ["[Feedback Request Sent]", outNow, conv.id]);
-                emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conv.id });
+                await WhatsAppChatMessage.create({
+                    tenant_id: req.tenantId,
+                    conversation_id: conv._id,
+                    direction: 'outbound',
+                    message_type: 'interactive',
+                    body: "[Feedback Request Sent]",
+                    provider_message_id: result.messageId,
+                    status: 'sent',
+                    sent_by: req.user.userId
+                });
+
+                conv.last_message_text = "[Feedback Request Sent]";
+                conv.last_message_at = new Date();
+                conv.unread_count = 0;
+                await conv.save();
+
+                emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conv._id.toString() });
             }
         }
 
@@ -576,33 +498,19 @@ router.patch('/conversations/:id/bot-pause', async (req, res) => {
     }
 });
 
-/**
- * PATCH /api/v1/whatsapp/chat/conversations/:id/labels
- * Update labels — syncs to both conversation AND linked contact
- */
 router.patch('/conversations/:id/labels', async (req, res) => {
     try {
         const { labels } = req.body;
         if (!Array.isArray(labels)) return res.status(400).json({ error: 'labels must be an array' });
 
-        const labelsJson = JSON.stringify(labels);
+        const conv = await WhatsAppConversation.findOne({ _id: req.params.id, tenant_id: req.tenantId });
+        if (!conv) return res.status(404).json({ error: 'Conversation not found' });
 
-        // Save on conversation
-        await run(
-            'UPDATE whatsapp_conversations SET labels = ? WHERE id = ? AND tenant_id = ?',
-            [labelsJson, req.params.id, req.tenantId]
-        );
+        conv.labels = labels;
+        await conv.save();
 
-        // Also sync to linked contact
-        const conv = await get(
-            'SELECT contact_id FROM whatsapp_conversations WHERE id = ? AND tenant_id = ?',
-            [req.params.id, req.tenantId]
-        );
-        if (conv && conv.contact_id) {
-            await run(
-                'UPDATE contacts SET labels = ? WHERE id = ? AND tenant_id = ?',
-                [labelsJson, conv.contact_id, req.tenantId]
-            );
+        if (conv.contact_id) {
+            await Contact.updateOne({ _id: conv.contact_id, tenant_id: req.tenantId }, { $set: { labels } });
         }
 
         res.json({ success: true, labels });
@@ -612,25 +520,15 @@ router.patch('/conversations/:id/labels', async (req, res) => {
     }
 });
 
-/**
- * GET /api/v1/whatsapp/chat/media/:media_id
- * Proxy endpoint to fetch media from Meta API and serve to frontend
- */
 router.get('/media/:media_id', async (req, res) => {
     try {
         const { media_id } = req.params;
 
-        // Verify the media belongs to the tenant
-        const msg = await get(
-            'SELECT media_mime_type FROM whatsapp_chat_messages WHERE media_id = ? AND tenant_id = ? LIMIT 1',
-            [media_id, req.tenantId]
-        );
+        const msg = await WhatsAppChatMessage.findOne({ media_id, tenant_id: req.tenantId }).lean();
         if (!msg) return res.status(404).json({ error: 'Media not found or unauthorized' });
 
-        // Handle local outbound media
         if (media_id.startsWith('local_media:')) {
             const fileName = media_id.replace('local_media:', '');
-            // Prevent directory traversal
             const safeName = path.basename(fileName);
             const filePath = path.join(process.cwd(), 'uploads', safeName);
             
@@ -643,29 +541,24 @@ router.get('/media/:media_id', async (req, res) => {
             return fs.createReadStream(filePath).pipe(res);
         }
 
-        // Handle inbound media from Meta
-        const tenant = await get('SELECT whatsapp_access_token FROM tenants WHERE id = ?', [req.tenantId]);
+        const tenant = await Setting.findOne({ singletonId: 'admin_settings' });
         if (!tenant || !tenant.whatsapp_access_token) return res.status(400).json({ error: 'WhatsApp not configured' });
 
-        // 1. Get media URL from Meta
         const metaRes = await fetch(`https://graph.facebook.com/v21.0/${media_id}`, {
             headers: { Authorization: `Bearer ${tenant.whatsapp_access_token}` }
         });
         const metaData = await metaRes.json();
         if (!metaData.url) throw new Error('Failed to get media URL from Meta: ' + JSON.stringify(metaData));
 
-        // 2. Download media binary
         const mediaRes = await fetch(metaData.url, {
             headers: { Authorization: `Bearer ${tenant.whatsapp_access_token}` }
         });
 
         if (!mediaRes.ok) throw new Error('Failed to download media binary');
 
-        // Set Content-Type from database or meta response
         res.setHeader('Content-Type', metaData.mime_type || msg.media_mime_type || 'application/octet-stream');
-        res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
 
-        // 3. Pipe binary to response
         const arrayBuffer = await mediaRes.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         res.send(buffer);
@@ -677,7 +570,3 @@ router.get('/media/:media_id', async (req, res) => {
 });
 
 export default router;
-
-
-
-//https://crm-api.mahalaxmi.associates/api/v1/whatsapp-webhook
