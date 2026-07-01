@@ -2,6 +2,13 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Feature: Pull Products from Meta Catalogue
+**What**: Added a "Sync from Meta" button to the Catalogue page and fixed a typo in the Meta Catalog ID saving logic that prevented fetching and pushing.
+**Why**: The user's database had a typo in the `whatsapp_catalog_id` (missing `65`) which prevented products from syncing up to Meta. Furthermore, the user wanted a way to fetch their existing 23 products from Meta into the local platform.
+**Files Changed**:
+- `backend/src/routes/products.js`: Added `POST /sync-meta` endpoint to fetch products from Meta Graph API and upsert them into the local MongoDB instance.
+- `frontend/src/components/Catalogue.jsx`: Added "Sync from Meta" button.
+
 ## 2026-07-01 — Bugfix: Resolve Server Crash on Catalog Load
 **What**: Fixed an `ERR_MODULE_NOT_FOUND` crash that caused the backend server to fail on startup. Removed the `node-fetch` import from `metaCatalogSync.js`.
 **Why**: The backend runs on Node.js 18+ which has native `fetch` support. The `node-fetch` package was not in `package.json`, causing the entire backend process to crash. This resulted in the frontend Vite proxy returning a 504 HTML error page which failed to parse as JSON.

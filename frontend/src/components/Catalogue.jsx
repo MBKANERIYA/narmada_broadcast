@@ -48,6 +48,7 @@ export default function Catalogue() {
     const [showModal, setShowModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [syncingMeta, setSyncingMeta] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOption, setSortOption] = useState('newest');
     const [categoryFilter, setCategoryFilter] = useState('');
@@ -85,6 +86,19 @@ export default function Catalogue() {
             showToast(err.message, 'error');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSyncFromMeta = async () => {
+        try {
+            setSyncingMeta(true);
+            const data = await api('/products/sync-meta', { method: 'POST' });
+            showToast(data.message, 'success');
+            await fetchProducts();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setSyncingMeta(false);
         }
     };
 
@@ -306,9 +320,15 @@ export default function Catalogue() {
                         {filteredProducts.length !== products.length ? ` · ${filteredProducts.length} shown` : ''}
                     </p>
                 </div>
-                <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
-                    <Icon name="plus" size={16} /> Add Product
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="btn btn-secondary" onClick={handleSyncFromMeta} disabled={syncingMeta} style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
+                        {syncingMeta ? <Icon name="loader" size={16} /> : <Icon name="refresh-cw" size={16} />}
+                        {syncingMeta ? 'Syncing...' : 'Sync from Meta'}
+                    </button>
+                    <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
+                        <Icon name="plus" size={16} /> Add Product
+                    </button>
+                </div>
             </div>
 
             {/* Search + Sort + Filter Bar */}

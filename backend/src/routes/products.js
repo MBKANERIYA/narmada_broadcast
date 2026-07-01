@@ -6,6 +6,7 @@ import Product from '../models/Product.js';
 import { generateEmbedding } from '../services/smartResponder.js';
 import { getUploadsDir } from '../utils/uploads.js';
 import { syncProductToMeta, deleteProductFromMeta } from '../services/metaCatalogSync.js';
+import Setting from '../models/Setting.js';
 
 const router = express.Router();
 const PRODUCT_UPLOAD_FIELD = 'images';
@@ -71,6 +72,74 @@ router.post('/upload-image', runUpload(upload.single('image')), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
     const imageUrl = publicUploadUrl(req, req.file.filename);
     return res.json({ image_url: imageUrl, image_urls: [imageUrl] });
+});
+
+router.post('/sync-meta', async (req, res) => {
+    try {
+        const settings = await Setting.findOne({ singletonId: 'admin_settings' });
+        if (!settings || !settings.whatsapp_catalog_id || !settings.whatsapp_access_token) {
+            return res.status(400).json({ error: 'Catalogue ID or Access Token not configured in Settings.' });
+        }
+
+        const catalogId = settings.whatsapp_catalog_id;
+        const accessToken = settings.whatsapp_access_token;
+        const url = `https://graph.facebook.com/v19.0/${catalogId}/products?fields=id,name,description,price,image_url,availability,inventory,brand&access_token=${accessToken}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.error) {
+            console.error('[MetaSync] Graph API Error:', data.error.message);
+            return res.status(400).json({ error: data.error.message });
+        }
+
+        const items = data.data || [];
+        let imported = 0;
+
+        for (const item of items) {
+            // Find if product exists by SKU or Meta ID
+            let product = await Product.findOne({ $or: [{ sku: item.id }] });
+            
+            // Try to extract price as number from string (e.g., "449.00 INR" -> 449)
+            let price = 0;
+            if (item.price) {
+                const priceMatch = item.price.match(/[\d.]+/);
+                if (priceMatch) price = Number(priceMatch[0]);
+            }
+
+            if (!product) {
+                product = new Product({
+                    name: item.name || 'Untitled',
+                    sku: item.id,
+                    description: item.description || '',
+                    mrp: price,
+                    selling_price: price,
+                    image_url: item.image_url || '',
+                    images: item.image_url ? [item.image_url] : [],
+                    inventory_available: item.availability === 'in stock',
+                    inventory_quantity: item.inventory || 100,
+                    inventory_policy: 'continue'
+                });
+            } else {
+                product.name = item.name || product.name;
+                product.description = item.description || product.description;
+                product.mrp = price || product.mrp;
+                product.selling_price = price || product.selling_price;
+                product.image_url = item.image_url || product.image_url;
+                if (item.image_url && !product.images.includes(item.image_url)) {
+                    product.images = [item.image_url, ...product.images];
+                }
+                product.inventory_available = item.availability === 'in stock';
+            }
+            await product.save();
+            imported++;
+        }
+
+        res.json({ message: `Successfully synced ${imported} products from Meta Catalogue.` });
+    } catch (error) {
+        console.error('[MetaSync] Sync failed:', error);
+        res.status(500).json({ error: 'Failed to sync products from Meta' });
+    }
 });
 
 router.get('/', async (req, res) => {
