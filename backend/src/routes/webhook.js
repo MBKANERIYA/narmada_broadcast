@@ -6,6 +6,7 @@ import Contact from '../models/Contact.js';
 import Setting from '../models/Setting.js';
 import { emitToTenant } from '../services/websocket.js';
 import { normalizePhone } from '../services/whatsapp.js';
+import { initDatabase } from '../database.js';
 
 const router = Router();
 
@@ -15,6 +16,7 @@ const router = Router();
  */
 router.post('/', async (req, res) => {
     try {
+        await initDatabase();
         const body = req.body;
         console.log('[Webhook] Received payload:', JSON.stringify(body, null, 2));
 
@@ -24,9 +26,10 @@ router.post('/', async (req, res) => {
 
         // We only have one tenant for now, fetch the global settings to get the tenant ID
         let setting = await Setting.findOne({ singletonId: 'admin_settings' });
+        if (!setting) setting = await Setting.findOne();
         if (!setting) {
-            console.error('Webhook: Setting not found');
-            return res.sendStatus(200);
+            setting = new Setting({ singletonId: 'admin_settings' });
+            await setting.save();
         }
         const tenantId = setting._id.toString();
 

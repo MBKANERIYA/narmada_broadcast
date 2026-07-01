@@ -2,6 +2,12 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Fix: Serverless Cold Start DB Buffering in Webhook Handler
+**What**: Added explicit `await initDatabase()` to the start of the webhook POST handler in `backend/src/routes/webhook.js`.
+**Why**: In serverless deployment environments like Vercel, top-level asynchronous database initialization promises may not complete before incoming webhook requests hit Lambda functions on cold start. By awaiting database initialization inside the route handler and adding fallback logic for `Setting.findOne()`, we prevent Mongoose connection buffering timeouts when Meta WhatsApp webhooks are received.
+**Files Changed**:
+- `backend/src/routes/webhook.js`: Imported `initDatabase` and awaited it at the start of `router.post('/')`. Added fallback query logic for `Setting`.
+
 ## 2026-07-01 — Feature: Sync Broadcast Messages to Chat Inbox & Auto-Link Contacts
 **What**: Synced broadcast campaign messages to the WhatsApp Chat Inbox and added automatic contact lookup/creation in webhooks and broadcasts.
 **Why**: When broadcast campaigns were sent from the Broadcast tab (`processBroadcast`), messages were logged to `WhatsAppMessage` but did not create or update records in `WhatsAppConversation` or `WhatsAppChatMessage`. As a result, contacts who were sent campaigns (like `maulik`) did not appear in the Chat Inbox until they replied. Additionally, inbound messages in `webhook.js` were creating conversations without linking `contact_id`. Now, all outgoing broadcast messages create/update conversations, link contacts, and appear in the Chat Inbox. A backfill script was also run to sync existing sent broadcast messages.
