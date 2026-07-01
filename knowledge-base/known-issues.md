@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-018: Narmada Vercel Fork Had Mongo Isolation And Chatbot Route Drift
+**Status**: Resolved
+**Severity**: Critical
+**Discovered**: 2026-07-01
+**Resolved**: 2026-07-01
+**Symptom**: The independent Vercel deployment loaded stale authenticated state in the browser, Settings/AI Assistant/Knowledge Base calls returned 404s, FAQ list responses did not match the frontend contract, and the chatbot could not reliably answer when embeddings or `AI_API_KEY` were missing.
+**Root Cause**: The fork had drifted from the reference frontend contracts after moving to MongoDB/Vercel. It also retained a hardcoded MongoDB Atlas fallback URI, which risked connecting the client product to a shared/exposed database instead of a client-owned database.
+**Workaround**: Before the fix, manually setting the correct MongoDB env vars and clearing browser site data could reduce symptoms, but missing backend routes still broke the UI.
+**Fix**: Removed the hardcoded MongoDB fallback, required `MONGO_URI` in production/Vercel, added `/auth/me` validation and product-specific auth storage, implemented AI Assistant/embedding/Knowledge Base test/phrasings routes, returned `{ faqs }` from Knowledge Base list, added lexical matching fallback, updated Vercel deployment docs, and removed the unused vulnerable mailer dependency.
+**Regression Test**: `backend/test/regression.test.js` covers env-only Mongo, `/auth/me`, AI Assistant routes, Knowledge Base contracts, lexical fallback, audit dependency removal, and deployment doc placeholders.
+
 ## ISSUE-017: whatsappTemplates.filter TypeError Crashes Broadcast & Chat
 **Status**: Resolved
 **Severity**: High

@@ -7,6 +7,7 @@ import { io } from 'socket.io-client';
 import { getDefaultViewForPlan } from '../config/plans';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const AUTH_TOKEN_KEY = 'narmada_broadcast_token';
 
 let socket = null;
 
@@ -27,7 +28,7 @@ const getTenantSlug = () => {
 
 // API helper with tenant header
 const api = async (path, options = {}) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
     const slug = getTenantSlug();
 
     const headers = {
@@ -76,7 +77,7 @@ const api = async (path, options = {}) => {
 
 // API helper for file uploads (no Content-Type header)
 const apiUpload = async (path, formData) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
     const slug = getTenantSlug();
 
     const url = `${API_BASE_URL}/api/v1${path}`;
@@ -105,6 +106,7 @@ export const useStore = create(
             user: null,
             tenant: null,
             isAuthenticated: false,
+            isAuthReady: false,
             isLoading: false,
             error: null,
             currentView: 'overview',
@@ -117,7 +119,7 @@ export const useStore = create(
             clearError: () => set({ error: null }),
 
             initSocket: () => {
-                const token = localStorage.getItem('token');
+                const token = localStorage.getItem(AUTH_TOKEN_KEY);
                 if (!token) return;
                 if (socket) socket.disconnect();
 
@@ -184,7 +186,8 @@ export const useStore = create(
                         method: 'POST',
                         body: JSON.stringify({ email, password }),
                     });
-                    localStorage.setItem('token', data.token);
+                    localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+                    localStorage.removeItem('token');
                     localStorage.setItem('user', JSON.stringify(data.user));
                     if (data.tenant) localStorage.setItem('tenant_slug', data.tenant.slug);
 
@@ -192,6 +195,7 @@ export const useStore = create(
                         user: data.user,
                         tenant: data.tenant || null,
                         isAuthenticated: true,
+                        isAuthReady: true,
                         currentView: getDefaultViewForPlan(data.tenant?.subscription_plan, data.user),
                         error: null,
                     });
@@ -202,12 +206,46 @@ export const useStore = create(
                 }
             },
 
+            validateSession: async () => {
+                const token = localStorage.getItem(AUTH_TOKEN_KEY);
+                if (!token) {
+                    get().disconnectSocket();
+                    set({ user: null, tenant: null, isAuthenticated: false, isAuthReady: true, currentView: 'overview' });
+                    return false;
+                }
+
+                try {
+                    const data = await api('/auth/me');
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    if (data.tenant) localStorage.setItem('tenant_slug', data.tenant.slug);
+
+                    set({
+                        user: data.user,
+                        tenant: data.tenant || null,
+                        isAuthenticated: true,
+                        isAuthReady: true,
+                        currentView: getDefaultViewForPlan(data.tenant?.subscription_plan, data.user),
+                        error: null,
+                    });
+                    return true;
+                } catch {
+                    localStorage.removeItem(AUTH_TOKEN_KEY);
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('tenant_slug');
+                    get().disconnectSocket();
+                    set({ user: null, tenant: null, isAuthenticated: false, isAuthReady: true, currentView: 'overview' });
+                    return false;
+                }
+            },
+
             logout: () => {
+                localStorage.removeItem(AUTH_TOKEN_KEY);
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 localStorage.removeItem('tenant_slug');
                 get().disconnectSocket();
-                set({ user: null, tenant: null, isAuthenticated: false, contacts: [], currentView: 'overview' });
+                set({ user: null, tenant: null, isAuthenticated: false, isAuthReady: true, contacts: [], currentView: 'overview' });
             },
 
             register: async (name, firmName, email, password) => {
@@ -222,7 +260,8 @@ export const useStore = create(
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-                    localStorage.setItem('token', data.token);
+                    localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+                    localStorage.removeItem('token');
                     localStorage.setItem('user', JSON.stringify(data.user));
                     if (data.tenant) localStorage.setItem('tenant_slug', data.tenant.slug);
 
@@ -230,6 +269,7 @@ export const useStore = create(
                         user: data.user,
                         tenant: data.tenant || null,
                         isAuthenticated: true,
+                        isAuthReady: true,
                         currentView: getDefaultViewForPlan(data.tenant?.subscription_plan, data.user),
                         isLoading: false,
                         error: null,
@@ -545,7 +585,7 @@ export const useStore = create(
             },
 
             fetchMediaUrl: async (mediaId) => {
-                const token = localStorage.getItem('token');
+                const token = localStorage.getItem(AUTH_TOKEN_KEY);
                 const slug = getTenantSlug();
                 const url = `${API_BASE_URL}/api/v1/whatsapp/chat/media/${mediaId}`;
 
@@ -665,7 +705,7 @@ export const useStore = create(
             },
         }),
         {
-            name: 'whatsapp-platform-storage',
+            name: 'narmada-broadcast-storage',
             partialize: (state) => ({
                 user: state.user,
                 tenant: state.tenant,

@@ -1,38 +1,25 @@
 ## Current Status
-**Last Updated**: 2026-06-17
-**Last Agent Session**: Added a "show/hide password" toggle button to the Login/Registration screen. Updated `Login.jsx` to handle visibility state and added the `eye-off` SVG to `Icons.jsx`.
-**Test Suite Status**: PASS - `npm test` from `backend/` (15 tests); PASS - backend `node --check` across `backend/src/**/*.js`; PASS - `npm run lint` from `frontend/`; PASS - `npm run build` from `frontend/` with the existing Vite chunk-size warning only; PASS - `npm audit --audit-level=high` from both `frontend/` and `backend/`; PASS - `git diff --check`.
+**Last Updated**: 2026-07-01
+**Last Agent Session**: Repaired the Narmada Vercel fork as an independent single-client product: env-only MongoDB, product-specific token storage with validated auth sessions, missing chatbot/AI Assistant/Knowledge Base routes, lexical bot fallback, dependency audit cleanup, and Vercel deployment docs.
+**Test Suite Status**: PASS - `cd backend && npm test` (18 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (warnings only); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
 
-## Completed This Session
-- [x] **Option C UI Polish** - cleaner Plus Jakarta Sans interface, softer app surfaces, improved cards/buttons/forms/tables, polished login, landing, dashboard, chat, catalogue, orders, and settings surfaces.
-- [x] **Store-Owner Browser QA** - verified Overview, Contacts, Broadcast, Chat Inbox, Catalogue, Orders, Smart FAQs, and Settings through the in-app browser as tenant admin `aaa`.
-- [x] **Phone QA** - verified 390px drawer navigation, Orders mobile cards, Chat list/detail/back flow, Settings secret fields, and no horizontal overflow.
-- [x] **Remote Review** - fetched and reviewed coworker pushes before publishing.
-- [x] **Remote Regression Fixes** - restored mandatory Razorpay webhook-secret/signature rejection, hardened product image uploads, restored the single-image upload route, synced normalized product image data to Meta, guarded interactive shopping prompts so Smart FAQs are not overridden, and cleared the Catalogue lint warning.
-- [x] **Coworker Support Flow Review** - reviewed commits after `91eb6a0`, fixed broad text-menu interception, phone-scoped cancel-order actions, removed placeholder support phone fallback, and added regression coverage.
-- [x] **Knowledge Base Expansion** - added `frontend.md` and updated testing, changelog, known issues, and README reading order.
-- [x] **WhatsApp Call Functionality** - Added Voice and Video Call buttons in the Chat Inbox using `wa.me` WhatsApp deep links.
-- [x] **Password Visibility Toggle** - Added a show/hide password toggle to the authentication screen.
-
-## Remaining Work (Not Started)
-- [ ] Phase 2: Assign to Team Member, Internal Notes
-- [ ] Phase 3: Backend catalogue pagination, stock/inventory, bulk actions, product variants
-- [ ] Phase 3: Contact activity timeline, duplicate detection
-- [ ] Phase 4: Campaign scheduling, campaign analytics, template preview, A/B testing
-- [ ] Phase 4: FAQ categories, bulk CSV import, usage analytics
-- [ ] Phase 5: LLM integration, secret encryption, human-agent handoff
+## In Progress
+- [ ] Push the verified repair commit to `MBKANERIYA/narmada_broadcast` `main`.
+- [ ] Set/verify Vercel production env vars after push, especially `MONGO_URI`, `JWT_SECRET`, and optional `AI_API_KEY`.
+- [ ] Redeploy or let Vercel auto-deploy from `main`, then smoke-test the live URL.
 
 ## Blocked On
-- None.
+- Vercel/MongoDB setup is manual: the code cannot create the client's Atlas database or set Vercel env vars from this local checkout.
 
 ## Decisions Needed
-- None.
+- Confirm whether the client wants Gemini semantic matching (`AI_API_KEY`) or only the built-in lexical fallback for the first release.
 
 ## Next Steps (for the next agent session)
-1. Deploy `main` to the VPS and smoke-test the public site after `pm2 restart whatsapp-broadcast`.
-2. Smoke-test a signed Razorpay webhook with a real tenant webhook secret configured.
-3. Smoke-test product image upload and Meta catalogue sync on a non-production test product.
-4. Smoke-test the WhatsApp support menu on a test number after production deploy.
+1. Check the Vercel deployment status after `main` is pushed.
+2. Confirm `MONGO_URI=<mongodb-connection-string>` and `JWT_SECRET=<strong-random-jwt-secret>` are set in Vercel.
+3. Rotate/delete the previously exposed Atlas user from the old hardcoded URI.
+4. Log in on `https://narmada-broadcast-8vox.vercel.app/` and verify Settings, Knowledge Base, and Test Your Bot.
 
 ## Do Not Touch
-- `0001-feat-semantic-knowledge-base-engine-and-UI-dashboard.patch` - pre-existing untracked patch file that is not part of this UI/UX change set.
+- Do not reintroduce hardcoded MongoDB credentials or point this fork at the original SaaS database.
+- Do not restore the unused `backend/src/routes/leads.js` mailer route without adding a mounted route, a real requirement, and a safe current mailer dependency.

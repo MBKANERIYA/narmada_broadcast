@@ -5,7 +5,7 @@ import Icon from './Icons';
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 const api = async (path, options = {}) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('narmada_broadcast_token');
     const slug = localStorage.getItem('tenant_slug') || 'default';
     const res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
         ...options,
@@ -25,7 +25,7 @@ const api = async (path, options = {}) => {
 };
 
 const apiRaw = async (path) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('narmada_broadcast_token');
     const slug = localStorage.getItem('tenant_slug') || 'default';
     const res = await fetch(`${API_BASE_URL}/api/v1${path}`, {
         headers: {

@@ -2,6 +2,24 @@
 
 This document logs the architectural choices made during the development of the WhatsApp Broadcast SaaS.
 
+## Decision: Single-Client Vercel Product Uses Env-Only MongoDB
+**Date**: 2026-07-01
+**Status**: Accepted
+**Context**: The Narmada fork is sold and deployed as a dedicated product for one client, not as a tenant seat on the original SaaS. The Vercel deployment must not depend on the original app database or any hardcoded fallback credentials.
+**Decision**: Keep the fork single-client, deploy it on Vercel from `MBKANERIYA/narmada_broadcast`, require `MONGO_URI` from Vercel environment variables in production, and fail fast if it is missing.
+**Alternatives Considered**: Reuse the original SaaS database or leave a fallback Atlas URI in code. Both were rejected because they break client isolation and expose secrets.
+**Consequences**: Each client deployment must provision its own MongoDB Atlas database and set `MONGO_URI`; local development can still use `mongodb://127.0.0.1:27017/narmada_broadcast_dev`.
+**Superseded By**:
+
+## Decision: Smart Bot Uses Gemini Embeddings With Lexical Fallback
+**Date**: 2026-07-01
+**Status**: Accepted
+**Context**: The deployed fork's chatbot and Knowledge Base were failing when `AI_API_KEY` was missing or when frontend AI Assistant routes did not exist. The product should remain usable before embeddings are configured.
+**Decision**: Store FAQs/products even when embeddings cannot be generated, use Gemini embeddings when `AI_API_KEY` exists, and use deterministic lexical matching as the fallback responder path.
+**Alternatives Considered**: Require `AI_API_KEY` before any FAQ/product can be saved, or return no bot matches until re-embed completes. Both were rejected because they make the client deployment feel broken during setup.
+**Consequences**: Basic bot matching works immediately; semantic quality improves after adding `AI_API_KEY` and running re-embed.
+**Superseded By**:
+
 ## Decision: Preact + Vite Frontend Framework
 **Date**: 2026-04-10
 **Status**: Accepted
@@ -12,19 +30,21 @@ This document logs the architectural choices made during the development of the 
 
 ## Decision: MySQL 8.0 Prepared Statements and LIMIT/OFFSET Handling
 **Date**: 2026-04-11
-**Status**: Accepted
+**Status**: Superseded
 **Context**: MySQL `pool.execute()` prepared statements do not allow placeholders for LIMIT and OFFSET variables.
 **Decision**: Parse and sanitize LIMIT and OFFSET as integers (`parseInt`) and inline them into SQL query strings rather than using `?` placeholders.
 **Alternatives Considered**: Use `pool.query()` which does client-side interpolation, but `pool.execute()` is preferred for query caching and performance.
 **Consequences**: Extra care is needed to ensure inlined values are strictly parsed as integers to prevent SQL injection.
+**Superseded By**: [Single-Client Vercel Product Uses Env-Only MongoDB](#decision-single-client-vercel-product-uses-env-only-mongodb)
 
 ## Decision: Single-Domain Multi-Tenancy with Soft Resolution
 **Date**: 2026-04-11
-**Status**: Accepted
+**Status**: Superseded
 **Context**: The application runs on a single domain (`broadcast.innodify.in`) rather than separate subdomains for each tenant.
 **Decision**: Resolve tenants softly using a custom header `x-tenant-slug` sent by the frontend, fallback to the `tenantId` stored inside the JWT auth token.
 **Alternatives Considered**: Wildcard subdomains (too complex for initial DNS/SSL config).
 **Consequences**: The frontend must send `x-tenant-slug` with every API request. Login must query by email globally across all tenants.
+**Superseded By**: [Single-Client Vercel Product Uses Env-Only MongoDB](#decision-single-client-vercel-product-uses-env-only-mongodb)
 
 ## Decision: Free AI Chatbot Integration using Google Gemini API via OpenAI SDK
 **Date**: 2026-06-12
@@ -37,11 +57,12 @@ This document logs the architectural choices made during the development of the 
 
 ## Decision: Pure Local NLP Model Chatbot (Superseding Gemini API Integration)
 **Date**: 2026-06-12
-**Status**: Accepted
+**Status**: Superseded
 **Context**: The project pivoted away from third-party remote AI APIs (Google Gemini API via OpenAI SDK) to guarantee offline reliability, eliminate external API key configuration requirements, and ensure responses are strictly aligned with the merchant's FAQ/product dataset.
 **Decision**: Use a local feature-extraction pipeline with the `all-MiniLM-L6-v2` model running directly on the CPU. Match incoming messages to existing FAQs and products using cosine similarity.
 **Alternatives Considered**: Google Gemini API (requires external API keys, internet connectivity, and can generate off-topic conversational text).
-**Consequences**: The system is completely self-contained with zero external API key requirements. Responses are strictly bounded by active FAQs and products.
+**Consequences**: The system was completely self-contained with zero external API key requirements. Responses were strictly bounded by active FAQs and products.
+**Superseded By**: [Smart Bot Uses Gemini Embeddings With Lexical Fallback](#decision-smart-bot-uses-gemini-embeddings-with-lexical-fallback)
 
 ## Decision: Use Node Built-In Regression Tests
 **Date**: 2026-06-16

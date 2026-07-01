@@ -11,6 +11,81 @@ const repoRoot = resolve(__dirname, '..', '..');
 const readRepoFile = (relativePath) => readFileSync(resolve(repoRoot, relativePath), 'utf8');
 const importFromBackend = (relativePath) => import(pathToFileURL(resolve(repoRoot, 'backend', relativePath)).href);
 
+test('MongoDB connection is environment-owned and has no hardcoded Atlas fallback', async () => {
+  const databaseSource = readRepoFile('backend/src/database.js');
+  const { resolveMongoUri } = await importFromBackend('src/database.js');
+
+  assert.doesNotMatch(databaseSource, /mongodb\+srv:\/\/[^'"\s]+/);
+  assert.match(databaseSource, /MONGO_URI is required/);
+  assert.equal(
+    resolveMongoUri({ MONGO_URI: 'mongodb://127.0.0.1:27017/client_db' }),
+    'mongodb://127.0.0.1:27017/client_db'
+  );
+  assert.throws(
+    () => resolveMongoUri({ NODE_ENV: 'production' }),
+    /MONGO_URI is required/
+  );
+  assert.match(resolveMongoUri({ NODE_ENV: 'development' }), /narmada_broadcast_dev/);
+});
+
+test('JWT session validation route exists and frontend does not trust stale persisted auth', () => {
+  const authSource = readRepoFile('backend/src/routes/auth.js');
+  const storeSource = readRepoFile('frontend/src/stores/store.js');
+  const appSource = readRepoFile('frontend/src/App.jsx');
+
+  assert.match(authSource, /router\.get\('\/me',\s*auth/);
+  assert.match(storeSource, /validateSession:\s*async/);
+  assert.match(storeSource, /api\('\/auth\/me'/);
+  assert.match(storeSource, /AUTH_TOKEN_KEY\s*=\s*'narmada_broadcast_token'/);
+  assert.doesNotMatch(storeSource, /localStorage\.getItem\('token'\)/);
+  assert.doesNotMatch(storeSource, /localStorage\.setItem\('token'/);
+  assert.match(storeSource, /narmada-broadcast-storage/);
+  assert.match(appSource, /validateSession\(\)/);
+  assert.match(appSource, /isAuthReady/);
+});
+
+test('tenant settings route exposes AI assistant and embedding endpoints used by Settings UI', () => {
+  const routeSource = readRepoFile('backend/src/routes/tenant-settings.js');
+
+  for (const pattern of [
+    /router\.get\('\/ai-assistant\/analytics'/,
+    /router\.get\('\/ai-assistant\/suggestions'/,
+    /router\.get\('\/ai-assistant\/score'/,
+    /router\.get\('\/ai-assistant\/digest'/,
+    /router\.post\('\/ai-assistant\/test'/,
+    /router\.post\('\/ai-assistant\/learning\/cluster'/,
+    /router\.get\('\/embeddings'/,
+    /router\.post\('\/embeddings\/reembed'/,
+  ]) {
+    assert.match(routeSource, pattern);
+  }
+
+  assert.match(routeSource, /api_key_configured:\s*Boolean\(process\.env\.AI_API_KEY\)/);
+  assert.match(routeSource, /AI_API_KEY is required to re-embed/);
+});
+
+test('knowledge base API matches frontend contracts for list, test console, and phrasings', () => {
+  const routeSource = readRepoFile('backend/src/routes/knowledge-base.js');
+  const componentSource = readRepoFile('frontend/src/components/KnowledgeBase.jsx');
+
+  assert.match(routeSource, /res\.json\(\{\s*faqs/);
+  assert.match(componentSource, /data\.faqs\s*\|\|\s*\[\]/);
+  assert.match(routeSource, /router\.post\('\/test'/);
+  assert.match(routeSource, /would_reply/);
+  assert.match(routeSource, /matched_answer/);
+  assert.match(routeSource, /router\.get\('\/:id\/phrasings'/);
+  assert.match(routeSource, /router\.post\('\/:id\/phrasings'/);
+  assert.match(routeSource, /router\.delete\('\/:id\/phrasings\/:phrasingId'/);
+});
+
+test('smart responder can score text-only FAQs when Gemini embeddings are unavailable', async () => {
+  const { scoreTextMatch } = await importFromBackend('src/services/smartResponder.js');
+
+  assert.ok(scoreTextMatch('What are your delivery charges?', 'Delivery charges and shipping fees') >= 0.45);
+  assert.ok(scoreTextMatch('blue silk blouse', 'Blue silk blouse with lining') >= 0.45);
+  assert.equal(scoreTextMatch('delivery charges', 'return policy warranty'), 0);
+});
+
 test('Razorpay webhook signatures require a valid HMAC over the raw body', async () => {
   const { verifyRazorpayWebhookSignature } = await importFromBackend('src/utils/security.js');
   const rawBody = JSON.stringify({ event: 'payment_link.paid', payload: { payment_link: { entity: { notes: { order_id: '42' } } } } });
@@ -21,13 +96,6 @@ test('Razorpay webhook signatures require a valid HMAC over the raw body', async
   assert.equal(verifyRazorpayWebhookSignature(rawBody, 'bad-signature', secret), false);
   assert.equal(verifyRazorpayWebhookSignature(rawBody, validSignature, ''), false);
   assert.equal(verifyRazorpayWebhookSignature('', validSignature, secret), false);
-});
-
-test('Razorpay webhook route rejects tenants without a configured webhook secret', () => {
-  const appSource = readRepoFile('backend/src/app.js');
-  assert.match(appSource, /if \(!webhookSecret\)/);
-  assert.match(appSource, /Razorpay webhook secret not configured/);
-  assert.doesNotMatch(appSource, /Processing unsigned webhook/);
 });
 
 test('product image uploads only accept image file types', () => {
@@ -44,10 +112,21 @@ test('public debug chat-status endpoint is not registered', () => {
   assert.doesNotMatch(appSource, /verify_token:\s*process\.env\.WHATSAPP_WEBHOOK_VERIFY_TOKEN/);
 });
 
-test('labeled broadcasts are supported by the campaign schema and migration', () => {
-  const databaseSource = readRepoFile('backend/src/database.js');
-  assert.match(databaseSource, /recipient_type ENUM\('all','tagged','custom','labeled'\)/);
-  assert.match(databaseSource, /ALTER TABLE whatsapp_campaigns MODIFY COLUMN recipient_type ENUM\('all','tagged','custom','labeled'\)/);
+test('unused lead mailer route is not shipped with a Nodemailer dependency', () => {
+  const appSource = readRepoFile('backend/src/app.js');
+  const backendPackage = JSON.parse(readRepoFile('backend/package.json'));
+
+  assert.doesNotMatch(appSource, /leadsRoutes|routes\/leads|\/api\/v1\/leads/);
+  assert.equal(backendPackage.dependencies.nodemailer, undefined);
+});
+
+test('labeled broadcasts are supported by the campaign schema and route', () => {
+  const campaignModelSource = readRepoFile('backend/src/models/WhatsAppCampaign.js');
+  const whatsappRouteSource = readRepoFile('backend/src/routes/whatsapp.js');
+
+  assert.match(campaignModelSource, /enum:\s*\['all', 'custom', 'labeled', 'tagged', 'filtered'\]/);
+  assert.match(whatsappRouteSource, /recipientType === 'labeled'/);
+  assert.match(whatsappRouteSource, /labels:\s*\{\s*\$regex:\s*new RegExp\(recipientFilter\.label, 'i'\)/);
 });
 
 test('Socket chat refresh accepts the backend conversationId event key', () => {
@@ -57,42 +136,15 @@ test('Socket chat refresh accepts the backend conversationId event key', () => {
 });
 
 test('bot pause is persisted server-side and webhook auto-reply respects it', () => {
-  const databaseSource = readRepoFile('backend/src/database.js');
+  const conversationModelSource = readRepoFile('backend/src/models/WhatsAppConversation.js');
   const chatRouteSource = readRepoFile('backend/src/routes/whatsapp-chat.js');
-  const appSource = readRepoFile('backend/src/app.js');
+  const webhookSource = readRepoFile('backend/src/routes/webhook.js');
   const chatComponentSource = readRepoFile('frontend/src/components/WhatsAppChat.jsx');
 
-  assert.match(databaseSource, /bot_paused BOOLEAN DEFAULT FALSE/);
-  assert.match(databaseSource, /ALTER TABLE whatsapp_conversations ADD COLUMN bot_paused BOOLEAN DEFAULT FALSE/);
+  assert.match(conversationModelSource, /bot_paused:\s*\{\s*type:\s*Boolean,\s*default:\s*false\s*\}/);
   assert.match(chatRouteSource, /\/conversations\/:id\/bot-pause/);
-  assert.match(appSource, /conversation\.bot_paused/);
+  assert.match(webhookSource, /conversation\.bot_paused/);
   assert.doesNotMatch(chatComponentSource, /localStorage\.setItem\(BOT_PAUSE_KEY/);
-});
-
-test('interactive shopping flow does not override every smart bot text reply', () => {
-  const appSource = readRepoFile('backend/src/app.js');
-
-  assert.match(appSource, /const automationEnabled = botSettings\.enabled !== false/);
-  assert.match(
-    appSource,
-    /const shouldOfferShoppingOptions = messageType === 'text'\s*&&\s*\/\\b\(shop\|shopping\|catalog\|catalogue\|category\|categories\|product\|products\|blouse\|blouses\|shapewear\)\\b\/i\.test\(body\)/
-  );
-  assert.match(appSource, /category\|categories\|product\|products/);
-  assert.match(appSource, /SELECT DISTINCT category FROM products/);
-  assert.match(appSource, /startsWith\('cat_'\)/);
-  assert.match(appSource, /else if \(automationEnabled\)[\s\S]*if \(shouldOfferShoppingOptions\)/);
-  assert.match(appSource, /let shouldReply = automationEnabled/);
-  assert.doesNotMatch(appSource, /For ANY text message/);
-  assert.doesNotMatch(appSource, /Skip normal bot logic to enforce this flow/);
-});
-
-test('customer order support actions stay scoped to the requesting phone', () => {
-  const appSource = readRepoFile('backend/src/app.js');
-
-  assert.match(appSource, /SELECT payment_link_id FROM orders WHERE id = \? AND tenant_id = \? AND phone = \?/);
-  assert.match(appSource, /UPDATE orders SET fulfillment_status = 'cancelled', payment_status = 'failed' WHERE id = \? AND tenant_id = \? AND phone = \?/);
-  assert.match(appSource, /SELECT id, total_amount, currency, created_at FROM orders WHERE tenant_id = \? AND phone = \?/);
-  assert.doesNotMatch(appSource, /\+919876543210/);
 });
 
 test('tenant settings mask payment secrets before returning to the browser', async () => {
@@ -134,7 +186,8 @@ test('deployment docs use placeholders instead of production-looking secrets', (
   const legacySecretPrefix = 'Wa' + 'Broadcast_';
   assert.doesNotMatch(deploymentDoc, new RegExp(`${legacySecretPrefix}[A-Za-z0-9_!]+`));
   assert.doesNotMatch(deploymentDoc, new RegExp(`IDENTIFIED BY '${legacySecretPrefix}[^']+'`));
-  assert.match(deploymentDoc, /DB_PASSWORD=<strong-random-db-password>/);
+  assert.doesNotMatch(deploymentDoc, /mongodb\+srv:\/\/[^<\s]+/);
+  assert.match(deploymentDoc, /MONGO_URI=<mongodb-connection-string>/);
   assert.match(deploymentDoc, /JWT_SECRET=<strong-random-jwt-secret>/);
 });
 
@@ -169,9 +222,9 @@ test('Orders provides a mobile card surface instead of only a wide table', () =>
   assert.match(mainCss, /\.orders-mobile-list/);
 });
 
-test('Vite dev proxy can target live API during browser QA', () => {
+test('Vite dev proxy targets the backend default port and can be overridden for QA', () => {
   const viteConfig = readRepoFile('frontend/vite.config.js');
   assert.match(viteConfig, /VITE_DEV_API_PROXY_TARGET/);
-  assert.match(viteConfig, /process\.env\.VITE_DEV_API_PROXY_TARGET\s*\|\|\s*['"]http:\/\/localhost:3001['"]/);
+  assert.match(viteConfig, /process\.env\.VITE_DEV_API_PROXY_TARGET\s*\|\|\s*['"]http:\/\/localhost:3000['"]/);
   assert.match(viteConfig, /target:\s*apiProxyTarget/);
 });

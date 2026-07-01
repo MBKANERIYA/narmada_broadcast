@@ -24,8 +24,9 @@ console.log(`[CONFIG] NODE_ENV=${process.env.NODE_ENV} SUPER_ADMIN_EMAILS="${pro
 export default {
     port: process.env.PORT || 3000,
     nodeEnv: process.env.NODE_ENV || 'development',
+    mongoUri: process.env.MONGO_URI || '',
 
-    // MySQL Database
+    // Legacy SQL-compatible config retained for old helper modules.
     db: {
         host: process.env.DB_HOST || 'localhost',
         port: parseInt(process.env.DB_PORT) || 3306,

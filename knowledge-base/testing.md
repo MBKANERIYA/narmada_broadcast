@@ -3,7 +3,7 @@
 ## Test Frameworks in Use
 | Layer | Framework | Notes |
 |-------|-----------|-------|
-| Backend regression | Node.js built-in `node:test` + `node:assert/strict` | Configured through `backend/package.json` as `npm test`; tests live under `backend/test/`. |
+| Backend regression | Node.js built-in `node:test` + `node:assert/strict` | Configured through `backend/package.json` as `npm test`; tests live under `backend/test/`. Current coverage focuses on deployment/auth/chatbot/API contracts plus helper behavior. |
 | Frontend lint | ESLint flat config | Configured in `frontend/eslint.config.js`; runs against `src/**/*.js` and `src/**/*.jsx`. |
 | Frontend build | Vite 8 | Production compile gate for the Preact SPA. |
 | Dependency audit | npm audit | Run in both `frontend/` and `backend/` with `--audit-level=high`. |
@@ -18,7 +18,17 @@
 | `npm run build` from `frontend/` | Vite production build for the Preact SPA |
 | `npm audit --audit-level=high` from `frontend/` | Frontend dependency vulnerability gate |
 | `npm audit --audit-level=high` from `backend/` | Backend dependency vulnerability gate |
-| `$env:VITE_DEV_API_PROXY_TARGET='https://broadcast.innodify.in'; npm run dev -- --host 127.0.0.1` from `frontend/` | Local Vite app pointed at the live production API for browser QA without CORS issues |
+| `$env:VITE_DEV_API_PROXY_TARGET='https://narmada-broadcast-8vox.vercel.app'; npm run dev -- --host 127.0.0.1` from `frontend/` | Local Vite app pointed at the live Vercel API for browser QA without CORS issues |
+
+## Current Session Status
+
+As of 2026-07-01:
+
+- PASS - `cd backend && npm test` (18 tests).
+- PASS - backend PowerShell `node --check` sweep across `backend/src/**/*.js`.
+- PASS - `cd frontend && npm run lint` with 9 warnings and 0 errors.
+- PASS - `cd frontend && npm run build`.
+- PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`.
 
 ## Test File Conventions
 Backend regression tests live in `backend/test/*.test.js` and should use the built-in Node test runner unless a broader integration framework is deliberately introduced and logged in `decisions.md`.
@@ -45,9 +55,9 @@ Frontend automated component tests are not configured yet. Until they exist, kee
 - Settings must cover secret masking so tokens and payment secrets are not rehydrated into browser form state after reload.
 
 ## Mocks, Fakes, and Fixtures
-No shared runtime mocks or fixtures exist yet. Current regression tests use source inspection and pure helper tests so they do not require MySQL, Meta, Razorpay, SMTP, or Socket.io.
+No shared runtime mocks or fixtures exist yet. Current regression tests use source inspection and pure helper tests so they do not require MongoDB Atlas, Meta, Razorpay, Gemini, Shopify, Vercel, SMTP, or Socket.io.
 
-External services that need fakes once integration tests are added: Meta Graph API, Razorpay, SMTP, Socket.io, and MySQL.
+External services that need fakes once integration tests are added: MongoDB, Meta Graph API, Razorpay, Gemini embeddings, Shopify, SMTP, Socket.io, and Vercel routing.
 
 ## Known Flaky Tests
 None - keep it that way.

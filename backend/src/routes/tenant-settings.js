@@ -1,6 +1,22 @@
 import { Router } from 'express';
 import Setting from '../models/Setting.js';
+import Product from '../models/Product.js';
+import KnowledgeBase from '../models/KnowledgeBase.js';
+import BotSuggestion from '../models/BotSuggestion.js';
 import { auth } from '../middleware/auth.js';
+import {
+    generateEmbedding,
+    handleSmartReply,
+    invalidateTenantVectorCache,
+} from '../services/smartResponder.js';
+import {
+    botSmartnessScore,
+    clusterUnansweredSuggestions,
+    getBotAnalytics,
+    weeklyDigest,
+} from '../services/botLearning.js';
+import { mergeSecretSettings, sanitizeBotSettingsForClient } from '../utils/settings-security.js';
+
 const router = Router();
 router.use(auth);
 
@@ -9,33 +25,44 @@ function maskString(str) {
     return str.substring(0, 4) + '*'.repeat(str.length - 8) + str.substring(str.length - 4);
 }
 
-
 async function getSettings() {
     let setting = await Setting.findOne({ singletonId: 'admin_settings' });
     if (!setting) {
-        setting = new Setting();
+        setting = new Setting({ singletonId: 'admin_settings' });
         await setting.save();
     }
     return setting;
 }
 
+function tenantIdFromRequest(req, setting) {
+    return req.tenantId || req.tenant?.id || setting?._id?.toString?.() || 'single-tenant';
+}
+
+function settingToClient(setting) {
+    const safeSettings = setting.toObject();
+    safeSettings.id = safeSettings._id?.toString();
+
+    if (safeSettings.whatsapp_access_token) {
+        safeSettings.whatsapp_access_token = maskString(safeSettings.whatsapp_access_token);
+    }
+    safeSettings.bot_settings = sanitizeBotSettingsForClient(safeSettings.bot_settings || {});
+    return safeSettings;
+}
+
+function productEmbeddingText(product) {
+    return [product.name, product.description, product.category, product.sku]
+        .filter(Boolean)
+        .join(' ');
+}
+
 /**
  * GET /api/v1/tenant-settings
- * Returns the single user settings
+ * Returns the single-client settings document.
  */
 router.get('/', async (req, res) => {
     try {
         const setting = await getSettings();
-        
-        // Return masked settings to frontend
-        const safeSettings = setting.toObject();
-        safeSettings.id = safeSettings._id;
-        
-        if (safeSettings.whatsapp_access_token) {
-            safeSettings.whatsapp_access_token = maskString(safeSettings.whatsapp_access_token);
-        }
-        
-        res.json(safeSettings);
+        res.json(settingToClient(setting));
     } catch (error) {
         console.error('Settings GET error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -49,12 +76,13 @@ router.put('/profile', async (req, res) => {
     try {
         const { name, email, phone, logo_url, primary_color } = req.body;
         const setting = await getSettings();
-        
-        Object.assign(setting, { name, email, phone, logo_url, primary_color });
+
+        Object.assign(setting, { name, email, phone, logo_url, primary_color, updated_at: new Date() });
         await setting.save();
-        
+
         res.json({ success: true });
     } catch (error) {
+        console.error('Settings profile PUT error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -64,22 +92,25 @@ router.put('/profile', async (req, res) => {
  */
 router.put('/whatsapp', async (req, res) => {
     try {
-        const { whatsapp_access_token, whatsapp_phone_number_id, whatsapp_business_account_id, whatsapp_catalog_id } = req.body;
+        const {
+            whatsapp_access_token,
+            whatsapp_phone_number_id,
+            whatsapp_business_account_id,
+            whatsapp_catalog_id,
+        } = req.body;
         const setting = await getSettings();
-        
-        // Only update token if it's not the masked string
+
         if (whatsapp_access_token && !whatsapp_access_token.includes('***')) {
             setting.whatsapp_access_token = whatsapp_access_token;
         }
-        
+
         if (whatsapp_phone_number_id) setting.whatsapp_phone_number_id = whatsapp_phone_number_id;
         if (whatsapp_business_account_id) setting.whatsapp_business_account_id = whatsapp_business_account_id;
         if (whatsapp_catalog_id !== undefined) setting.whatsapp_catalog_id = whatsapp_catalog_id;
-        
-        if (setting.whatsapp_access_token && setting.whatsapp_phone_number_id) {
-            setting.whatsapp_configured = true;
-        }
-        
+
+        setting.whatsapp_configured = Boolean(setting.whatsapp_access_token && setting.whatsapp_phone_number_id);
+        setting.updated_at = new Date();
+
         await setting.save();
         res.json({ success: true });
     } catch (error) {
@@ -94,15 +125,17 @@ router.put('/whatsapp', async (req, res) => {
 router.delete('/whatsapp', async (req, res) => {
     try {
         const setting = await getSettings();
-        setting.whatsapp_access_token = null;
-        setting.whatsapp_phone_number_id = null;
-        setting.whatsapp_business_account_id = null;
-        setting.whatsapp_catalog_id = null;
+        setting.whatsapp_access_token = '';
+        setting.whatsapp_phone_number_id = '';
+        setting.whatsapp_business_account_id = '';
+        setting.whatsapp_catalog_id = '';
         setting.whatsapp_configured = false;
+        setting.updated_at = new Date();
         await setting.save();
-        
+
         res.json({ success: true });
     } catch (error) {
+        console.error('Settings WhatsApp DELETE error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -114,13 +147,172 @@ router.put('/chatbot', async (req, res) => {
     try {
         const { bot_settings } = req.body;
         const setting = await getSettings();
-        
-        setting.bot_settings = bot_settings;
+
+        setting.bot_settings = mergeSecretSettings(setting.bot_settings || {}, bot_settings || {});
+        setting.updated_at = new Date();
         await setting.save();
-        
+        invalidateTenantVectorCache(tenantIdFromRequest(req, setting));
+
         res.json({ success: true });
     } catch (error) {
+        console.error('Settings chatbot PUT error:', error);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.get('/ai-assistant/analytics', async (req, res) => {
+    try {
+        const setting = await getSettings();
+        const analytics = await getBotAnalytics(tenantIdFromRequest(req, setting));
+        res.json({ analytics });
+    } catch (error) {
+        console.error('AI assistant analytics error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.get('/ai-assistant/suggestions', async (req, res) => {
+    try {
+        const suggestions = await BotSuggestion.find({ status: 'open' })
+            .sort({ source_count: -1, updated_at: -1 })
+            .limit(50)
+            .lean();
+        res.json({
+            suggestions: suggestions.map((suggestion) => ({
+                ...suggestion,
+                id: suggestion._id.toString(),
+            })),
+        });
+    } catch (error) {
+        console.error('AI assistant suggestions error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.get('/ai-assistant/score', async (req, res) => {
+    try {
+        const setting = await getSettings();
+        res.json(await botSmartnessScore(tenantIdFromRequest(req, setting)));
+    } catch (error) {
+        console.error('AI assistant score error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.get('/ai-assistant/digest', async (req, res) => {
+    try {
+        const setting = await getSettings();
+        const digest = await weeklyDigest(tenantIdFromRequest(req, setting));
+        res.json({ digest });
+    } catch (error) {
+        console.error('AI assistant digest error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.post('/ai-assistant/test', async (req, res) => {
+    try {
+        const message = String(req.body?.message || '').trim();
+        if (!message) return res.status(400).json({ error: 'Message is required' });
+
+        const setting = await getSettings();
+        const tenantId = tenantIdFromRequest(req, setting);
+        const reply = await handleSmartReply(tenantId, message, [], setting.bot_settings || {}, {
+            tenant: setting,
+            persistState: false,
+        });
+
+        res.json({
+            reply,
+            would_reply: Boolean(reply),
+            matched_answer: reply?.type === 'faq' ? reply.text : null,
+        });
+    } catch (error) {
+        console.error('AI assistant test error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.post('/ai-assistant/learning/cluster', async (req, res) => {
+    try {
+        const setting = await getSettings();
+        const suggestions = await clusterUnansweredSuggestions(tenantIdFromRequest(req, setting), {
+            limit: req.body?.limit,
+        });
+        res.json({ suggestions });
+    } catch (error) {
+        console.error('AI assistant cluster error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.get('/embeddings', async (req, res) => {
+    try {
+        const setting = await getSettings();
+        const activeModel = setting.bot_settings?.embedding_model || 'gemini-text-embedding-004';
+        const [faqs, products] = await Promise.all([
+            KnowledgeBase.countDocuments({}),
+            Product.countDocuments({}),
+        ]);
+
+        res.json({
+            active_model: activeModel,
+            available_models: ['gemini-text-embedding-004'],
+            api_key_configured: Boolean(process.env.AI_API_KEY),
+            faqs,
+            products,
+            fallback_mode: !process.env.AI_API_KEY,
+        });
+    } catch (error) {
+        console.error('Embeddings status error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+router.post('/embeddings/reembed', async (req, res) => {
+    try {
+        if (!process.env.AI_API_KEY) {
+            return res.status(400).json({ error: 'AI_API_KEY is required to re-embed FAQs and products' });
+        }
+
+        const model = req.body?.model || 'gemini-text-embedding-004';
+        const [faqs, products] = await Promise.all([
+            KnowledgeBase.find({}),
+            Product.find({}),
+        ]);
+
+        let faqCount = 0;
+        for (const faq of faqs) {
+            faq.question_vector = await generateEmbedding(faq.question);
+            faq.embedding_model = model;
+            await faq.save();
+            faqCount++;
+        }
+
+        let productCount = 0;
+        for (const product of products) {
+            const text = productEmbeddingText(product);
+            if (!text) continue;
+            product.product_vector = await generateEmbedding(text);
+            product.embedding_model = model;
+            product.updated_at = new Date();
+            await product.save();
+            productCount++;
+        }
+
+        const setting = await getSettings();
+        setting.bot_settings = {
+            ...(setting.bot_settings || {}),
+            embedding_model: model,
+        };
+        setting.updated_at = new Date();
+        await setting.save();
+
+        invalidateTenantVectorCache(tenantIdFromRequest(req, setting));
+        res.json({ model, faqs: faqCount, products: productCount });
+    } catch (error) {
+        console.error('Embeddings reembed error:', error);
+        res.status(500).json({ error: error.message || 'Server error' });
     }
 });
 

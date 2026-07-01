@@ -22,7 +22,7 @@ export default function AdminPanel() {
     const [deleteConfirm, setDeleteConfirm] = useState(null);
 
     const api = async (path, options = {}) => {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('narmada_broadcast_token');
         const slug = localStorage.getItem('tenant_slug') || 'default';
         const res = await fetch(`/api/v1${path}`, {
             ...options,

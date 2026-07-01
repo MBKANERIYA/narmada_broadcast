@@ -56,8 +56,12 @@ const brandTheme = (color) => {
 
 
 export default function App() {
-    const { isAuthenticated, currentView, tenant, user, setCurrentView } = useStore();
+    const { isAuthenticated, isAuthReady, currentView, tenant, user, setCurrentView, validateSession } = useStore();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    useEffect(() => {
+        validateSession();
+    }, []);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -74,6 +78,9 @@ export default function App() {
         }
     }, [isAuthenticated, tenant?.subscription_plan, currentView, user?.role, user?.is_super_admin]);
 
+    if (!isAuthReady) {
+        return <div className="auth-loading" />;
+    }
 
     // If authenticated, show dashboard
     if (isAuthenticated) {

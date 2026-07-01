@@ -258,7 +258,7 @@ export default function Settings() {
 
     // --- AI Assistant: embedding-model status + re-embed (Phase 2) ---
     const authHeaders = () => ({
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('narmada_broadcast_token')}`,
         'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default',
         'Content-Type': 'application/json',
     });

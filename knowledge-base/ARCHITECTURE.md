@@ -1,313 +1,93 @@
 # Architecture
 
-## Directory Structure
+## System Overview
+
+Narmada Broadcast is a single-client WhatsApp operations workspace. The browser
+app manages contacts, broadcasts, catalogue products, orders, WhatsApp chat, and
+smart FAQ replies. The backend is an Express API running on Vercel Node
+functions and persists all client data in a client-owned MongoDB Atlas database.
+
+## Architecture Diagram
 
 ```
-whatsapp-broadcast-saas/
-├── knowledge-base/              # This documentation
-├── backend/
-│   ├── package.json             # whatsapp-broadcast-api
-│   ├── src/
-│   │   ├── server.js            # Entry point — starts Express on PORT
-│   │   ├── app.js               # Express app setup, routes, webhook handler
-│   │   ├── config.js            # Environment config loader
-│   │   ├── database.js          # MySQL connection pool + table migrations
-│   │   ├── middleware/
-│   │   │   ├── auth.js          # JWT authentication middleware
-│   │   │   └── tenant.js        # Multi-tenant slug → tenantId resolution
-│   │   ├── routes/
-│   │   │   ├── auth.js          # POST /login, /register, /me
-│   │   │   ├── contacts.js      # CRUD + import + tags + locations
-│   │   │   ├── whatsapp.js      # Templates, broadcast, recipients, campaigns
-│   │   │   ├── whatsapp-chat.js # Chat inbox: conversations, messages, send
-│   │   │   └── settings.js      # Tenant settings + WhatsApp credential management
-│   │   └── services/
-│   │       └── whatsapp.js      # Meta Cloud API wrapper (send, templates, media)
-│   └── uploads/                 # Multer file uploads (CSV imports, media)
-├── frontend/
-│   ├── package.json             # whatsapp-broadcast-frontend
-│   ├── vite.config.js           # Vite + Preact config
-│   ├── index.html               # SPA entry
-│   └── src/
-│       ├── App.jsx              # Main app — routing between 4 views
-│       ├── index.jsx            # Preact render entry
-│       ├── index.css            # Global CSS design system
-│       ├── stores/
-│       │   └── store.js         # Zustand store — all state + API calls
-│       └── components/
-│           ├── Sidebar.jsx      # Navigation (Contacts, Broadcast, Chat, Settings)
-│           ├── Contacts.jsx     # Contact management UI
-│           ├── WhatsAppBroadcast.jsx  # Broadcast send flow
-│           ├── WhatsAppChat.jsx       # Chat inbox UI
-│           ├── Settings.jsx     # Tenant settings & credentials
-│           ├── Login.jsx        # Login/Register form
-│           ├── Icons.jsx        # SVG icon library
-│           └── Toast.jsx        # Toast notification component
-├── Dockerfile                   # Docker build (optional)
-├── .dockerignore
-├── .gitignore
-└── README.md
+Browser SPA (Preact/Vite)
+  |
+  | relative /api/v1/* calls with JWT
+  v
+Express API on Vercel (backend/src/app.js)
+  |
+  +--> MongoDB Atlas via Mongoose models
+  +--> Meta WhatsApp Cloud API
+  +--> Razorpay/Shopify integrations when configured
+  +--> Gemini embedding API when AI_API_KEY is configured
 ```
 
-## Database Schema
+## Layers & Responsibilities
 
-### Core Tables
+| Layer | Technology | Responsibility |
+|-------|------------|----------------|
+| Frontend | Preact, Zustand, Vite | Auth shell, workspace navigation, forms, chat inbox, API calls |
+| Backend/API | Express.js | Route handling, JWT auth, singleton settings loading, integration orchestration |
+| Database | MongoDB Atlas, Mongoose | Contacts, settings, campaigns, messages, orders, products, smart bot records |
+| Auth | JWT | Single admin session validation through `/api/v1/auth/me` |
+| AI/Chatbot | Smart responder service | FAQ/product matching with Gemini embeddings and lexical fallback |
+| Hosting | Vercel | Static frontend and Node API functions routed by `vercel.json` |
+| Testing | `node:test`, ESLint, Vite | Regression contracts, lint, production build verification |
 
-#### `tenants`
-```sql
-CREATE TABLE tenants (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(100) UNIQUE NOT NULL,     -- used in x-tenant-slug header
-    email VARCHAR(255),
-    phone VARCHAR(50),
-    logo_url TEXT,
-    brand_color VARCHAR(7) DEFAULT '#6C63FF',
-    plan_id INT DEFAULT 1,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
+## Data Flow
 
-#### `users`
-```sql
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL,        -- bcrypt hashed
-    role ENUM('admin','user') DEFAULT 'user',
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (tenant_id) REFERENCES tenants(id)
-);
-```
+### Login And Session Validation
 
-#### `tenant_settings`
-```sql
-CREATE TABLE tenant_settings (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id INT UNIQUE NOT NULL,
-    whatsapp_access_token TEXT,            -- Meta API token (long-lived)
-    whatsapp_phone_number_id VARCHAR(50),  -- Meta phone number ID
-    whatsapp_business_account_id VARCHAR(50), -- WABA ID
-    whatsapp_webhook_secret VARCHAR(255),
-    whatsapp_connected BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (tenant_id) REFERENCES tenants(id)
-);
-```
+1. Admin submits `admin` / `admin123` to `POST /api/v1/auth/login`.
+2. Backend returns a JWT plus the singleton client tenant/profile payload.
+3. Frontend stores the token in the product-specific `narmada_broadcast_token` key and state in `narmada-broadcast-storage`.
+4. On every app boot, `validateSession()` calls `GET /api/v1/auth/me`.
+5. Invalid/stale tokens are cleared before the dashboard is shown.
 
-#### `contacts`
-```sql
-CREATE TABLE contacts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    phone VARCHAR(50),
-    email VARCHAR(255),
-    location VARCHAR(255),                 -- city/area — filterable
-    ticket_size DECIMAL(15,2),             -- budget/value — filterable
-    tags JSON,                             -- ["tag1", "tag2"]
-    notes TEXT,
-    source VARCHAR(100),
-    whatsapp_consent BOOLEAN DEFAULT TRUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-    INDEX idx_phone (phone),
-    INDEX idx_location (location),
-    INDEX idx_tenant (tenant_id)
-);
-```
+### Knowledge Base And Bot Reply
 
-#### `whatsapp_conversations`
-```sql
-CREATE TABLE whatsapp_conversations (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id INT NOT NULL,
-    phone VARCHAR(20) NOT NULL,
-    contact_name VARCHAR(255),
-    contact_id INT,                        -- matched to contacts table
-    last_message_text TEXT,
-    last_message_at DATETIME,
-    last_customer_message_at DATETIME,     -- for 24h window calc
-    window_expires_at DATETIME,            -- 24h after last customer msg
-    unread_count INT DEFAULT 0,
-    is_archived BOOLEAN DEFAULT FALSE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (tenant_id) REFERENCES tenants(id),
-    UNIQUE KEY unique_tenant_phone (tenant_id, phone)
-);
-```
+1. Admin creates FAQ entries from the Knowledge Base UI.
+2. Backend stores FAQs even if `AI_API_KEY` is missing.
+3. When `AI_API_KEY` exists, embeddings are generated and cached.
+4. When embeddings are missing or unavailable, `scoreTextMatch()` provides a deterministic lexical fallback.
+5. The webhook smart responder uses the same `handleSmartReply()` path for incoming WhatsApp text.
 
-#### `whatsapp_chat_messages`
-```sql
-CREATE TABLE whatsapp_chat_messages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    conversation_id INT NOT NULL,
-    tenant_id INT NOT NULL,
-    direction ENUM('inbound','outbound') NOT NULL,
-    message_type VARCHAR(20) DEFAULT 'text', -- text, image, template, etc.
-    body TEXT,
-    media_id VARCHAR(255),
-    media_url TEXT,
-    provider_message_id VARCHAR(255),
-    status ENUM('pending','sent','delivered','read','failed') DEFAULT 'pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (conversation_id) REFERENCES whatsapp_conversations(id),
-    INDEX idx_conversation (conversation_id),
-    INDEX idx_provider_msg (provider_message_id)
-);
-```
+### Vercel API Request
 
-#### `whatsapp_campaigns`
-```sql
-CREATE TABLE whatsapp_campaigns (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    template_name VARCHAR(255),
-    total_recipients INT DEFAULT 0,
-    sent INT DEFAULT 0,
-    delivered INT DEFAULT 0,
-    read_count INT DEFAULT 0,
-    failed INT DEFAULT 0,
-    status ENUM('pending','sending','completed','failed') DEFAULT 'pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (tenant_id) REFERENCES tenants(id)
-);
-```
+1. Browser calls `/api/v1/...` on the same Vercel origin.
+2. `app.js` loads singleton settings into `req.tenant` and `req.tenantId`.
+3. Protected routes require `Authorization: Bearer <token>`.
+4. Route handlers use Mongoose models directly.
 
-#### `whatsapp_messages` (broadcast tracking)
-```sql
-CREATE TABLE whatsapp_messages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id INT NOT NULL,
-    campaign_id INT,
-    recipient_phone VARCHAR(50),
-    recipient_name VARCHAR(255),
-    template_name VARCHAR(255),
-    provider_message_id VARCHAR(255),
-    status ENUM('pending','sent','delivered','read','failed') DEFAULT 'pending',
-    error_message TEXT,
-    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    delivered_at DATETIME,
-    read_at DATETIME,
-    FOREIGN KEY (campaign_id) REFERENCES whatsapp_campaigns(id),
-    INDEX idx_provider_msg (provider_message_id)
-);
-```
+## Key Design Patterns
 
-## API Endpoints
+- Single-client singleton settings document: `Setting` uses `singletonId: admin_settings`.
+- Same-origin API deployment: no production `VITE_API_URL` is required.
+- Serverless-safe uploads: upload helpers use writable temp storage where needed.
+- Optional AI embeddings: Gemini improves matching, but the app must still work without it.
+- Static/helper regression tests: tests avoid live MongoDB, Meta, Razorpay, or Vercel dependencies.
 
-### Auth (`/api/v1/auth`)
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/login` | Login with email/password, returns JWT |
-| POST | `/register` | Register new user (creates tenant if needed) |
-| GET | `/me` | Get current user info |
+## External Dependencies
 
-### Contacts (`/api/v1/contacts`)
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | List contacts (search, tag, location, min_ticket, max_ticket filters, pagination) |
-| POST | `/` | Create contact |
-| PUT | `/:id` | Update contact |
-| DELETE | `/:id` | Delete contact |
-| POST | `/import` | Bulk CSV import |
-| GET | `/tags/list` | Get all unique tags |
-| GET | `/locations/list` | Get all unique locations |
+| Dependency | Purpose | Failure Mode |
+|------------|---------|--------------|
+| MongoDB Atlas | Primary persistence | Backend routes fail; login/settings/KB unavailable |
+| Meta WhatsApp Cloud API | Templates, messages, webhooks, media | Broadcast/chat send and media retrieval fail |
+| Gemini Embedding API | Semantic FAQ/product matching | Re-embed returns 400; lexical fallback still works |
+| Razorpay | Payment links when configured | Payment-link flows fail |
+| Shopify | Optional product sync | Shopify sync fails; local catalogue still works |
+| Vercel | Hosting and deployment | Site/API unavailable |
 
-### WhatsApp Broadcast (`/api/v1/whatsapp`)
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/recipients` | Get filtered contacts for broadcast (tag, search, location, min_ticket, max_ticket) |
-| GET | `/templates` | List Meta-approved templates |
-| POST | `/templates` | Create & submit template to Meta |
-| PUT | `/templates/:id` | Edit template components (body, footer, buttons, image) |
-| DELETE | `/templates/:name` | Delete template from Meta |
-| POST | `/broadcast` | Send broadcast to recipients |
-| GET | `/campaigns` | List past campaigns |
-| GET | `/campaigns/:id` | Campaign detail with message statuses |
+## Scalability & Limits
 
-### Chat Inbox (`/api/v1/whatsapp/chat`)
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/conversations` | List conversations (unread counts, window status) |
-| GET | `/conversations/:id/messages` | Get messages for a conversation |
-| POST | `/conversations/:id/send` | Send free-form text (24h window enforced) |
-| POST | `/conversations/:id/send-template` | Send template message (always allowed) |
-| PATCH | `/conversations/:id/read` | Mark conversation as read |
-| PATCH | `/conversations/:id/archive` | Toggle archive status |
+- The current architecture is intentionally single-client and not designed for tenant isolation.
+- Vercel functions are stateless; background workers and schedulers are disabled on Vercel.
+- Local uploaded files in serverless temp storage are ephemeral; persistent media should live in external storage if this becomes important.
+- MongoDB Atlas sizing and connection limits are the primary production scaling constraints.
 
-### Settings (`/api/v1/settings`)
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Get tenant settings |
-| PUT | `/profile` | Update firm profile |
-| PUT | `/whatsapp` | Save & verify WhatsApp credentials |
-| POST | `/whatsapp/disconnect` | Disconnect WhatsApp |
+## What Not To Do
 
-### Webhook (`/webhook/whatsapp` — in app.js)
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/webhook/whatsapp` | Meta webhook verification (challenge response) |
-| POST | `/webhook/whatsapp` | Incoming messages & status updates |
-
-## Data Flow Diagrams
-
-### Broadcast Flow
-```
-User selects recipients (by tag/location/ticket_size)
-  → User picks template
-  → POST /api/v1/whatsapp/broadcast
-  → Backend creates campaign record
-  → Loop: for each recipient
-    → Call Meta API: POST /v21.0/{phone_number_id}/messages
-    → Store message in whatsapp_messages table
-    → 100ms delay between sends
-  → Return campaign results
-  → Meta sends status webhooks (sent → delivered → read)
-  → Webhook handler updates message status
-```
-
-### Chat Flow (Inbound)
-```
-Customer sends WhatsApp message
-  → Meta sends webhook to POST /webhook/whatsapp
-  → Extract phone_number_id → find tenant
-  → Find or create conversation (by phone + tenant_id)
-  → Match contact by phone number
-  → Store message in whatsapp_chat_messages
-  → Update conversation: last_message, unread_count, window_expires_at (+24h)
-  → Frontend polls GET /conversations every 8 seconds
-  → UI shows new message
-```
-
-### Chat Flow (Outbound)
-```
-User types reply in chat
-  → POST /conversations/:id/send {body: "text"}
-  → Backend checks: is window_expires_at > now?
-    → YES: Call Meta API with type: "text"
-    → NO: Return 400 "Window expired, use template"
-  → Store outbound message in whatsapp_chat_messages
-  → Return success
-```
-
-## Authentication Flow
-
-```
-1. User enters email + password
-2. POST /api/v1/auth/login
-3. Backend finds user → verifies bcrypt password
-4. Returns JWT token + tenant slug + user info
-5. Frontend stores token in Zustand (persisted to localStorage)
-6. All subsequent API calls include:
-   - Authorization: Bearer <token>
-   - x-tenant-slug: <slug>
-7. Backend middleware:
-   - auth.js: verifies JWT, injects req.userId
-   - tenant.js: resolves slug → tenant, injects req.tenantId, req.tenant
-```
+- Do not point this fork at the original SaaS database.
+- Do not add tenant-seat billing or signup flows unless the client requirement changes.
+- Do not hardcode MongoDB, JWT, Meta, Razorpay, Shopify, or SMTP secrets.
+- Do not remove the lexical fallback unless another no-key bot path replaces it.

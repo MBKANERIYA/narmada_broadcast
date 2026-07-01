@@ -26,7 +26,7 @@ export default function KnowledgeBase() {
     const [phrasingBusy, setPhrasingBusy] = useState(false);
 
     const authHeaders = () => ({
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('narmada_broadcast_token')}`,
         'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default',
         'Content-Type': 'application/json',
     });
@@ -76,7 +76,7 @@ export default function KnowledgeBase() {
             const res = await fetch('/api/v1/knowledge-base/test', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Authorization': `Bearer ${localStorage.getItem('narmada_broadcast_token')}`,
                     'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default',
                     'Content-Type': 'application/json'
                 },
@@ -95,7 +95,7 @@ export default function KnowledgeBase() {
         try {
             const res = await fetch('/api/v1/knowledge-base', {
                 headers: { 
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Authorization': `Bearer ${localStorage.getItem('narmada_broadcast_token')}`,
                     'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default'
                 }
             });
@@ -126,7 +126,7 @@ export default function KnowledgeBase() {
             const res = await fetch(url, {
                 method,
                 headers: { 
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Authorization': `Bearer ${localStorage.getItem('narmada_broadcast_token')}`,
                     'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default',
                     'Content-Type': 'application/json'
                 },
@@ -174,7 +174,7 @@ export default function KnowledgeBase() {
             const res = await fetch(`/api/v1/knowledge-base/${id}`, {
                 method: 'DELETE',
                 headers: { 
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Authorization': `Bearer ${localStorage.getItem('narmada_broadcast_token')}`,
                     'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default'
                 }
             });

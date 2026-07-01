@@ -2,6 +2,20 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 - Vercel Single-Client Deployment Repair
+**What**: Removed the hardcoded MongoDB fallback, restored missing Vercel API contracts for auth, chatbot, AI Assistant, embeddings, and Knowledge Base, added text-only bot fallback, refreshed deployment docs, and removed an unused vulnerable mailer dependency.
+**Why**: The independent Narmada Vercel deployment was not behaving as a clean single-client product: chatbot/settings routes returned 404, Knowledge Base responses did not match the frontend contract, stale browser auth could open the dashboard without validation, and MongoDB isolation depended on an exposed fallback URI.
+**Impact**: Vercel production now requires `MONGO_URI`; old persisted auth state and generic `localStorage.token` are ignored by the new frontend storage keys; FAQ/product matching works without embeddings but semantic quality improves after setting `AI_API_KEY` and re-embedding; the unused public lead mailer route/dependency is removed.
+**Files Changed**: `README.md`, `backend/package.json`, `backend/package-lock.json`, `backend/src/config.js`, `backend/src/database.js`, `backend/src/routes/auth.js`, `backend/src/routes/knowledge-base.js`, `backend/src/routes/tenant-settings.js`, `backend/src/routes/leads.js`, `backend/src/services/smartResponder.js`, `backend/test/regression.test.js`, `frontend/package-lock.json`, `frontend/src/App.jsx`, `frontend/src/components/AdminPanel.jsx`, `frontend/src/components/Catalogue.jsx`, `frontend/src/components/Contacts.jsx`, `frontend/src/components/KnowledgeBase.jsx`, `frontend/src/components/Orders.jsx`, `frontend/src/components/Overview.jsx`, `frontend/src/components/Settings.jsx`, `frontend/src/stores/store.js`, `knowledge-base/README.md`, `knowledge-base/ARCHITECTURE.md`, `knowledge-base/DEPLOYMENT.md`, `knowledge-base/DEVELOPMENT_GUIDE.md`, `knowledge-base/chatbot.md`, `knowledge-base/changelog.md`, `knowledge-base/decisions.md`, `knowledge-base/known-issues.md`, `knowledge-base/security.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - `cd backend && npm test` (18 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (warnings only); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Commit**: `pending`
+
+- Added `resolveMongoUri()` and removed the hardcoded Atlas fallback; Vercel/production now fails fast without `MONGO_URI`.
+- Added `/api/v1/auth/me` and frontend `validateSession()` with product-specific persisted auth and token storage.
+- Added AI Assistant, embedding status/re-embed, Knowledge Base test, and alternate phrasing endpoints.
+- Made FAQ/product chatbot matching resilient when `AI_API_KEY` is missing by using lexical scoring.
+- Replaced stale Hostinger/MySQL deployment docs with Vercel + MongoDB Atlas instructions and credential rotation guidance.
+
 ## 2026-07-01 — UI: Remove Default Admin Credentials Hint
 **What**: Removed the hardcoded admin credentials (`admin` / `admin123`) hint box from the frontend Login page.
 **Why**: The hint was displaying default login credentials on the public login page, which is a security risk for a production environment.

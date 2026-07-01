@@ -58,7 +58,7 @@ export default function Catalogue() {
     const [formData, setFormData] = useState(blankProductForm);
 
     const api = async (path, options = {}) => {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('narmada_broadcast_token');
         const slug = localStorage.getItem('tenant_slug') || 'default';
         const res = await fetch(`/api/v1${path}`, {
             ...options,
@@ -173,7 +173,7 @@ export default function Catalogue() {
             return;
         }
 
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('narmada_broadcast_token');
         const slug = localStorage.getItem('tenant_slug') || 'default';
         const formDataPayload = new FormData();
         files.forEach(file => formDataPayload.append('images', file));
