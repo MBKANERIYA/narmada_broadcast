@@ -5,6 +5,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import config from './config.js';
 import { auth } from './middleware/auth.js';
+import { loadSettings } from './middleware/loadSettings.js';
 import { initDatabase } from './database.js';
 import { getUploadsDir } from './utils/uploads.js';
 
@@ -64,6 +65,9 @@ app.use('/api/v1/uploads', express.static(getUploadsDir()));
 // Public Webhook (No Auth)
 app.use('/api/v1/whatsapp-webhook', webhookRoutes);
 app.use('/api/v1/checkout', checkoutRoutes);
+
+// Global tenant loader for single client architecture
+app.use(loadSettings);
 
 // Routes
 app.use('/api/v1/auth', authRoutes);

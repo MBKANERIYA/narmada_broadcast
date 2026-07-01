@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { useStore } from './stores/store';
 import Icon from './components/Icons';
-import LandingPage from './components/LandingPage';
 import AuthPage from './components/Login';
 import Sidebar from './components/Sidebar';
 import Contacts from './components/Contacts';
@@ -59,7 +58,6 @@ const brandTheme = (color) => {
 export default function App() {
     const { isAuthenticated, currentView, tenant, user, setCurrentView } = useStore();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [page, setPage] = useState('landing'); // 'landing' | 'login' | 'register'
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -126,23 +124,10 @@ export default function App() {
         );
     }
 
-    // Not authenticated — show landing or auth
-    if (page === 'login' || page === 'register') {
-        return (
-            <>
-                <AuthPage
-                    initialMode={page}
-                    onBack={() => setPage('landing')}
-                />
-                <Toast />
-            </>
-        );
-    }
-
-    // Landing page
+    // Not authenticated — show workspace login directly
     return (
         <>
-            <LandingPage onNavigate={(p) => setPage(p)} />
+            <AuthPage />
             <Toast />
         </>
     );

@@ -2,6 +2,16 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Refactor: Remove Multi-Tenant Authentication & Marketing Landing Page for Dedicated Admin Login
+**What**: Removed multi-tenant user signup tabs, registration forms, and pricing landing page. Streamlined authentication to a direct single-client workspace login supporting default `admin` / `admin123` credentials. Mounted global tenant loading middleware across all backend API routes.
+**Why**: For a single-user platform without subscription upgrade plans, marketing pricing pages and self-service registration flows were unnecessary. The platform now directly prompts unauthenticated users for admin credentials (`admin` / `admin123`) to access the complete workspace.
+**Files Changed**:
+- `frontend/src/App.jsx`: Removed `LandingPage` component import and unauthenticated route branching. Unauthenticated visitors are routed directly to `AuthPage`.
+- `frontend/src/components/Login.jsx`: Removed "Sign Up" tabs, registration form fields, and signup mode switcher. Added an informational badge displaying default `admin` / `admin123` credentials.
+- `frontend/src/components/LandingPage.jsx` & `frontend/src/styles/landing.css`: Deleted obsolete SaaS marketing landing page and pricing stylesheet.
+- `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
+- `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
+
 ## 2026-07-01 — Feature & Refactor: Full Frontend Parity with Reference Platform & Single-Client Adaptation
 **What**: Synchronized all frontend UI components, stores, styles, and configurations from the reference platform (`D:\whatsapp_broadcast_saas`), while stripping out subscription plan paywalls and billing workflows to maintain the single-client architecture.
 **Why**: The user noticed that while backend features were ported earlier, the rich frontend UI capabilities—including Shopify Sync, AI Assistant Phase 2 testing & clustering console, brand theme customizer, and new catalogue management tools—were missing in the project frontend.

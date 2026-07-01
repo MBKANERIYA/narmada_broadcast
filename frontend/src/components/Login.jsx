@@ -3,87 +3,42 @@ import { useStore } from '../stores/store';
 import Icon from './Icons';
 
 /**
- * Auth Component — Login / Register with tab toggle
- * Register = self-service tenant signup (like AiSensy/Wati)
+ * Auth Component — Single Client Workspace Login
  */
-export default function AuthPage({ initialMode = 'login', onBack }) {
-    const { login, register, isLoading, error, clearError } = useStore();
-    const [mode, setMode] = useState(initialMode);
-    const [form, setForm] = useState({ name: '', firmName: '', email: '', password: '' });
+export default function AuthPage() {
+    const { login, isLoading, error, clearError } = useStore();
+    const [form, setForm] = useState({ email: 'admin', password: '' });
     const [showPassword, setShowPassword] = useState(false);
-
-    const switchMode = (m) => {
-        setMode(m);
-        clearError?.();
-        setForm({ name: '', firmName: '', email: '', password: '' });
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (mode === 'login') {
-            await login(form.email, form.password);
-        } else {
-            await register(form.name, form.firmName, form.email, form.password);
-        }
+        clearError?.();
+        await login(form.email, form.password);
     };
 
     const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
     return (
         <div className="auth-page">
-            <section className="auth-panel" aria-label={mode === 'login' ? 'Sign in' : 'Create account'}>
-                {onBack && (
-                    <button type="button" onClick={onBack} className="auth-back">
-                        Back
-                    </button>
-                )}
-
+            <section className="auth-panel" aria-label="Sign in">
                 <div className="auth-brand">
                     <div className="auth-brand-mark">W</div>
                     <div>
-                        <h1>{mode === 'login' ? 'Welcome Back' : 'Create Account'}</h1>
-                        <p>
-                            {mode === 'login'
-                                ? 'Sign in to manage your WhatsApp store workflows.'
-                                : 'Set up your business workspace and start broadcasting.'}
-                        </p>
+                        <h1>Workspace Login</h1>
+                        <p>Sign in to your WhatsApp Broadcast & Commerce workspace.</p>
                     </div>
                 </div>
 
-                <div className="auth-tabs" role="tablist" aria-label="Authentication mode">
-                    {['login', 'register'].map(m => (
-                        <button
-                            key={m}
-                            type="button"
-                            role="tab"
-                            aria-selected={mode === m}
-                            className={mode === m ? 'is-active' : ''}
-                            onClick={() => switchMode(m)}
-                        >
-                            {m === 'login' ? 'Sign In' : 'Sign Up'}
-                        </button>
-                    ))}
+                <div style={{ background: 'var(--bg-tertiary)', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '12px', color: 'var(--text-secondary)', borderLeft: '3px solid var(--accent-primary)' }}>
+                    <strong>Admin Credentials:</strong> <code>admin</code> / <code>admin123</code>
                 </div>
 
                 {error && <div className="auth-error">{error}</div>}
 
                 <form onSubmit={handleSubmit} className="auth-form">
-                    {mode === 'register' && (
-                        <>
-                            <label>
-                                <span>Your Name</span>
-                                <input type="text" value={form.name} onInput={update('name')} placeholder="John Doe" required />
-                            </label>
-                            <label>
-                                <span>Business Name</span>
-                                <input type="text" value={form.firmName} onInput={update('firmName')} placeholder="My Business" required />
-                            </label>
-                        </>
-                    )}
-
                     <label>
-                        <span>Email</span>
-                        <input type="email" value={form.email} onInput={update('email')} placeholder="you@business.com" required />
+                        <span>Username or Email</span>
+                        <input type="text" value={form.email} onInput={update('email')} placeholder="admin" required />
                     </label>
 
                     <label>
@@ -93,9 +48,9 @@ export default function AuthPage({ initialMode = 'login', onBack }) {
                                 type={showPassword ? 'text' : 'password'} 
                                 value={form.password} 
                                 onInput={update('password')} 
-                                placeholder="Enter password" 
+                                placeholder="Enter password (default: admin123)" 
                                 required 
-                                minLength={6} 
+                                minLength={3} 
                                 style={{ width: '100%', paddingRight: '40px' }}
                             />
                             <button 
@@ -119,18 +74,9 @@ export default function AuthPage({ initialMode = 'login', onBack }) {
                     </label>
 
                     <button type="submit" className="auth-submit" disabled={isLoading}>
-                        {isLoading
-                            ? (mode === 'login' ? 'Signing in...' : 'Creating account...')
-                            : (mode === 'login' ? 'Sign In' : 'Create Account')}
+                        {isLoading ? 'Signing in...' : 'Sign In'}
                     </button>
                 </form>
-
-                <p className="auth-switch">
-                    {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-                    <a href="#" onClick={(e) => { e.preventDefault(); switchMode(mode === 'login' ? 'register' : 'login'); }}>
-                        {mode === 'login' ? 'Sign up free' : 'Sign in'}
-                    </a>
-                </p>
             </section>
         </div>
     );

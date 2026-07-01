@@ -12,13 +12,16 @@ router.post('/login', async (req, res) => {
         const { email, password } = req.body;
         if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
-        // Hardcoded check
-        if ((email === 'admin' || email === 'admin@localhost' || email === 'admin@innodify.in') && password === 'admin123') {
+        const cleanEmail = String(email || '').trim().toLowerCase();
+        const cleanPass = String(password || '').trim();
+
+        // Hardcoded check for single client admin
+        if ((cleanEmail === 'admin' || cleanEmail.startsWith('admin@')) && cleanPass === 'admin123') {
             const token = generateToken('admin-user-id', 'admin', 'admin');
             return res.json({
                 token,
                 user: { id: 'admin-user-id', name: 'Admin User', email: 'admin', role: 'admin' },
-                tenant: { id: 'single-tenant', name: 'Admin Account', slug: 'admin', subscription_status: 'active' } // Fake tenant to keep frontend happy
+                tenant: { id: 'single-tenant', name: 'Admin Account', slug: 'admin', subscription_status: 'active', subscription_plan: 'commerce' }
             });
         }
 
