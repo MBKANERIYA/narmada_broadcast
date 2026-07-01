@@ -5,6 +5,7 @@ import fs from 'fs';
 import Product from '../models/Product.js';
 import { generateEmbedding } from '../services/smartResponder.js';
 import { getUploadsDir } from '../utils/uploads.js';
+import { syncProductToMeta, deleteProductFromMeta } from '../services/metaCatalogSync.js';
 
 const router = express.Router();
 const PRODUCT_UPLOAD_FIELD = 'images';
@@ -112,6 +113,10 @@ router.post('/', async (req, res) => {
             inventory_policy: allow_backorder ? 'continue' : 'deny',
         });
         await product.save();
+        
+        // Sync to Meta Catalog asynchronously
+        syncProductToMeta(product);
+
         res.status(201).json({ message: 'Product added successfully!', id: product._id });
     } catch (error) {
         console.error('[Products] Failed to add product:', error);
@@ -149,9 +154,13 @@ router.put('/:id', async (req, res) => {
         };
         if (vector.length > 0) updateData.product_vector = vector;
 
-        const product = await Product.findByIdAndUpdate(id, updateData);
+        const product = await Product.findByIdAndUpdate(id, updateData, { new: true });
 
         if (!product) return res.status(404).json({ error: 'Product not found' });
+        
+        // Sync update to Meta Catalog asynchronously
+        syncProductToMeta(product);
+        
         res.json({ message: 'Product updated successfully!' });
     } catch (error) {
         console.error('[Products] Failed to update product:', error);
@@ -163,6 +172,10 @@ router.delete('/:id', async (req, res) => {
     try {
         const product = await Product.findByIdAndDelete(req.params.id);
         if (!product) return res.status(404).json({ error: 'Product not found' });
+        
+        // Delete from Meta Catalog asynchronously
+        deleteProductFromMeta(product);
+        
         res.json({ message: 'Product deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete product' });

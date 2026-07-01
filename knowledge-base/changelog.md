@@ -2,6 +2,13 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Feature: Meta Commerce Catalog Real-Time Sync
+**What**: Developed a two-way synchronization service to automatically push products created or modified in the platform's Catalogue to the connected Meta Commerce Manager catalog.
+**Why**: When administrators add products in the dashboard, they expect them to be immediately available on WhatsApp for sharing via catalogue cards. This eliminates the need for double data entry in both the SaaS dashboard and Meta Business Suite.
+**Files Changed**:
+- `backend/src/services/metaCatalogSync.js`: Created new service integrating with Facebook Graph API (`/{catalog-id}/items_batch`) to upsert and delete products.
+- `backend/src/routes/products.js`: Integrated `syncProductToMeta` and `deleteProductFromMeta` into the product lifecycle (POST, PUT, DELETE routes).
+
 ## 2026-07-01 — Bugfix: Product Creation Fails When AI_API_KEY Is Not Set
 **What**: Fixed "Failed to add product" error in the Catalogue. Product creation and update routes crashed because `generateEmbedding()` throws when `AI_API_KEY` is missing. Now embedding generation is wrapped in a try/catch so products save successfully with an empty vector. Also mapped frontend inventory fields (`available_for_sale`, `track_inventory`, `allow_backorder`, `quantity`) to the correct Mongoose schema fields (`inventory_available`, `inventory_quantity`, `inventory_policy`).
 **Why**: The `AI_API_KEY` environment variable is optional and may not be configured yet. Products should still be saveable to the catalogue without AI embeddings — the bot just won't be able to semantically match them until the key is added.
