@@ -6,15 +6,9 @@ import { useState, useEffect } from 'preact/hooks';
 import { useStore } from '../stores/store';
 import Icon from './Icons';
 
-const PLAN_OPTIONS = [
-    { value: 'trial', label: 'Trial', color: '#8B5CF6' },
-    { value: 'paid', label: 'Paid', color: '#10B981' },
-];
 
 const STATUS_OPTIONS = [
     { value: 'active', label: 'Active', color: '#10B981' },
-    { value: 'trial', label: 'Trial', color: '#8B5CF6' },
-    { value: 'expired', label: 'Expired', color: '#EF4444' },
     { value: 'cancelled', label: 'Suspended', color: '#6B7280' },
 ];
 
@@ -125,17 +119,6 @@ export default function AdminPanel() {
         }
     };
 
-    const getPlanBadge = (plan) => {
-        const opt = PLAN_OPTIONS.find(p => p.value === plan) || PLAN_OPTIONS[0];
-        return (
-            <span style={{
-                padding: '2px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
-                background: `${opt.color}20`, color: opt.color, textTransform: 'uppercase',
-            }}>
-                {opt.label}
-            </span>
-        );
-    };
 
     const getStatusBadge = (status) => {
         const opt = STATUS_OPTIONS.find(s => s.value === status) || STATUS_OPTIONS[0];
@@ -225,7 +208,6 @@ export default function AdminPanel() {
 
                                 {/* Badges */}
                                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                    {getPlanBadge(tenant.subscription_plan)}
                                     {getStatusBadge(tenant.subscription_status)}
                                 </div>
 
@@ -244,7 +226,7 @@ export default function AdminPanel() {
                                     <Icon name="users" size={15} />
                                 </button>
                                 <button className="btn btn-ghost" onClick={() => handleEdit(tenant)}
-                                    title="Edit plan" style={{ padding: '6px 10px' }}>
+                                    title="Edit status" style={{ padding: '6px 10px' }}>
                                     <Icon name="pencil" size={15} />
                                 </button>
                                 <button className="btn btn-ghost" onClick={() => handleSuspend(tenant.id)}
@@ -269,14 +251,6 @@ export default function AdminPanel() {
                                 background: 'var(--bg-secondary)',
                                 display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap',
                             }}>
-                                <div>
-                                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Plan</label>
-                                    <select className="form-input" value={editForm.subscription_plan}
-                                        onChange={e => setEditForm({ ...editForm, subscription_plan: e.target.value })}
-                                        style={{ minWidth: '120px' }}>
-                                        {PLAN_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                                    </select>
-                                </div>
                                 <div>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Status</label>
                                     <select className="form-input" value={editForm.subscription_status}

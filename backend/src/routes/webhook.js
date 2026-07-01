@@ -5,7 +5,8 @@ import WhatsAppChatMessage from '../models/WhatsAppChatMessage.js';
 import Contact from '../models/Contact.js';
 import Setting from '../models/Setting.js';
 import { emitToTenant } from '../services/websocket.js';
-import { normalizePhone } from '../services/whatsapp.js';
+import { normalizePhone, sendTextMessage, sendMediaMessage, sendInteractiveMessage } from '../services/whatsapp.js';
+import { flagEnabled } from '../config/botConfig.js';
 import { initDatabase } from '../database.js';
 
 const router = Router();
@@ -26,7 +27,13 @@ router.post('/', async (req, res) => {
 
         // We only have one tenant for now, fetch the global settings to get the tenant ID
         let setting = await Setting.findOne({ singletonId: 'admin_settings' });
-        if (!setting) setting = await Setting.findOne();
+        if (!setting) {
+            setting = await Setting.findOne();
+            if (setting && !setting.singletonId) {
+                setting.singletonId = 'admin_settings';
+                await setting.save();
+            }
+        }
         if (!setting) {
             setting = new Setting({ singletonId: 'admin_settings' });
             await setting.save();
@@ -114,7 +121,7 @@ router.post('/', async (req, res) => {
                             tenant_id: tenantId,
                             conversation_id: conversation._id,
                             direction: 'inbound',
-                            message_type: msg.type,
+                            message_type: msg.type || 'text',
                             body: bodyText,
                             media_id: mediaId,
                             media_mime_type: mediaMimeType,
@@ -132,6 +139,267 @@ router.post('/', async (req, res) => {
                         await conversation.save();
 
                         emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+
+                        // --- AI Bot Smart Responder Logic ---
+                        if (conversation.bot_paused) {
+                            console.log(`[Webhook] Bot paused for conversation #${conversation._id}. Skipping automated reply.`);
+                            continue;
+                        }
+
+                        const botSettings = setting.bot_settings || {};
+                        const automationEnabled = botSettings.enabled !== false;
+                        if (!automationEnabled) {
+                            continue;
+                        }
+
+                        try {
+                            // Handle disambiguation tap
+                            if (msg.type === 'interactive' && msg.interactive?.type === 'list_reply' && msg.interactive?.list_reply?.id?.startsWith('faq_pick_')) {
+                                const pickId = msg.interactive.list_reply.id.replace('faq_pick_', '');
+                                if (pickId === 'none') {
+                                    const result = await sendTextMessage(fromPhone, "No problem! Please type your question again in your own words and I'll do my best to help.", setting);
+                                    if (result && result.messageId) {
+                                        await WhatsAppChatMessage.create({
+                                            tenant_id: tenantId,
+                                            conversation_id: conversation._id,
+                                            direction: 'outbound',
+                                            message_type: 'text',
+                                            body: "No problem! Please type your question again in your own words and I'll do my best to help.",
+                                            provider_message_id: result.messageId,
+                                            status: 'sent'
+                                        });
+                                        conversation.last_message_text = "No problem! Please type your question again in your own words and I'll do my best to help.";
+                                        conversation.last_message_at = new Date();
+                                        conversation.unread_count = 0;
+                                        await conversation.save();
+                                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+                                    }
+                                    continue;
+                                }
+                                const { default: KnowledgeBase } = await import('../models/KnowledgeBase.js');
+                                const picked = await KnowledgeBase.findOne({ _id: pickId, is_active: true });
+                                const replyText = picked ? picked.answer : 'Sorry, that option is no longer available. Please type your question again.';
+                                const result = await sendTextMessage(fromPhone, replyText, setting);
+                                if (result && result.messageId) {
+                                    await WhatsAppChatMessage.create({
+                                        tenant_id: tenantId,
+                                        conversation_id: conversation._id,
+                                        direction: 'outbound',
+                                        message_type: 'text',
+                                        body: replyText,
+                                        provider_message_id: result.messageId,
+                                        status: 'sent'
+                                    });
+                                    conversation.last_message_text = replyText.substring(0, 100);
+                                    conversation.last_message_at = new Date();
+                                    conversation.unread_count = 0;
+                                    await conversation.save();
+                                    emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+                                }
+                                continue;
+                            }
+
+                            const { handleSmartReply } = await import('../services/smartResponder.js');
+                            let chatHistory = [];
+                            try {
+                                const historyRows = await WhatsAppChatMessage.find({ conversation_id: conversation._id })
+                                    .sort({ created_at: -1 })
+                                    .limit(4)
+                                    .lean();
+                                if (historyRows && historyRows.length > 0) {
+                                    chatHistory = historyRows.reverse();
+                                }
+                            } catch (err) {
+                                console.error('[Bot] Failed to fetch chat history for memory:', err.message);
+                            }
+
+                            const botReply = await handleSmartReply(tenantId, bodyText, chatHistory, botSettings, {
+                                tenant: setting,
+                                phone: fromPhone,
+                                conversationId: conversation._id.toString(),
+                            });
+
+                            if (botReply) {
+                                if (botReply.type === 'disambiguation') {
+                                    const rows = (botReply.candidates || []).slice(0, 9).map((c) => {
+                                        const q = String(c.question || '').trim();
+                                        const title = q.length > 24 ? `${q.slice(0, 23)}…` : (q || 'Option');
+                                        const row = { id: `faq_pick_${c._id || c.id}`, title };
+                                        if (q.length > 24) row.description = q.slice(0, 72);
+                                        return row;
+                                    });
+                                    rows.push({ id: 'faq_pick_none', title: 'None of these' });
+
+                                    const interactiveOptions = {
+                                        type: 'list',
+                                        header: { type: 'text', text: 'Did you mean?' },
+                                        body: { text: 'I found a few possible matches. Tap the one closest to your question:' },
+                                        footer: { text: 'Select an option' },
+                                        action: { button: 'View options', sections: [{ title: 'Suggestions', rows }] },
+                                    };
+                                    const result = await sendInteractiveMessage(fromPhone, interactiveOptions, setting);
+                                    if (result && result.messageId) {
+                                        await WhatsAppChatMessage.create({
+                                            tenant_id: tenantId,
+                                            conversation_id: conversation._id,
+                                            direction: 'outbound',
+                                            message_type: 'interactive',
+                                            body: '[Did You Mean Sent]',
+                                            provider_message_id: result.messageId,
+                                            status: 'sent'
+                                        });
+                                        conversation.last_message_text = '[Did You Mean Sent]';
+                                        conversation.last_message_at = new Date();
+                                        conversation.unread_count = 0;
+                                        await conversation.save();
+                                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+                                    }
+                                    if (flagEnabled(botSettings, 'learning')) {
+                                        try {
+                                            const { logBotInteraction } = await import('../services/botLearning.js');
+                                            await logBotInteraction({
+                                                tenantId,
+                                                conversationId: conversation._id.toString(),
+                                                phone: fromPhone,
+                                                interactionType: 'disambiguation_shown',
+                                                intent: 'faq_disambiguation',
+                                                outcome: 'awaiting_tap',
+                                                metadata: { candidates: botReply.candidates || [] },
+                                            });
+                                        } catch (e) {}
+                                    }
+                                    continue;
+                                }
+
+                                if (botReply.type === 'order_status') {
+                                    const result = await sendTextMessage(fromPhone, botReply.text, setting);
+                                    if (result && result.messageId) {
+                                        await WhatsAppChatMessage.create({
+                                            tenant_id: tenantId,
+                                            conversation_id: conversation._id,
+                                            direction: 'outbound',
+                                            message_type: 'text',
+                                            body: botReply.text,
+                                            provider_message_id: result.messageId,
+                                            status: 'sent'
+                                        });
+                                        conversation.last_message_text = botReply.text.substring(0, 100);
+                                        conversation.last_message_at = new Date();
+                                        conversation.unread_count = 0;
+                                        await conversation.save();
+                                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+                                    }
+                                    continue;
+                                }
+
+                                if (botReply.type === 'handoff') {
+                                    conversation.needs_human = true;
+                                    conversation.bot_paused = true;
+                                    conversation.handoff_reason = botReply.reason || 'smart_flow_handoff';
+                                    await conversation.save();
+                                    emitToTenant(tenantId, 'handoff_requested', { conversationId: conversation._id.toString(), reason: botReply.reason || 'smart_flow_handoff' });
+
+                                    const result = await sendTextMessage(fromPhone, botReply.text, setting);
+                                    if (result && result.messageId) {
+                                        await WhatsAppChatMessage.create({
+                                            tenant_id: tenantId,
+                                            conversation_id: conversation._id,
+                                            direction: 'outbound',
+                                            message_type: 'text',
+                                            body: botReply.text,
+                                            provider_message_id: result.messageId,
+                                            status: 'sent'
+                                        });
+                                        conversation.last_message_text = botReply.text.substring(0, 100);
+                                        conversation.last_message_at = new Date();
+                                        conversation.unread_count = 0;
+                                        await conversation.save();
+                                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+                                    }
+                                    continue;
+                                }
+
+                                let result;
+                                let textToSave = '';
+                                let typeToSave = 'text';
+                                let interactionType = botReply.type;
+                                let interactionMetadata = { score: botReply.score, band: botReply.band };
+
+                                if (botReply.type === 'faq') {
+                                    let replyText = botReply.text;
+                                    if (flagEnabled(botSettings, 'smart_flows')) {
+                                        try {
+                                            const { renderSlots } = await import('../services/smartFlows.js');
+                                            replyText = renderSlots(replyText, { tenant: setting, botSettings });
+                                        } catch (slotErr) {}
+                                    }
+                                    result = await sendTextMessage(fromPhone, replyText, setting);
+                                    textToSave = replyText;
+                                    interactionType = 'faq_answer';
+                                } else if (botReply.type === 'product') {
+                                    const product = botReply.data;
+                                    interactionType = 'product_answer';
+                                    interactionMetadata.product_id = product._id || product.id;
+                                    const caption = `*${product.name}*\n${product.description ? product.description + '\n' : ''}\nPrice: ₹${product.selling_price || product.mrp}`;
+
+                                    if (product.image_url) {
+                                        result = await sendMediaMessage(fromPhone, 'image', { link: product.image_url }, caption, setting);
+                                        textToSave = caption;
+                                        typeToSave = 'image';
+                                    } else {
+                                        result = await sendTextMessage(fromPhone, caption, setting);
+                                        textToSave = caption;
+                                    }
+                                }
+
+                                if (result && result.messageId) {
+                                    await WhatsAppChatMessage.create({
+                                        tenant_id: tenantId,
+                                        conversation_id: conversation._id,
+                                        direction: 'outbound',
+                                        message_type: typeToSave,
+                                        body: textToSave,
+                                        provider_message_id: result.messageId,
+                                        status: 'sent'
+                                    });
+                                    conversation.last_message_text = textToSave.substring(0, 100);
+                                    conversation.last_message_at = new Date();
+                                    conversation.unread_count = 0;
+                                    await conversation.save();
+                                    emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+
+                                    if (flagEnabled(botSettings, 'learning')) {
+                                        try {
+                                            const { logBotInteraction } = await import('../services/botLearning.js');
+                                            await logBotInteraction({
+                                                tenantId,
+                                                conversationId: conversation._id.toString(),
+                                                phone: fromPhone,
+                                                interactionType,
+                                                faqId: botReply.faqId || null,
+                                                productId: interactionMetadata.product_id || null,
+                                                intent: botReply.type,
+                                                outcome: 'answered',
+                                                metadata: interactionMetadata,
+                                            });
+                                        } catch (e) {}
+                                    }
+                                }
+                            } else if (flagEnabled(botSettings, 'learning')) {
+                                try {
+                                    const { logUnanswered } = await import('../services/botLearning.js');
+                                    await logUnanswered({
+                                        tenantId,
+                                        conversationId: conversation._id.toString(),
+                                        phone: fromPhone,
+                                        messageBody: bodyText,
+                                        metadata: { messageType: msg.type },
+                                    });
+                                } catch (e) {}
+                            }
+                        } catch (botErr) {
+                            console.error('[Bot] Failed to run Smart Responder:', botErr.message);
+                        }
                     }
                 }
 

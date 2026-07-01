@@ -2,6 +2,26 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Architecture Refactor: Single-Client Transition & Subscription Plan Deletion
+**What**: Removed multi-tenant subscription plan infrastructure and restrictions across frontend and backend components to transition the platform into a dedicated, single-client architecture.
+**Why**: The platform is intended for single-client usage rather than multi-tenant SaaS plan tiers. Plan restrictions, trial timers, user limits, and subscription badges were redundant and confusing in a single-owner deployment.
+**Files Changed**:
+- `backend/src/config/plans.js`: Updated all plan definitions to include all features, unlimited users (`99999`), and default WhatsApp enablement. `canUseFeature()` now always returns `true`.
+- `backend/src/middleware/limits.js`: Bypassed `checkUserLimit` and removed trial plan restrictions in `checkWhatsAppEnabled`.
+- `backend/src/routes/public.js`: Updated signup route to create clients with active `commerce` (unlimited) access without trial timers.
+- `frontend/src/stores/store.js`: Removed subscription/trial expiration error redirection in the API client.
+- `frontend/src/components/Settings.jsx`: Removed the "Subscription" tab and plan management UI.
+- `frontend/src/components/AdminPanel.jsx`: Removed `PLAN_OPTIONS`, plan badges, and plan edit select fields.
+- `frontend/src/components/LandingPage.jsx`: Removed references to 14-day free trials.
+
+## 2026-07-01 — Feature & Fix: Complete Mongoose Migration for AI Bot Intelligence & Webhook Smart Responder
+**What**: Migrated `smartResponder.js`, `retrievalEngine.js`, `botLearning.js`, and `smartFlows.js` from legacy SQL to Mongoose/MongoDB, integrated automated bot replies in `webhook.js`, and unified singleton settings retrieval across `loadSettings.js` and `webhook.js`.
+**Why**: To complete the backend migration to MongoDB and ensure full functional parity with the reference platform. The AI bot responder now answers incoming customer queries with hybrid retrieval (vector embeddings + lexical search), handles disambiguation ("Did you mean?"), product searches, and human agent handoffs. Additionally, robust singleton ID fallback logic prevents multi-tenant tenant_id mismatches between the admin dashboard and webhook handlers.
+**Files Changed**:
+- `backend/src/routes/webhook.js`: Integrated `handleSmartReply`, disambiguation list handling, and fallback `Setting.findOne()` logic.
+- `backend/src/middleware/loadSettings.js`: Hardened global setting lookup to persist and normalize `singletonId: 'admin_settings'`.
+- `backend/src/services/smartResponder.js`: Ported from SQL database helper to Mongoose models (`KnowledgeBase`, `Product`, `Order`).
+
 ## 2026-07-01 — Fix: Serverless Read-Only Filesystem Uploads Compatibility (`/var/task/uploads`)
 **What**: Created `getUploadsDir()` utility in `backend/src/utils/uploads.js` and updated all file/media upload routes and static file serving in `app.js`, `products.js`, and `whatsapp-chat.js`.
 **Why**: In serverless runtime environments like Vercel and AWS Lambda, the working directory (`process.cwd()` / `/var/task`) is read-only. Attempting to upload attachments or media in the Chat Inbox failed with `ENOENT: no such file or directory, mkdir '/var/task/uploads'`. The new utility dynamically detects serverless environments and read-only filesystems and falls back to writing files in `/tmp/uploads` (`os.tmpdir()/uploads`), while serving static files cleanly.

@@ -45,11 +45,6 @@ const api = async (path, options = {}) => {
             let error;
             try { error = JSON.parse(errorText); } catch { error = { error: errorText || `Request failed (${res.status})` }; }
 
-            if (error.subscription_expired || error.trial_expired) {
-                const store = useStore.getState();
-                store.setCurrentView('settings');
-                throw new Error(error.error);
-            }
             if (error.whatsapp_not_configured) {
                 const store = useStore.getState();
                 store.setCurrentView('settings');

@@ -4,7 +4,7 @@ import Icon from './Icons';
 
 /**
  * Settings Component — Tenant admin settings page
- * Tabs: Firm Profile | WhatsApp | Subscription
+ * Tabs: Firm Profile | WhatsApp | Chatbot & Hours
  */
 export default function Settings() {
     const {
@@ -171,7 +171,6 @@ export default function Settings() {
         { id: 'profile', label: 'Firm Profile', icon: 'briefcase' },
         { id: 'whatsapp', label: 'WhatsApp', icon: 'whatsapp' },
         { id: 'chatbot', label: 'Chatbot & Hours', icon: 'message-circle' },
-        { id: 'subscription', label: 'Subscription', icon: 'settings' },
     ];
 
     return (
@@ -597,59 +596,6 @@ export default function Settings() {
                             {saving ? 'Saving Settings...' : 'Save Settings'}
                         </button>
                     </form>
-                </div>
-            )}
-
-            {/* ── Subscription Tab ── */}
-            {activeTab === 'subscription' && (
-                <div style={{ maxWidth: '600px' }}>
-                    <div className="card">
-                        <h2 style={{ marginBottom: '16px' }}>Current Plan</h2>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                            <div style={{
-                                background: 'var(--accent-primary)', color: 'white',
-                                padding: '6px 16px', borderRadius: '8px',
-                                fontWeight: 700, textTransform: 'uppercase', fontSize: '14px',
-                            }}>
-                                {tenant?.subscription_plan || 'Trial'}
-                            </div>
-                            <span className="status-badge won" style={{ textTransform: 'uppercase' }}>
-                                {tenant?.subscription_status || 'Active'}
-                            </span>
-                        </div>
-
-                        <div style={{
-                            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px',
-                        }}>
-                            <div style={{
-                                background: 'var(--bg-tertiary)', padding: '12px',
-                                borderRadius: '8px',
-                            }}>
-                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                                    Plan
-                                </div>
-                                <div style={{ fontSize: '18px', fontWeight: 700, textTransform: 'capitalize' }}>
-                                    {tenant?.subscription_plan || 'Trial'}
-                                </div>
-                            </div>
-                            <div style={{
-                                background: 'var(--bg-tertiary)', padding: '12px',
-                                borderRadius: '8px',
-                            }}>
-                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                                    Status
-                                </div>
-                                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-success)', textTransform: 'capitalize' }}>
-                                    {tenant?.subscription_status || 'Active'}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="info-box">
-                            <strong>Need to upgrade?</strong> Contact support to change your plan. All plans include unlimited contacts and broadcasts. Meta charges for message delivery separately.
-                        </div>
-                    </div>
                 </div>
             )}
         </div>

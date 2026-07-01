@@ -218,10 +218,10 @@ export default function LandingPage({ onNavigate }) {
                                 Ready to scale your WhatsApp marketing?
                             </h2>
                             <p className="landing-section-subtitle" style={{ textAlign: 'left', margin: '0 0 24px' }}>
-                                Fill in your details and our team will set you up within 24 hours. Free 14-day trial included.
+                                Fill in your details and our team will set you up within 24 hours. All platform features included.
                             </p>
                             <div className="landing-form-perks">
-                                {['No credit card required', '14-day free trial', 'Use your own Meta API', 'Dedicated onboarding support'].map((perk, i) => (
+                                {['No credit card required', 'All features unlocked', 'Use your own Meta API', 'Dedicated onboarding support'].map((perk, i) => (
                                     <div className="landing-form-perk" key={i}>
                                         <Icon name="check" size={16} />
                                         <span>{perk}</span>

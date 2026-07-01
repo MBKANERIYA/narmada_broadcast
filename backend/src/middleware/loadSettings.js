@@ -9,8 +9,14 @@ export const loadSettings = async (req, res, next) => {
     try {
         let setting = await Setting.findOne({ singletonId: 'admin_settings' });
         if (!setting) {
-            setting = new Setting();
-            await setting.save();
+            setting = await Setting.findOne();
+            if (setting) {
+                setting.singletonId = 'admin_settings';
+                await setting.save();
+            } else {
+                setting = new Setting({ singletonId: 'admin_settings' });
+                await setting.save();
+            }
         }
 
         const settingObj = setting.toObject();

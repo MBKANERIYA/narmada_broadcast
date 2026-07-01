@@ -45,16 +45,11 @@ router.post('/signup', async (req, res) => {
             return res.status(409).json({ error: 'This email is already registered. Try signing in.' });
         }
 
-        // Create tenant with 14-day trial
-        const trialEnds = new Date();
-        trialEnds.setDate(trialEnds.getDate() + 14);
-        // MySQL DATETIME format: YYYY-MM-DD HH:MM:SS
-        const trialEndsStr = trialEnds.toISOString().slice(0, 19).replace('T', ' ');
-
+        // Create tenant with active unlimited access
         const tenantResult = await run(
             `INSERT INTO tenants (name, slug, email, subscription_plan, subscription_status, trial_ends_at)
-             VALUES (?, ?, ?, 'trial', 'active', ?)`,
-            [firmName, slug, email, trialEndsStr]
+             VALUES (?, ?, ?, 'commerce', 'active', NULL)`,
+            [firmName, slug, email]
         );
         const tenantId = tenantResult.lastInsertRowid;
 
@@ -76,7 +71,7 @@ router.post('/signup', async (req, res) => {
             user: { id: userId, name, email, role: 'admin' },
             tenant: {
                 id: tenantId, name: firmName, slug,
-                subscription_plan: 'trial', subscription_status: 'active',
+                subscription_plan: 'commerce', subscription_status: 'active',
             },
         });
     } catch (error) {

@@ -24,6 +24,20 @@ import analyticsRoutes from './routes/analytics.js';
 import whatsappRoutes from './routes/whatsapp.js';
 import webhookRoutes from './routes/webhook.js';
 import whatsappChatRoutes from './routes/whatsapp-chat.js';
+import checkoutRoutes from './routes/checkout.js';
+import integrationsRoutes from './routes/integrations.js';
+import { registerJobHandler, startJobWorker } from './services/jobQueue.js';
+import { processCampaignSendJob } from './services/campaignWorker.js';
+import { processShopifySyncJob } from './services/shopifySync.js';
+import { startShopifySyncScheduler } from './services/shopifyScheduler.js';
+
+registerJobHandler('campaign.send', processCampaignSendJob);
+registerJobHandler('shopify.sync', processShopifySyncJob);
+
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+    startJobWorker();
+    startShopifySyncScheduler();
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -49,6 +63,7 @@ app.use('/api/v1/uploads', express.static(getUploadsDir()));
 
 // Public Webhook (No Auth)
 app.use('/api/v1/whatsapp-webhook', webhookRoutes);
+app.use('/api/v1/checkout', checkoutRoutes);
 
 // Routes
 app.use('/api/v1/auth', authRoutes);
@@ -59,6 +74,7 @@ app.use('/api/v1/products', productsRoutes);
 app.use('/api/v1/knowledge-base', knowledgeBaseRoutes);
 app.use('/api/v1/orders', ordersRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/integrations', integrationsRoutes);
 
 // WhatsApp broadcast routes (migrated to MongoDB)
 app.use('/api/v1/whatsapp', whatsappRoutes);
