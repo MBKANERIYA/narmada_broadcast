@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { io } from 'socket.io-client';
+import { getDefaultViewForPlan } from '../config/plans';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
@@ -45,10 +46,21 @@ const api = async (path, options = {}) => {
             let error;
             try { error = JSON.parse(errorText); } catch { error = { error: errorText || `Request failed (${res.status})` }; }
 
+            if (error.subscription_expired || error.trial_expired) {
+                const store = useStore.getState();
+                store.setCurrentView('settings');
+                throw new Error(error.error);
+            }
             if (error.whatsapp_not_configured) {
                 const store = useStore.getState();
                 store.setCurrentView('settings');
                 store.showToast('Configure your WhatsApp credentials in Settings first', 'info');
+                throw new Error(error.error);
+            }
+            if (error.upgrade_required) {
+                const store = useStore.getState();
+                store.setCurrentView('settings');
+                store.showToast(error.error || 'Upgrade your plan to continue', 'info');
                 throw new Error(error.error);
             }
             throw new Error(error.error || `Request failed (${res.status})`);
@@ -131,6 +143,29 @@ export const useStore = create(
                     }
                 });
 
+                socket.on('handoff_requested', (data) => {
+                    const state = get();
+                    state.fetchConversations();
+                    state.showToast(
+                        `🆘 A customer needs human help${data.reason ? ` (${data.reason.replace(/_/g, ' ')})` : ''}`,
+                        'warning',
+                        8000
+                    );
+                    try {
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.frequency.value = 880;
+                        osc.type = 'sine';
+                        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                        osc.start(ctx.currentTime);
+                        osc.stop(ctx.currentTime + 0.5);
+                    } catch { /* audio not available */ }
+                });
+
                 socket.on('disconnect', () => {
                     console.log('[WebSocket] Disconnected');
                 });
@@ -153,7 +188,13 @@ export const useStore = create(
                     localStorage.setItem('user', JSON.stringify(data.user));
                     if (data.tenant) localStorage.setItem('tenant_slug', data.tenant.slug);
 
-                    set({ user: data.user, tenant: data.tenant || null, isAuthenticated: true, currentView: 'overview', error: null });
+                    set({
+                        user: data.user,
+                        tenant: data.tenant || null,
+                        isAuthenticated: true,
+                        currentView: getDefaultViewForPlan(data.tenant?.subscription_plan, data.user),
+                        error: null,
+                    });
                     return true;
                 } catch (error) {
                     set({ error: error.message });
@@ -185,7 +226,14 @@ export const useStore = create(
                     localStorage.setItem('user', JSON.stringify(data.user));
                     if (data.tenant) localStorage.setItem('tenant_slug', data.tenant.slug);
 
-                    set({ user: data.user, tenant: data.tenant || null, isAuthenticated: true, currentView: 'overview', isLoading: false, error: null });
+                    set({
+                        user: data.user,
+                        tenant: data.tenant || null,
+                        isAuthenticated: true,
+                        currentView: getDefaultViewForPlan(data.tenant?.subscription_plan, data.user),
+                        isLoading: false,
+                        error: null,
+                    });
                     return true;
                 } catch (error) {
                     set({ error: error.message, isLoading: false });
@@ -210,7 +258,7 @@ export const useStore = create(
 
             updateTenantProfile: async (profileData) => {
                 await api('/tenant-settings/profile', { method: 'PUT', body: JSON.stringify(profileData) });
-                get().fetchTenantSettings();
+                return await get().fetchTenantSettings();
             },
 
             updateWhatsAppConfig: async (configData) => {
@@ -223,9 +271,69 @@ export const useStore = create(
                 get().fetchTenantSettings();
             },
 
+            createBillingOrder: async (plan) => {
+                return await api('/tenant-settings/billing/order', {
+                    method: 'POST',
+                    body: JSON.stringify({ plan }),
+                });
+            },
+
+            verifyBillingPayment: async (payload) => {
+                const result = await api('/tenant-settings/billing/verify', {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                });
+                await get().fetchTenantSettings();
+                return result;
+            },
+
+            fetchShopifyIntegration: async () => {
+                return await api('/integrations/shopify');
+            },
+
+            saveShopifyIntegration: async (payload) => {
+                return await api('/integrations/shopify', {
+                    method: 'PUT',
+                    body: JSON.stringify(payload),
+                });
+            },
+
+            syncShopifyProducts: async () => {
+                return await api('/integrations/shopify/sync', { method: 'POST' });
+            },
+
             updateChatbotSettings: async (botSettings) => {
                 await api('/tenant-settings/chatbot', { method: 'PUT', body: JSON.stringify({ bot_settings: botSettings }) });
                 get().fetchTenantSettings();
+            },
+
+            fetchAiAssistantOverview: async () => {
+                const [analytics, suggestions, score, digest] = await Promise.all([
+                    api('/tenant-settings/ai-assistant/analytics'),
+                    api('/tenant-settings/ai-assistant/suggestions'),
+                    api('/tenant-settings/ai-assistant/score'),
+                    api('/tenant-settings/ai-assistant/digest'),
+                ]);
+                return {
+                    analytics: analytics.analytics || {},
+                    suggestions: suggestions.suggestions || [],
+                    score,
+                    digest: digest.digest || {},
+                };
+            },
+
+            runAiAssistantTest: async (message, options = {}) => {
+                return await api('/tenant-settings/ai-assistant/test', {
+                    method: 'POST',
+                    body: JSON.stringify({ message, ...options }),
+                });
+            },
+
+            clusterAiAssistantSuggestions: async () => {
+                return await api('/tenant-settings/ai-assistant/learning/cluster', {
+                    method: 'POST',
+                    body: JSON.stringify({ limit: 100 }),
+                });
             },
 
             // ============================================================
@@ -309,6 +417,12 @@ export const useStore = create(
                 return await api(`/whatsapp/campaigns/${id}`);
             },
 
+            controlWhatsAppCampaign: async (id, action) => {
+                const result = await api(`/whatsapp/campaigns/${id}/${action}`, { method: 'POST' });
+                await get().fetchWhatsAppCampaigns();
+                return result;
+            },
+
             uploadTemplateImage: async (imageFile) => {
                 const formData = new FormData();
                 formData.append('image', imageFile);
@@ -322,15 +436,11 @@ export const useStore = create(
 
             fetchWhatsAppTemplates: async () => {
                 try {
-                    const response = await api('/whatsapp/templates');
-                    // Defensive: Meta API wraps in { data: [...] }, backend should unwrap
-                    // but handle both shapes just in case
-                    const templates = Array.isArray(response) ? response : (Array.isArray(response?.data) ? response.data : []);
+                    const templates = await api('/whatsapp/templates');
                     set({ whatsappTemplates: templates });
                     return templates;
                 } catch (error) {
                     console.error('Failed to fetch templates:', error);
-                    set({ whatsappTemplates: [] });
                     return [];
                 }
             },
@@ -363,6 +473,7 @@ export const useStore = create(
                     let url = '/whatsapp/chat/conversations?';
                     if (search) url += `search=${encodeURIComponent(search)}&`;
                     if (filter === 'paid') url += `paid=1&`;
+                    if (filter === 'needs_human') url += `needs_human=1&`;
 
                     const data = await api(url);
                     set({
@@ -518,6 +629,30 @@ export const useStore = create(
                     ),
                 }));
                 return result;
+            },
+
+            resolveHumanHandoff: async (conversationId, sendFeedback = false) => {
+                const result = await api(`/whatsapp/chat/conversations/${conversationId}/handoff/resolve`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ send_feedback: sendFeedback }),
+                });
+                set(state => ({
+                    activeConversation: state.activeConversation?.id === conversationId
+                        ? { ...state.activeConversation, needs_human: false, bot_paused: false }
+                        : state.activeConversation,
+                    conversations: state.conversations.map(c =>
+                        c.id === conversationId ? { ...c, needs_human: false, bot_paused: false } : c
+                    ),
+                }));
+                await get().fetchConversations();
+                return result;
+            },
+
+            teachBotFromConversation: async (conversationId, question, answer, sourceMessageId = null) => {
+                return await api(`/whatsapp/chat/conversations/${conversationId}/teach`, {
+                    method: 'POST',
+                    body: JSON.stringify({ question, answer, source_message_id: sourceMessageId }),
+                });
             },
 
             startNewConversation: async (phone, contactName, templateName, templateParams = [], languageCode = 'en_US') => {

@@ -1,69 +1,105 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import Icon from './Icons';
 import '../styles/landing.css';
 
-const FEATURES = [
+const CONTACT_EMAIL = 'support@innodify.in';
+
+const FEATURE_LINKS = [
+    'Broadcasts',
+    'Chat Inbox',
+    'Catalogue',
+    'Orders',
+    'Smart FAQs',
+    'AI Assistant',
+];
+
+const USE_CASES = [
     {
-        icon: 'send',
-        title: 'Bulk Broadcasts',
-        desc: 'Send approved template messages to thousands of contacts instantly with smart tag and location filters.',
+        label: 'Broadcast',
+        title: 'Send approved WhatsApp template campaigns to your customer lists',
+        desc: 'Create templates, organize contacts, and run broadcast campaigns from the workspace.',
+        details: ['Create templates', 'Send broadcasts', 'Track campaign delivery'],
+        tone: 'mint',
     },
     {
-        icon: 'chat',
-        title: 'Two-Way Chat Inbox',
-        desc: 'Respond to customer messages in a unified inbox with 24-hour window awareness and template fallback.',
+        label: 'Inbox',
+        title: 'Handle replies and follow-ups from a team inbox',
+        desc: 'Commerce plan teams can manage customer conversations with labels, unread counts, media replies, and template sends.',
+        details: ['Team inbox', 'Labels and unread state', 'Template replies'],
+        tone: 'pink',
     },
     {
-        icon: 'users',
-        title: 'Smart Contact Manager',
-        desc: 'Import via CSV, segment by tags, location, and budget — then target the right audience every time.',
-    },
-    {
-        icon: 'bar-chart',
-        title: 'Delivery Analytics',
-        desc: 'Track sent, delivered, read, and failed counts for every campaign in real time.',
-    },
-    {
-        icon: 'lock',
-        title: 'Your API, Your Data',
-        desc: 'Use your own Meta credentials. We never access your messages — complete data sovereignty.',
-    },
-    {
-        icon: 'rocket',
-        title: '2-Minute Setup',
-        desc: 'Sign up, paste your WhatsApp Business API keys, import contacts, and start broadcasting.',
+        label: 'Commerce',
+        title: 'Connect products, orders, payments, and support context',
+        desc: 'Commerce plan adds Catalogue, Orders, Smart FAQs, AI Assistant, and Razorpay order payment links.',
+        details: ['Catalogue', 'Orders', 'Smart FAQs and AI Assistant'],
+        tone: 'yellow',
     },
 ];
 
-const STEPS = [
-    { num: '01', title: 'Create Account', desc: 'Sign up in 30 seconds — no credit card needed' },
-    { num: '02', title: 'Connect WhatsApp', desc: 'Paste your Meta Business API credentials' },
-    { num: '03', title: 'Import Contacts', desc: 'Upload CSV or add contacts manually with tags' },
-    { num: '04', title: 'Go Live', desc: 'Send your first broadcast campaign today' },
+const AI_CARDS = [
+    {
+        title: 'Smart FAQs',
+        desc: 'Answer repeated store questions from your knowledge base with confidence-aware matching.',
+        stat: 'FAQ',
+        accent: 'pink',
+    },
+    {
+        title: 'AI Assistant',
+        desc: 'Commerce plan includes smart replies, learning suggestions, product search, and order-status flows.',
+        stat: 'AI',
+        accent: 'blue',
+    },
 ];
 
-const STATS = [
-    { value: '10K+', label: 'Messages Sent' },
-    { value: '500+', label: 'Active Businesses' },
-    { value: '99.9%', label: 'Delivery Rate' },
+const INTEGRATIONS = ['Meta WhatsApp Cloud API', 'WhatsApp Templates', 'CSV Contacts', 'Razorpay', 'Catalogue', 'Webhooks'];
+
+const PRICING = [
+    {
+        name: 'Broadcast',
+        price: 'INR 399',
+        period: 'per month',
+        desc: 'For stores that only need WhatsApp templates and broadcast campaigns.',
+        cta: 'Choose Broadcast',
+        features: ['Create templates', 'Send broadcasts', 'Manage broadcast contact lists'],
+    },
+    {
+        name: 'Commerce',
+        price: 'INR 449',
+        period: 'per month',
+        desc: 'For stores that want the full WhatsApp commerce workspace.',
+        cta: 'Choose Commerce',
+        featured: true,
+        features: ['Everything in Broadcast', 'Chat Inbox', 'Catalogue', 'Orders', 'Smart FAQs', 'AI Assistant', 'Razorpay order payment links'],
+    },
+];
+
+const FAQS = [
+    {
+        q: 'Do tenants share one WhatsApp API?',
+        a: 'No. Every tenant connects their own Meta WhatsApp Cloud API credentials in Settings.',
+    },
+    {
+        q: 'Are Meta messaging charges included?',
+        a: 'Meta messaging charges are billed separately by Meta. The platform subscription covers the software workspace.',
+    },
+    {
+        q: 'What is included in the Broadcast plan?',
+        a: 'Broadcast includes WhatsApp template creation, contact lists for broadcasts, and campaign sending. Inbox, Catalogue, Orders, Smart FAQs, and AI Assistant are in Commerce.',
+    },
 ];
 
 export default function LandingPage({ onNavigate }) {
-    const [scrolled, setScrolled] = useState(false);
     const [leadForm, setLeadForm] = useState({ name: '', email: '', phone: '', business: '' });
-    const [leadStatus, setLeadStatus] = useState(''); // '' | 'sending' | 'sent' | 'error'
-
-    useEffect(() => {
-        const onScroll = () => setScrolled(window.scrollY > 20);
-        window.addEventListener('scroll', onScroll);
-        return () => window.removeEventListener('scroll', onScroll);
-    }, []);
-
+    const [leadStatus, setLeadStatus] = useState('');
     const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+    const updateLead = (field) => (e) => setLeadForm({ ...leadForm, [field]: e.target.value });
 
     const handleLeadSubmit = async (e) => {
         e.preventDefault();
         setLeadStatus('sending');
+
         try {
             const res = await fetch(`${API_BASE}/api/v1/leads`, {
                 method: 'POST',
@@ -74,219 +110,335 @@ export default function LandingPage({ onNavigate }) {
             if (data.success) {
                 setLeadStatus('sent');
                 setLeadForm({ name: '', email: '', phone: '', business: '' });
-            } else {
-                setLeadStatus('error');
+                return;
             }
+            setLeadStatus('error');
         } catch {
             setLeadStatus('error');
         }
     };
 
-    const updateLead = (field) => (e) => setLeadForm({ ...leadForm, [field]: e.target.value });
-
     return (
         <div className="landing">
-            {/* Background effects */}
-            <div className="landing-bg-orbs" />
-            <div className="landing-grid-overlay" />
-
-            {/* ── Navbar ── */}
-            <nav className={`landing-nav ${scrolled ? 'scrolled' : ''}`}>
-                <div className="landing-nav-inner">
-                    <div className="landing-logo">
-                        <div className="landing-logo-icon">W</div>
-                        <span className="landing-logo-text">WhatsApp Broadcast</span>
-                    </div>
-                    <div className="landing-nav-actions">
-                        <button className="landing-btn landing-btn-ghost"
-                            onClick={() => onNavigate('login')}>
-                            Sign In
-                        </button>
-                        <button className="landing-btn landing-btn-primary"
-                            onClick={() => onNavigate('register')}>
-                            Get Started Free
-                        </button>
-                    </div>
-                </div>
-            </nav>
-
-            {/* ── Hero ── */}
-            <section className="landing-hero">
-                <div className="landing-badge">
-                    <span className="landing-badge-dot" />
-                    Powered by Meta Cloud API v21.0
-                </div>
-
-                <h1>
-                    WhatsApp Marketing{' '}
-                    <span className="landing-hero-gradient">Made Effortless</span>
-                </h1>
-
-                <p>
-                    Broadcast to thousands, chat with every customer, track every delivery — 
-                    all from one beautiful dashboard. Connect your own Meta API.
-                </p>
-
-                <div className="landing-hero-actions">
-                    <button className="landing-btn landing-btn-primary landing-btn-lg"
-                        onClick={() => onNavigate('register')}>
-                        Start Free — No Card Required
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                            <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
-                    </button>
-                    <button className="landing-btn landing-btn-outline landing-btn-lg"
-                        onClick={() => onNavigate('login')}>
-                        Sign In
-                    </button>
-                </div>
-            </section>
-
-            {/* ── Stats ── */}
-            <section className="landing-stats">
-                <div className="landing-stats-inner">
-                    {STATS.map((s, i) => (
-                        <div className="landing-stat" key={i}>
-                            <div className="landing-stat-value">{s.value}</div>
-                            <div className="landing-stat-label">{s.label}</div>
+            <header className="landing-header" id="top">
+                <div className="landing-utility-bar">
+                    <div className="landing-container landing-utility-inner">
+                        <div>
+                            <a href={`mailto:${CONTACT_EMAIL}`}>Support</a>
+                            <a href="#product">Product</a>
+                            <a href="#pricing">Pricing</a>
                         </div>
-                    ))}
+                        <div>
+                            <button type="button" onClick={() => onNavigate('login')}>Log in</button>
+                            <span aria-hidden="true">WhatsApp-first stores</span>
+                        </div>
+                    </div>
                 </div>
-            </section>
 
-            {/* ── Features ── */}
-            <section className="landing-section">
-                <div className="landing-container">
-                    <div className="landing-section-header">
-                        <div className="landing-section-tag">Features</div>
-                        <h2 className="landing-section-title">
-                            Everything you need to grow with WhatsApp
-                        </h2>
-                        <p className="landing-section-subtitle">
-                            From broadcasting to chatting — a complete toolkit
-                            built for speed, simplicity, and scale.
+                <div className="landing-announcement">
+                    <span>Plans now match the platform: Broadcast at INR 399 and Commerce at INR 449.</span>
+                    <a href="#pricing">Compare plans</a>
+                </div>
+
+                <nav className="landing-nav" aria-label="Primary">
+                    <div className="landing-container landing-nav-inner">
+                        <a href="#top" className="landing-logo" aria-label="WhatsApp Broadcast home">
+                            <span className="landing-logo-bubble" />
+                            <span>WhatsApp Broadcast</span>
+                        </a>
+
+                        <div className="landing-nav-links">
+                            <a href="#features">Features</a>
+                            <a href="#product">Workflow</a>
+                            <a href="#pricing">Pricing</a>
+                            <a href="#faq">FAQ</a>
+                        </div>
+
+                        <div className="landing-nav-actions">
+                            <a className="landing-btn landing-btn-outline" href="#contact">Contact sales</a>
+                            <button className="landing-btn landing-btn-green" type="button" onClick={() => onNavigate('register')}>
+                                Create account
+                            </button>
+                        </div>
+
+                        <button className="landing-menu-btn" type="button" aria-label="Open menu">
+                            <span />
+                            <span />
+                            <span />
+                        </button>
+                    </div>
+                </nav>
+            </header>
+
+            <main>
+                <section className="landing-hero">
+                    <div className="landing-container">
+                        <h1>
+                            WhatsApp broadcasts and
+                            <br />
+                            <span className="landing-highlight">commerce tools</span> for your store
+                        </h1>
+                        <p>
+                            Run template campaigns, manage customer replies, keep products and orders close to the chat,
+                            and connect each tenant to its own Meta WhatsApp Cloud API credentials.
                         </p>
-                    </div>
 
-                    <div className="landing-features-grid">
-                        {FEATURES.map((f, i) => (
-                            <div className="landing-feature-card" key={i}>
-                                <div className="landing-feature-icon">
-                                    <Icon name={f.icon} size={24} />
-                                </div>
-                                <div className="landing-feature-title">{f.title}</div>
-                                <div className="landing-feature-desc">{f.desc}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
+                        <div className="landing-social-proof">
+                            <span>Tenant-owned Meta credentials</span>
+                            <span>No shared WhatsApp secret</span>
+                            <span>{CONTACT_EMAIL}</span>
+                        </div>
 
-            {/* ── How it works ── */}
-            <section className="landing-section">
-                <div className="landing-container">
-                    <div className="landing-section-header">
-                        <div className="landing-section-tag">How it works</div>
-                        <h2 className="landing-section-title">
-                            Live in 4 simple steps
-                        </h2>
-                        <p className="landing-section-subtitle">
-                            No complex setup. No developer needed. Just plug in and go.
-                        </p>
-                    </div>
+                        <div className="landing-hero-actions">
+                            <a className="landing-btn landing-btn-outline landing-btn-lg" href="#contact">Contact sales</a>
+                            <button className="landing-btn landing-btn-green landing-btn-lg" type="button" onClick={() => onNavigate('register')}>
+                                Create account
+                            </button>
+                        </div>
 
-                    <div className="landing-steps">
-                        {STEPS.map((s, i) => (
-                            <div className="landing-step" key={i}>
-                                <div className="landing-step-num">{s.num}</div>
-                                <div className="landing-step-title">{s.title}</div>
-                                <div className="landing-step-desc">{s.desc}</div>
-                            </div>
-                        ))}
+                        <div className="landing-usecase-tabs" aria-label="Product areas">
+                            <a href="#broadcast">Broadcast</a>
+                            <a href="#inbox">Inbox</a>
+                            <a href="#commerce">Commerce</a>
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            {/* ── Signup Form ── */}
-            <section className="landing-section" id="signup">
-                <div className="landing-container">
-                    <div className="landing-form-wrapper">
-                        <div className="landing-form-info">
-                            <div className="landing-section-tag">Get Started</div>
-                            <h2 className="landing-section-title" style={{ textAlign: 'left' }}>
-                                Ready to scale your WhatsApp marketing?
-                            </h2>
-                            <p className="landing-section-subtitle" style={{ textAlign: 'left', margin: '0 0 24px' }}>
-                                Fill in your details and our team will set you up within 24 hours. All platform features included.
+                <section className="landing-trusted">
+                    <div className="landing-container">
+                        <h2>Built for WhatsApp-first store operations</h2>
+                        <div className="landing-trusted-logos" aria-label="Example customer types">
+                            <span>Boutiques</span>
+                            <span>Local stores</span>
+                            <span>Catalogue sellers</span>
+                            <span>D2C teams</span>
+                            <span>Agencies</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="landing-core" id="product">
+                    <div className="landing-container landing-core-grid">
+                        <div>
+                            <span className="landing-eyebrow">Meta WhatsApp Cloud API</span>
+                            <h2>Start with broadcasts. Add commerce when your team needs the full workspace.</h2>
+                            <p>
+                                The Broadcast plan is intentionally focused: templates and broadcast sending. Commerce adds the
+                                operational tools for conversations, products, orders, Smart FAQs, AI Assistant, and payment links.
                             </p>
-                            <div className="landing-form-perks">
-                                {['No credit card required', 'All features unlocked', 'Use your own Meta API', 'Dedicated onboarding support'].map((perk, i) => (
-                                    <div className="landing-form-perk" key={i}>
-                                        <Icon name="check" size={16} />
-                                        <span>{perk}</span>
-                                    </div>
-                                ))}
+                        </div>
+
+                        <div className="landing-chat-visual" aria-label="WhatsApp workspace preview">
+                            <div className="landing-chat-orbit">
+                                <span>Meta</span>
+                                <span>CSV</span>
+                                <span>Pay</span>
+                                <span>FAQ</span>
+                                <span>Catalog</span>
                             </div>
+                            <div className="landing-phone-card">
+                                <div className="landing-phone-header">
+                                    <span />
+                                    <strong>Store Inbox</strong>
+                                </div>
+                                <div className="landing-message incoming">Do you have this product in stock?</div>
+                                <div className="landing-message outgoing">Yes. I can share the catalogue item and payment link.</div>
+                                <div className="landing-phone-actions">
+                                    <button type="button">Assign</button>
+                                    <button type="button">Send template</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="landing-ai" id="features">
+                    <div className="landing-container">
+                        <div className="landing-section-heading">
+                            <span className="landing-eyebrow">Commerce automation</span>
+                            <h2>Smart support for the questions your store answers every day</h2>
+                            <p>Commerce includes Smart FAQs and AI Assistant tools for repeated questions, product search, and order status flows.</p>
+                        </div>
+
+                        <div className="landing-ai-panel">
+                            {AI_CARDS.map((card) => (
+                                <article className={`landing-ai-card ${card.accent}`} key={card.title}>
+                                    <div className="landing-ai-stat">{card.stat}</div>
+                                    <h3>{card.title}</h3>
+                                    <p>{card.desc}</p>
+                                    <a href="#pricing">See Commerce</a>
+                                </article>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                <section className="landing-usecases">
+                    <div className="landing-container">
+                        <div className="landing-section-heading">
+                            <h2>A practical workspace for WhatsApp-led sales and support</h2>
+                        </div>
+
+                        {USE_CASES.map((useCase, index) => (
+                            <article className={`landing-usecase-panel ${useCase.tone}`} id={useCase.label.toLowerCase()} key={useCase.label}>
+                                <div>
+                                    <span className="landing-eyebrow">WhatsApp for {useCase.label}</span>
+                                    <h3>{useCase.title}</h3>
+                                    <p>{useCase.desc}</p>
+                                    <ul>
+                                        {useCase.details.map((detail) => (
+                                            <li key={detail}><Icon name="check-circle" size={18} /> {detail}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                                <div className="landing-usecase-visual">
+                                    <div className="landing-flow-card">
+                                        <span>{index === 0 ? 'Campaign' : index === 1 ? 'Reply' : 'Order'}</span>
+                                        <strong>{useCase.label} workflow</strong>
+                                        <p>{index === 0 ? 'Approved template campaign sent to selected contacts.' : index === 1 ? 'Shopper reply managed in the shared inbox.' : 'Catalogue item and payment link kept with order context.'}</p>
+                                    </div>
+                                    <div className="landing-metric-row">
+                                        {useCase.details.map((detail) => <strong key={detail}>{detail}</strong>)}
+                                    </div>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="landing-integrations">
+                    <div className="landing-container landing-integrations-grid">
+                        <div>
+                            <span className="landing-eyebrow">Connected stack</span>
+                            <h2>Use the integrations the platform actually supports.</h2>
+                            <p>
+                                Connect tenant-owned WhatsApp credentials, upload broadcast contacts, manage catalogue data,
+                                and use Razorpay payment links for customer orders on Commerce.
+                            </p>
+                        </div>
+                        <div className="landing-integrations-cloud">
+                            {INTEGRATIONS.map((item) => <span key={item}>{item}</span>)}
+                        </div>
+                    </div>
+                </section>
+
+                <section className="landing-infra">
+                    <div className="landing-container">
+                        <h2>Simple plan packaging for real store workflows</h2>
+                        <div className="landing-infra-grid">
+                            <div><strong>399</strong><span>INR Broadcast plan</span></div>
+                            <div><strong>449</strong><span>INR Commerce plan</span></div>
+                            <div><strong>0</strong><span>shared WhatsApp secrets</span></div>
+                            <div><strong>2</strong><span>clear monthly plans</span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="landing-pricing" id="pricing">
+                    <div className="landing-container">
+                        <div className="landing-section-heading">
+                            <span className="landing-eyebrow">Pricing</span>
+                            <h2>Choose the workspace your store needs right now</h2>
+                            <p>Meta messaging charges are billed separately by Meta. Platform pricing covers the SaaS workspace.</p>
+                        </div>
+
+                        <div className="landing-pricing-grid">
+                            {PRICING.map((plan) => (
+                                <article className={`landing-price-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>
+                                    <h3>{plan.name}</h3>
+                                    <div className="landing-price">
+                                        <strong>{plan.price}</strong>
+                                        <span>{plan.period}</span>
+                                    </div>
+                                    <p>{plan.desc}</p>
+                                    <button className="landing-btn landing-btn-green" type="button" onClick={() => onNavigate('register')}>{plan.cta}</button>
+                                    <ul>
+                                        {plan.features.map((feature) => (
+                                            <li key={feature}><Icon name="check" size={16} /> {feature}</li>
+                                        ))}
+                                    </ul>
+                                </article>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                <section className="landing-contact" id="contact">
+                    <div className="landing-container landing-contact-grid">
+                        <div>
+                            <span className="landing-eyebrow">Contact</span>
+                            <h2>Need help setting this up for your store?</h2>
+                            <p>Tell us what you sell and how you use WhatsApp today. You can also write directly to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>
                         </div>
 
                         <div className="landing-form-card">
                             {leadStatus === 'sent' ? (
                                 <div className="landing-form-success">
-                                    <div className="landing-form-success-icon">
-                                        <Icon name="check-circle" size={48} />
-                                    </div>
-                                    <h3>Thank you!</h3>
-                                    <p>We'll get back to you within 24 hours.</p>
+                                    <Icon name="check-circle" size={44} />
+                                    <h3>We got it.</h3>
+                                    <p>We will get back to you soon.</p>
                                 </div>
                             ) : (
                                 <form onSubmit={handleLeadSubmit}>
-                                    <h3 className="landing-form-title">Sign up for early access</h3>
-                                    <div className="landing-form-group">
-                                        <label>Your Name *</label>
-                                        <input type="text" value={leadForm.name} onInput={updateLead('name')}
-                                            placeholder="John Doe" required className="landing-form-input" />
-                                    </div>
-                                    <div className="landing-form-group">
-                                        <label>Email Address *</label>
-                                        <input type="email" value={leadForm.email} onInput={updateLead('email')}
-                                            placeholder="you@business.com" required className="landing-form-input" />
-                                    </div>
-                                    <div className="landing-form-group">
-                                        <label>Phone Number</label>
-                                        <input type="tel" value={leadForm.phone} onInput={updateLead('phone')}
-                                            placeholder="+91 9876543210" className="landing-form-input" />
-                                    </div>
-                                    <div className="landing-form-group">
-                                        <label>Business Name</label>
-                                        <input type="text" value={leadForm.business} onInput={updateLead('business')}
-                                            placeholder="My Awesome Business" className="landing-form-input" />
-                                    </div>
-                                    <button type="submit" className="landing-btn landing-btn-primary"
-                                        disabled={leadStatus === 'sending'}
-                                        style={{ width: '100%', padding: '14px', fontSize: '15px', marginTop: '8px' }}>
-                                        {leadStatus === 'sending' ? 'Submitting...' : 'Get Started Free →'}
+                                    <label>Name<input type="text" value={leadForm.name} onInput={updateLead('name')} required /></label>
+                                    <label>Email<input type="email" value={leadForm.email} onInput={updateLead('email')} required /></label>
+                                    <label>WhatsApp number<input type="tel" value={leadForm.phone} onInput={updateLead('phone')} /></label>
+                                    <label>Business name<input type="text" value={leadForm.business} onInput={updateLead('business')} /></label>
+                                    <button className="landing-btn landing-btn-green" type="submit" disabled={leadStatus === 'sending'}>
+                                        {leadStatus === 'sending' ? 'Sending...' : 'Send request'}
                                     </button>
-                                    {leadStatus === 'error' && (
-                                        <p style={{ color: '#f87171', fontSize: '13px', marginTop: '12px', textAlign: 'center' }}>
-                                            Something went wrong. Please try again.
-                                        </p>
-                                    )}
+                                    {leadStatus === 'error' && <p className="landing-form-error">Could not send. Email {CONTACT_EMAIL}.</p>}
                                 </form>
                             )}
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            {/* ── Footer ── */}
-            <footer className="landing-footer">
-                <p className="landing-footer-text">
-                    © {new Date().getFullYear()} WhatsApp Broadcast Platform · 
-                    <a href="https://broadcast.innodify.in" className="landing-footer-link"> broadcast.innodify.in</a>
-                </p>
+                <section className="landing-faq" id="faq">
+                    <div className="landing-container landing-faq-grid">
+                        <div>
+                            <span className="landing-eyebrow">FAQ</span>
+                            <h2>Clear answers before you start.</h2>
+                        </div>
+                        <div>
+                            {FAQS.map((item) => (
+                                <article className="landing-faq-item" key={item.q}>
+                                    <h3>{item.q}</h3>
+                                    <p>{item.a}</p>
+                                </article>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <footer className="landing-dark-footer">
+                <div className="landing-container landing-footer-grid">
+                    <div>
+                        <a href="#top" className="landing-logo landing-logo-inverted">
+                            <span className="landing-logo-bubble" />
+                            <span>WhatsApp Broadcast</span>
+                        </a>
+                        <p>WhatsApp broadcast and commerce software for store owners.</p>
+                        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+                    </div>
+                    <div>
+                        <h3>Product</h3>
+                        {FEATURE_LINKS.map((item) => <a href="#features" key={item}>{item}</a>)}
+                    </div>
+                    <div>
+                        <h3>Plans</h3>
+                        <a href="#pricing">Broadcast at INR 399</a>
+                        <a href="#pricing">Commerce at INR 449</a>
+                        <a href="#faq">FAQ</a>
+                    </div>
+                    <div>
+                        <h3>Platform</h3>
+                        <button type="button" onClick={() => onNavigate('login')}>Log in</button>
+                        <button type="button" onClick={() => onNavigate('register')}>Create account</button>
+                    </div>
+                </div>
             </footer>
         </div>
     );
 }
-

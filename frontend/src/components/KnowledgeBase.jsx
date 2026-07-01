@@ -19,6 +19,55 @@ export default function KnowledgeBase() {
     const [isTesting, setIsTesting] = useState(false);
     const [showTestBot, setShowTestBot] = useState(false);
 
+    // Alternate phrasings (Phase 3 — disambiguation)
+    const [openPhrasingFaq, setOpenPhrasingFaq] = useState(null);
+    const [phrasingsByFaq, setPhrasingsByFaq] = useState({});
+    const [newPhrasing, setNewPhrasing] = useState('');
+    const [phrasingBusy, setPhrasingBusy] = useState(false);
+
+    const authHeaders = () => ({
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default',
+        'Content-Type': 'application/json',
+    });
+
+    const togglePhrasings = async (faqId) => {
+        if (openPhrasingFaq === faqId) { setOpenPhrasingFaq(null); return; }
+        setOpenPhrasingFaq(faqId);
+        setNewPhrasing('');
+        try {
+            const res = await fetch(`/api/v1/knowledge-base/${faqId}/phrasings`, { headers: authHeaders() });
+            if (res.ok) {
+                const data = await res.json();
+                setPhrasingsByFaq(prev => ({ ...prev, [faqId]: data.phrasings || [] }));
+            }
+        } catch (err) { console.error('Failed to fetch phrasings', err); }
+    };
+
+    const addPhrasing = async (faqId) => {
+        const text = newPhrasing.trim();
+        if (!text) return;
+        setPhrasingBusy(true);
+        try {
+            const res = await fetch(`/api/v1/knowledge-base/${faqId}/phrasings`, {
+                method: 'POST', headers: authHeaders(), body: JSON.stringify({ phrasing: text }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setPhrasingsByFaq(prev => ({ ...prev, [faqId]: [data, ...(prev[faqId] || [])] }));
+                setNewPhrasing('');
+            }
+        } catch (err) { console.error('Failed to add phrasing', err); }
+        finally { setPhrasingBusy(false); }
+    };
+
+    const deletePhrasing = async (faqId, pid) => {
+        try {
+            const res = await fetch(`/api/v1/knowledge-base/${faqId}/phrasings/${pid}`, { method: 'DELETE', headers: authHeaders() });
+            if (res.ok) setPhrasingsByFaq(prev => ({ ...prev, [faqId]: (prev[faqId] || []).filter(p => p.id !== pid) }));
+        } catch (err) { console.error('Failed to delete phrasing', err); }
+    };
+
     const handleTestBot = async () => {
         if (!testMessage.trim()) return;
         setIsTesting(true);
@@ -386,6 +435,45 @@ export default function KnowledgeBase() {
                                             <div>
                                                 Added: {new Date(faq.created_at).toLocaleDateString()}
                                             </div>
+                                        </div>
+
+                                        {/* Alternate phrasings (Phase 3) */}
+                                        <div style={{ marginTop: '10px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+                                            <button type="button" onClick={() => togglePhrasings(faq.id)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}>
+                                                <Icon name="plus" size={14} /> Alternate phrasings {openPhrasingFaq === faq.id ? '▲' : '▼'}
+                                            </button>
+                                            {openPhrasingFaq === faq.id && (
+                                                <div style={{ marginTop: '10px' }}>
+                                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                                                        Other ways customers might ask this. Each one improves matching and powers "Did you mean?" suggestions.
+                                                    </p>
+                                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={newPhrasing}
+                                                            onInput={e => setNewPhrasing(e.target.value)}
+                                                            onKeyDown={e => e.key === 'Enter' && addPhrasing(faq.id)}
+                                                            placeholder="e.g. how much for shipping?"
+                                                            style={{ flex: 1, padding: '8px 12px', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '13px' }}
+                                                        />
+                                                        <button type="button" className="btn btn--primary" disabled={phrasingBusy || !newPhrasing.trim()} onClick={() => addPhrasing(faq.id)} style={{ padding: '8px 14px' }}>
+                                                            {phrasingBusy ? '…' : 'Add'}
+                                                        </button>
+                                                    </div>
+                                                    {(phrasingsByFaq[faq.id] || []).length === 0 ? (
+                                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No alternate phrasings yet.</div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                            {(phrasingsByFaq[faq.id] || []).map(p => (
+                                                                <span key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--bg-tertiary)', borderRadius: '14px', padding: '4px 10px', fontSize: '12px' }}>
+                                                                    {p.phrasing}
+                                                                    <button type="button" onClick={() => deletePhrasing(faq.id, p.id)} title="Remove phrasing" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, lineHeight: 1, fontSize: '14px' }}>×</button>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

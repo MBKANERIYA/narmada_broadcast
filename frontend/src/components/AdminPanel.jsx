@@ -6,7 +6,6 @@ import { useState, useEffect } from 'preact/hooks';
 import { useStore } from '../stores/store';
 import Icon from './Icons';
 
-
 const STATUS_OPTIONS = [
     { value: 'active', label: 'Active', color: '#10B981' },
     { value: 'cancelled', label: 'Suspended', color: '#6B7280' },

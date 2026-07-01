@@ -85,6 +85,7 @@ export default function WhatsAppChat() {
         conversations, totalUnread, activeConversation, chatMessages, chatHasMore,
         fetchConversations, fetchChatMessages, fetchOlderMessages, sendChatReply, sendChatTemplate, sendChatMedia,
         markConversationRead, archiveConversation, startNewConversation, updateConversationLabels, updateConversationBotPause,
+        resolveHumanHandoff, teachBotFromConversation,
         showToast, fetchWhatsAppTemplates, whatsappTemplates,
         contacts, fetchContacts,
     } = useStore();
@@ -116,7 +117,7 @@ export default function WhatsAppChat() {
     };
 
     const [search, setSearch] = useState('');
-    const [activeTab, setActiveTab] = useState('all'); // 'all', 'unread', 'paid'
+    const [activeTab, setActiveTab] = useState('all'); // 'all', 'unread', 'paid', 'needs_human'
     const [selectedConvId, setSelectedConvId] = useState(null);
     const [messageText, setMessageText] = useState('');
     const [sending, setSending] = useState(false);
@@ -243,6 +244,11 @@ export default function WhatsAppChat() {
     const [newChatSearch, setNewChatSearch] = useState('');
     const [newChatSending, setNewChatSending] = useState(false);
     const [newChatStep, setNewChatStep] = useState(1);
+    const [showResolveHandoffModal, setShowResolveHandoffModal] = useState(false);
+    const [showResolveChatModal, setShowResolveChatModal] = useState(false);
+    const [showTeachBotModal, setShowTeachBotModal] = useState(false);
+    const [teachBotForm, setTeachBotForm] = useState({ question: '', answer: '' });
+    const [chatActionBusy, setChatActionBusy] = useState(false);
 
     // Keep refs in sync so polling always uses latest values
     const selectedConvIdRef = useRef(selectedConvId);
@@ -337,13 +343,9 @@ export default function WhatsAppChat() {
         }
     };
 
-    // Backend stores timestamps in UTC (SQLite/MySQL format 'YYYY-MM-DD HH:MM:SS')
-    // MongoDB returns standard ISO strings ('YYYY-MM-DDTHH:MM:SS.mmmZ')
-    const parseUTC = (dateStr) => {
-        if (!dateStr) return new Date();
-        if (dateStr.includes('T')) return new Date(dateStr);
-        return new Date(dateStr.replace(' ', 'T') + 'Z');
-    };
+    // Backend stores timestamps in UTC — append 'Z' so JS Date parses as UTC
+    // toLocaleTimeString then auto-converts to user's local timezone
+    const parseUTC = (dateStr) => new Date(dateStr?.replace(' ', 'T') + 'Z');
 
     const formatTime = (dateStr) => {
         if (!dateStr) return '';
@@ -380,7 +382,7 @@ export default function WhatsAppChat() {
         return '\u23F3';
     };
 
-    const approvedTemplates = (Array.isArray(whatsappTemplates) ? whatsappTemplates : []).filter(t => t.status === 'APPROVED');
+    const approvedTemplates = (whatsappTemplates || []).filter(t => t.status === 'APPROVED');
     const conv = activeConversation;
     const isWindowOpen = conv?.is_window_open;
     const windowMinutes = conv?.window_remaining_minutes || 0;
@@ -608,135 +610,177 @@ export default function WhatsAppChat() {
     };
 
     const isBotPaused = Boolean(activeConversation?.bot_paused);
+    const isNeedsHuman = Boolean(activeConversation?.needs_human);
+
+    const submitResolveHumanHandoff = async () => {
+        if (!selectedConvId) return;
+        setChatActionBusy(true);
+        try {
+            await resolveHumanHandoff(selectedConvId, true);
+            setShowResolveHandoffModal(false);
+            showToast('Handoff resolved and bot resumed', 'success');
+        } catch (err) {
+            showToast(err.message || 'Failed to resolve handoff', 'error');
+        } finally {
+            setChatActionBusy(false);
+        }
+    };
+
+    const submitResolveSupportChat = async () => {
+        if (!selectedConvId) return;
+        setChatActionBusy(true);
+        try {
+            await updateConversationBotPause(selectedConvId, false, true);
+            setShowResolveChatModal(false);
+            showToast('Support chat resolved and feedback sent', 'success');
+        } catch (err) {
+            showToast(err.message || 'Failed to resolve chat', 'error');
+        } finally {
+            setChatActionBusy(false);
+        }
+    };
+
+    const submitTeachBot = async (e) => {
+        e.preventDefault();
+        if (!selectedConvId) return;
+        const question = teachBotForm.question.trim();
+        const answer = teachBotForm.answer.trim();
+        if (!question || !answer) {
+            showToast('Question and answer are required', 'error');
+            return;
+        }
+        setChatActionBusy(true);
+        try {
+            await teachBotFromConversation(selectedConvId, question, answer);
+            setTeachBotForm({ question: '', answer: '' });
+            setShowTeachBotModal(false);
+            showToast('Smart FAQ created from this chat', 'success');
+        } catch (err) {
+            showToast(err.message || 'Failed to teach bot', 'error');
+        } finally {
+            setChatActionBusy(false);
+        }
+    };
+
+    const visibleConversations = conversations.filter(c => activeTab === 'unread' ? c.unread_count > 0 : true);
+    const unreadConversations = conversations.filter(c => c.unread_count > 0).length;
+    const needsHumanConversations = conversations.filter(c => c.needs_human).length;
+    const openWindowConversations = conversations.filter(c => c.is_window_open).length;
+    const filterTabs = [
+        { value: 'all', label: 'All', count: conversations.length },
+        { value: 'unread', label: 'Unread', count: unreadConversations },
+        { value: 'paid', label: 'Paid Orders' },
+        { value: 'needs_human', label: 'Needs Human', count: needsHumanConversations, tone: 'danger' },
+    ];
+    const conversationName = (conversation) => conversation?.display_name || conversation?.contact_name || conversation?.phone || 'Customer';
+    const conversationInitial = (conversation) => conversationName(conversation).trim().charAt(0).toUpperCase() || 'C';
+
     return (
-        <div className="page-container" style={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
-            <div className="page-header" style={{ flexShrink: 0 }}>
+        <div className="page-container chat-inbox-page" style={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
+            <div className="page-header chat-inbox-header" style={{ flexShrink: 0 }}>
                 <div>
-                    <h1 className="page-title">Chat Inbox</h1>
+                    <span className="chat-inbox-kicker">WhatsApp support desk</span>
+                    <div className="chat-inbox-title-row">
+                        <h1 className="page-title">Chat Inbox</h1>
+                        {totalUnread > 0 && <span className="chat-inbox-unread-pill">{totalUnread} unread</span>}
+                    </div>
                     <p className="page-subtitle">
                         {totalUnread > 0 ? `${totalUnread} unread conversation${totalUnread !== 1 ? 's' : ''}` : 'Reply to WhatsApp conversations'}
                     </p>
                 </div>
+                <div className="chat-inbox-header-actions" aria-label="Inbox summary">
+                    <span><strong>{conversations.length}</strong> conversations</span>
+                    <span><strong>{openWindowConversations}</strong> open windows</span>
+                    <span><strong>{needsHumanConversations}</strong> need help</span>
+                </div>
             </div>
 
-            <div className="chat-layout" style={{ flex: 1, display: 'flex', gap: '0', border: '1px solid var(--border, #e2e8f0)', borderRadius: '12px', overflow: 'hidden', minHeight: 0 }}>
+            <div className="chat-layout chat-inbox-shell" style={{ flex: 1, display: 'flex', gap: '0', border: '1px solid var(--border, #e2e8f0)', borderRadius: '12px', overflow: 'hidden', minHeight: 0 }}>
                 {/* Left: Conversation List */}
-                <div className={`chat-sidebar${mobileShowChat ? ' hidden-mobile' : ''}`} style={{ width: '340px', flexShrink: 0, borderRight: '1px solid var(--border, #e2e8f0)', display: 'flex', flexDirection: 'column', background: 'var(--surface, #fff)' }}>
+                <div className={`chat-sidebar chat-list-panel${mobileShowChat ? ' hidden-mobile' : ''}`} style={{ width: '340px', flexShrink: 0, borderRight: '1px solid var(--border, #e2e8f0)', display: 'flex', flexDirection: 'column', background: 'var(--surface, #fff)' }}>
                     {/* Search + New Chat Button */}
-                    <div style={{ padding: '12px', borderBottom: '1px solid var(--border, #e2e8f0)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <div className="search-bar" style={{ margin: 0, flex: 1 }}>
+                    <div className="chat-list-toolbar">
+                        <div className="chat-search-field search-bar" style={{ margin: 0, flex: 1 }}>
                             <Icon name="search" size={16} />
                             <input type="text" value={search} onInput={e => setSearch(e.target.value)}
                                 placeholder="Search chats..." className="search-input" style={{ fontSize: '13px' }} />
                         </div>
                         <button
+                            className="chat-new-button"
                             onClick={openNewChatModal}
                             title="New Chat"
-                            style={{
-                                width: '38px', height: '38px', borderRadius: '50%',
-                                background: '#25d366', color: '#fff', border: 'none',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center',
-                                justifyContent: 'center', flexShrink: 0,
-                                boxShadow: '0 2px 6px rgba(37,211,102,0.3)',
-                                transition: 'transform 0.15s, box-shadow 0.15s',
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(37,211,102,0.4)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 2px 6px rgba(37,211,102,0.3)'; }}
                         >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                                <line x1="12" y1="8" x2="12" y2="16"/>
-                                <line x1="8" y1="12" x2="16" y2="12"/>
-                            </svg>
+                            <Icon name="message-circle" size={18} />
+                            <Icon name="plus" size={12} />
                         </button>
                     </div>
 
                     {/* Tabs */}
-                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border, #e2e8f0)', background: '#f8fafc' }}>
-                        <button
-                            style={{ flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600, border: 'none', background: 'transparent', cursor: 'pointer', borderBottom: activeTab === 'all' ? '2px solid #25d366' : '2px solid transparent', color: activeTab === 'all' ? '#1e293b' : '#64748b' }}
-                            onClick={() => setActiveTab('all')}
-                        >
-                            All
-                        </button>
-                        <button
-                            style={{ flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600, border: 'none', background: 'transparent', cursor: 'pointer', borderBottom: activeTab === 'unread' ? '2px solid #25d366' : '2px solid transparent', color: activeTab === 'unread' ? '#1e293b' : '#64748b' }}
-                            onClick={() => setActiveTab('unread')}
-                        >
-                            Unread
-                        </button>
-                        <button
-                            style={{ flex: 1, padding: '10px 0', fontSize: '13px', fontWeight: 600, border: 'none', background: 'transparent', cursor: 'pointer', borderBottom: activeTab === 'paid' ? '2px solid #25d366' : '2px solid transparent', color: activeTab === 'paid' ? '#1e293b' : '#64748b' }}
-                            onClick={() => setActiveTab('paid')}
-                        >
-                            Paid Orders
-                        </button>
+                    <div className="chat-filter-tabs">
+                        {filterTabs.map(tab => (
+                            <button
+                                key={tab.value}
+                                className={`${activeTab === tab.value ? 'is-active' : ''}${tab.tone === 'danger' ? ' is-danger' : ''}`}
+                                onClick={() => setActiveTab(tab.value)}
+                            >
+                                <span>{tab.label}</span>
+                                {typeof tab.count === 'number' && <strong>{tab.count}</strong>}
+                            </button>
+                        ))}
                     </div>
 
                     {/* Conversation List */}
-                    <div style={{ flex: 1, overflowY: 'auto' }}>
-                        {conversations.filter(c => activeTab === 'unread' ? c.unread_count > 0 : true).length === 0 ? (
-                            <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '13px' }}>
-                                <div style={{ opacity: 0.3, marginBottom: '16px' }}>
-                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                                    </svg>
+                    <div className="chat-conversation-list">
+                        {visibleConversations.length === 0 ? (
+                            <div className="chat-list-empty">
+                                <div className="chat-list-empty__icon">
+                                    <Icon name="message-circle" size={34} />
                                 </div>
-                                <div style={{ opacity: 0.5, marginBottom: '12px' }}>No conversations found</div>
-                                <button className="btn btn--success" style={{ fontSize: '13px', padding: '8px 16px' }} onClick={openNewChatModal}>
-                                    + Start New Chat
+                                <strong>No conversations found</strong>
+                                <span>No matching customer threads right now.</span>
+                                <button className="btn btn--success" onClick={openNewChatModal}>
+                                    Start new chat
                                 </button>
                             </div>
-                        ) : conversations.filter(c => activeTab === 'unread' ? c.unread_count > 0 : true).map(c => (
+                        ) : visibleConversations.map(c => (
                             <div
                                 key={c.id}
+                                className={`conversation-card${selectedConvId === c.id ? ' is-active' : ''}${c.unread_count > 0 ? ' has-unread' : ''}`}
                                 onClick={() => openConversation(c.id)}
-                                style={{
-                                    padding: '12px 16px', cursor: 'pointer',
-                                    background: selectedConvId === c.id ? 'var(--primary-light, #eef2ff)' : 'transparent',
-                                    borderBottom: '1px solid var(--border, #f1f5f9)',
-                                    transition: 'background 0.15s',
-                                }}
-                                onMouseEnter={e => { if (selectedConvId !== c.id) e.currentTarget.style.background = '#f8fafc'; }}
-                                onMouseLeave={e => { if (selectedConvId !== c.id) e.currentTarget.style.background = 'transparent'; }}
                             >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <span style={{ fontWeight: c.unread_count > 0 ? 700 : 500, fontSize: '14px' }}>
-                                            {c.display_name}
-                                        </span>
-                                        {activeTab === 'paid' && (
-                                            <span style={{ fontSize: '10px', background: '#dcfce7', color: '#16a34a', padding: '2px 6px', borderRadius: '10px', fontWeight: 600 }}>Paid</span>
-                                        )}
-                                        {getConvLabels(c).map(lv => {
-                                            const opt = LABEL_OPTIONS.find(o => o.value === lv);
-                                            if (!opt) return null;
-                                            return <span key={lv} title={opt.label} style={{ width: '8px', height: '8px', borderRadius: '50%', background: opt.color, flexShrink: 0 }} />;
-                                        })}
+                                <div className="conversation-avatar" aria-hidden="true">{conversationInitial(c)}</div>
+                                <div className="conversation-card__body">
+                                    <div className="conversation-card__top">
+                                        <div className="conversation-card__name-row">
+                                            <span className="conversation-card__name">{conversationName(c)}</span>
+                                            {getConvLabels(c).map(lv => {
+                                                const opt = LABEL_OPTIONS.find(o => o.value === lv);
+                                                if (!opt) return null;
+                                                return <span key={lv} className="conversation-label-dot" title={opt.label} style={{ background: opt.color }} />;
+                                            })}
+                                        </div>
+                                        <span className="conversation-card__time">{formatTime(c.last_message_at)}</span>
                                     </div>
-                                    <span style={{ fontSize: '11px', opacity: 0.5 }}>{formatTime(c.last_message_at)}</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{
-                                        fontSize: '12px', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap', flex: 1, marginRight: '8px',
-                                        fontWeight: c.unread_count > 0 ? 600 : 400,
-                                    }}>
-                                        {c.last_message_text || 'No messages'}
-                                    </span>
-                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
-                                        {c.is_window_open && (
-                                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e' }} title="24h window open" />
+                                    <div className="conversation-card__chips">
+                                        {activeTab === 'paid' && (
+                                            <span className="conversation-chip is-paid">Paid</span>
                                         )}
+                                        {c.needs_human && (
+                                            <span className="conversation-chip is-human">Needs Human</span>
+                                        )}
+                                    </div>
+                                    <div className="conversation-card__preview-row">
+                                        <span className="conversation-card__preview">{c.last_message_text || 'No messages'}</span>
+                                        <div className="conversation-card__signals">
+                                            {c.is_window_open && (
+                                                <span className="conversation-window-dot" title="24h window open" />
+                                            )}
                                         {c.unread_count > 0 && (
-                                            <span style={{
-                                                minWidth: '18px', height: '18px', borderRadius: '9px',
-                                                background: '#25d366', color: '#fff', fontSize: '11px', fontWeight: 700,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px',
-                                            }}>
+                                            <span className="conversation-unread-badge">
                                                 {c.unread_count}
                                             </span>
                                         )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -745,44 +789,47 @@ export default function WhatsAppChat() {
                 </div>
 
                 {/* Right: Chat Area */}
-                <div className={`chat-area${!mobileShowChat ? ' hidden-mobile' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
+                <div className={`chat-area chat-thread-panel${!mobileShowChat ? ' hidden-mobile' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
                     {!selectedConvId ? (
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', opacity: 0.4 }}>
-                            <Icon name="chat" size={64} />
-                            <p style={{ marginTop: '12px', fontSize: '16px' }}>Select a conversation to start chatting</p>
+                        <div className="chat-empty-state">
+                            <div className="chat-empty-state__icon">
+                                <Icon name="message-circle" size={52} />
+                            </div>
+                            <span>Ready when you are</span>
+                            <h2>Select a conversation to start chatting</h2>
+                            <p>Customer history, context, labels, quick replies, and handoff controls will appear here.</p>
+                            <div className="chat-empty-state__actions">
+                                <button className="btn btn--success" onClick={openNewChatModal}>
+                                    Start new chat
+                                </button>
+                                <button className="btn btn--outline" onClick={() => setActiveTab('needs_human')}>
+                                    Review handoffs
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <>
                             {/* Chat Header */}
-                            <div style={{
-                                padding: '12px 20px', background: '#fff',
-                                borderBottom: '1px solid var(--border, #e2e8f0)',
-                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div className="chat-thread-header">
+                                <div className="chat-thread-person">
                                     <button className="chat-back-btn btn-icon" onClick={() => setMobileShowChat(false)}
                                         style={{ display: 'none' }} title="Back">
                                         <Icon name="arrow-left" size={20} />
                                     </button>
+                                    <div className="chat-thread-avatar" aria-hidden="true">{conversationInitial(conv)}</div>
                                     <div>
-                                        <div style={{ fontWeight: 600, fontSize: '15px' }}>{conv?.contact_name || conv?.phone}</div>
-                                        <div style={{ fontSize: '12px', opacity: 0.5, fontFamily: 'monospace' }}>{conv?.phone}</div>
+                                        <div className="chat-thread-name">{conv?.contact_name || conv?.phone}</div>
+                                        <div className="chat-thread-subtitle">{conv?.phone}</div>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div className="chat-thread-actions">
                                     {isWindowOpen ? (
-                                        <span style={{
-                                            fontSize: '11px', padding: '4px 10px', borderRadius: '12px',
-                                            background: '#dcfce7', color: '#16a34a', fontWeight: 600,
-                                        }}>
-                                            {'\uD83D\uDFE2'} Window open ({windowMinutes > 60 ? `${Math.floor(windowMinutes / 60)}h ${windowMinutes % 60}m` : `${windowMinutes}m`})
+                                        <span className="chat-window-chip is-open">
+                                            Window open ({windowMinutes > 60 ? `${Math.floor(windowMinutes / 60)}h ${windowMinutes % 60}m` : `${windowMinutes}m`})
                                         </span>
                                     ) : (
-                                        <span style={{
-                                            fontSize: '11px', padding: '4px 10px', borderRadius: '12px',
-                                            background: '#fef2f2', color: '#dc2626', fontWeight: 600,
-                                        }}>
-                                            {'\uD83D\uDD34'} Window closed
+                                        <span className="chat-window-chip is-closed">
+                                            Window closed
                                         </span>
                                     )}
                                     <button
@@ -815,6 +862,24 @@ export default function WhatsAppChat() {
                                     >
                                         <Icon name={isBotPaused ? 'play' : 'pause'} size={18} />
                                     </button>
+                                    {isNeedsHuman && (
+                                        <button
+                                            className="btn btn--outline"
+                                            onClick={() => setShowResolveHandoffModal(true)}
+                                            title="Resolve Needs Human"
+                                            style={{ fontSize: '12px', padding: '4px 10px', borderColor: '#ef4444', color: '#dc2626', background: '#fef2f2' }}
+                                        >
+                                            Needs Human
+                                        </button>
+                                    )}
+                                    <button
+                                        className="btn-icon"
+                                        onClick={() => setShowTeachBotModal(true)}
+                                        title="Teach Bot"
+                                        style={{ color: '#64748b' }}
+                                    >
+                                        <Icon name="target" size={18} />
+                                    </button>
                                     {isBotPaused && (
                                         <>
                                             <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '10px', background: '#FEF2F2', color: '#EF4444', fontWeight: 600, whiteSpace: 'nowrap' }}>
@@ -822,16 +887,7 @@ export default function WhatsAppChat() {
                                             </span>
                                             <button
                                                 className="btn btn--outline"
-                                                onClick={async () => {
-                                                    if (window.confirm('Resolve this support chat and send a feedback request?')) {
-                                                        try {
-                                                            await updateConversationBotPause(selectedConvId, false, true);
-                                                            showToast('Support chat resolved and feedback sent', 'success');
-                                                        } catch (e) {
-                                                            showToast(e.message || 'Failed to resolve chat', 'error');
-                                                        }
-                                                    }
-                                                }}
+                                                onClick={() => setShowResolveChatModal(true)}
                                                 style={{
                                                     fontSize: '12px', padding: '4px 10px',
                                                     borderColor: '#10b981', color: '#10b981', background: '#ecfdf5',
@@ -885,16 +941,12 @@ export default function WhatsAppChat() {
 
                             {/* Label badges */}
                             {getConvLabels(conv).length > 0 && (
-                                <div style={{ padding: '4px 20px 6px', background: '#fff', borderBottom: '1px solid var(--border, #e2e8f0)', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                <div className="chat-label-strip">
                                     {getConvLabels(conv).map(lv => {
                                         const opt = LABEL_OPTIONS.find(o => o.value === lv);
                                         if (!opt) return null;
                                         return (
-                                            <span key={lv} style={{
-                                                fontSize: '11px', padding: '2px 8px', borderRadius: '10px',
-                                                background: opt.bg, color: opt.color, fontWeight: 600,
-                                                display: 'flex', alignItems: 'center', gap: '4px',
-                                            }}>
+                                            <span key={lv} className="chat-label-pill" style={{ background: opt.bg, color: opt.color }}>
                                                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: opt.color }} />
                                                 {opt.label}
                                                 <span onClick={() => toggleLabel(lv)} style={{ cursor: 'pointer', marginLeft: '2px', opacity: 0.6 }}>×</span>
@@ -904,7 +956,7 @@ export default function WhatsAppChat() {
                                 </div>
                             )}
                             {/* Messages */}
-                            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div className="chat-messages">
                                 {chatHasMore && (
                                     <div style={{ textAlign: 'center', padding: '8px 0 12px' }}>
                                         <button
@@ -953,17 +1005,8 @@ export default function WhatsAppChat() {
                                     // Default rendering for text, media, and old-format template messages
                                     if (!messageContent) {
                                         messageContent = (
-                                        <div style={{
-                                            display: 'flex',
-                                            justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start',
-                                            marginBottom: '2px',
-                                        }}>
-                                        <div style={{
-                                            maxWidth: '70%', padding: '8px 12px', borderRadius: '8px',
-                                            background: msg.direction === 'outbound' ? '#dcf8c6' : '#fff',
-                                            boxShadow: '0 1px 1px rgba(0,0,0,0.1)',
-                                            ...(msg.status === 'failed' && { border: '1px solid #ef4444', background: '#fef2f2' }),
-                                        }}>
+                                        <div className={`chat-message-row ${msg.direction === 'outbound' ? 'is-outbound' : 'is-inbound'}`}>
+                                        <div className={`chat-message-bubble${msg.status === 'failed' ? ' is-failed' : ''}`}>
                                             {msg.message_type === 'template' && (
                                                 <div style={{ fontSize: '10px', opacity: 0.5, marginBottom: '4px', fontStyle: 'italic' }}>Template</div>
                                             )}
@@ -1019,14 +1062,8 @@ export default function WhatsAppChat() {
                                     return (
                                         <div key={msg.id}>
                                             {showDateSeparator && (
-                                                <div style={{ textAlign: 'center', margin: '16px 0 12px' }}>
-                                                    <span style={{
-                                                        background: '#fff', padding: '6px 12px', borderRadius: '8px',
-                                                        fontSize: '12px', fontWeight: 500, color: '#54656f',
-                                                        boxShadow: '0 1px 1px rgba(0,0,0,0.05)',
-                                                    }}>
-                                                        {currentDate}
-                                                    </span>
+                                                <div className="chat-date-separator">
+                                                    <span className="chat-date-chip">{currentDate}</span>
                                                 </div>
                                             )}
                                             {messageContent}
@@ -1081,7 +1118,7 @@ export default function WhatsAppChat() {
 
                             {/* Input Area */}
                             {filePreviewUrl && (
-                                <div style={{ padding: '12px 16px', background: '#f8fafc', borderTop: '1px solid var(--border, #e2e8f0)', position: 'relative' }}>
+                                <div className="chat-file-preview">
                                     <div style={{ display: 'inline-block', position: 'relative' }}>
                                         <img src={filePreviewUrl} alt="Preview" style={{ maxHeight: '100px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
                                         <button onClick={clearFile} style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1090,17 +1127,9 @@ export default function WhatsAppChat() {
                                     </div>
                                 </div>
                             )}
-                            <div style={{
-                                padding: '12px 16px', background: '#fff',
-                                borderTop: '1px solid var(--border, #e2e8f0)',
-                                display: 'flex', gap: '8px', alignItems: 'center',
-                            }}>
+                            <div className="chat-composer">
                                 {isRecording ? (
-                                    <div style={{
-                                        display: 'flex', alignItems: 'center', gap: '12px', flex: 1,
-                                        background: '#f8fafc', padding: '6px 16px', borderRadius: '20px',
-                                        border: '1px solid #ef4444'
-                                    }}>
+                                    <div className="chat-recording-bar">
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                                             <span className="blink-dot" style={{
                                                 width: '10px', height: '10px', borderRadius: '50%',
@@ -1125,14 +1154,10 @@ export default function WhatsAppChat() {
                                 ) : (
                                     <>
                                         <button
+                                            className="chat-composer-icon"
                                             onClick={() => fileInputRef.current?.click()}
                                             disabled={!isWindowOpen || sending}
-                                            style={{
-                                                width: '42px', height: '42px', borderRadius: '50%',
-                                                background: 'transparent', color: '#64748b', border: 'none', cursor: 'pointer',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                flexShrink: 0, transition: 'color 0.2s',
-                                            }}
+                                            title="Attach file"
                                         >
                                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
@@ -1146,6 +1171,7 @@ export default function WhatsAppChat() {
                                             style={{ display: 'none' }}
                                         />
                                         <textarea
+                                            className="chat-composer-input"
                                             value={messageText}
                                             onInput={handleMessageInput}
                                             onKeyDown={(e) => {
@@ -1154,42 +1180,23 @@ export default function WhatsAppChat() {
                                             }}
                                             placeholder={isWindowOpen ? (selectedFile ? "Add a caption..." : "Type / for quick replies...") : "Window expired \u2014 use template"}
                                             disabled={!isWindowOpen || sending}
-                                            style={{
-                                                flex: 1, resize: 'none', border: '1px solid var(--border, #e2e8f0)',
-                                                borderRadius: '20px', padding: '10px 16px', fontSize: '14px',
-                                                maxHeight: '100px', minHeight: '42px', outline: 'none',
-                                                fontFamily: 'inherit', lineHeight: '1.4',
-                                                background: isWindowOpen ? '#fff' : '#f5f5f5',
-                                            }}
                                             rows={1}
                                         />
 
                                         {(!messageText.trim() && !selectedFile) ? (
                                             <button
+                                                className="chat-composer-send is-muted"
                                                 onClick={startRecording}
                                                 disabled={!isWindowOpen || sending}
-                                                style={{
-                                                    width: '42px', height: '42px', borderRadius: '50%',
-                                                    background: isWindowOpen ? '#64748b' : '#ccc',
-                                                    color: '#fff', border: 'none', cursor: 'pointer',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    flexShrink: 0, transition: 'background 0.2s',
-                                                }}
                                                 title="Record Voice Note"
                                             >
                                                 <Icon name="mic" size={20} />
                                             </button>
                                         ) : (
                                             <button
+                                                className="chat-composer-send"
                                                 onClick={handleSend}
                                                 disabled={sending || !isWindowOpen}
-                                                style={{
-                                                    width: '42px', height: '42px', borderRadius: '50%',
-                                                    background: isWindowOpen ? '#25d366' : '#ccc',
-                                                    color: '#fff', border: 'none', cursor: 'pointer',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    flexShrink: 0, transition: 'background 0.2s',
-                                                }}
                                                 title="Send Message"
                                             >
                                                 <Icon name="send" size={20} />
@@ -1236,6 +1243,93 @@ export default function WhatsAppChat() {
                                 {sending ? 'Sending...' : 'Send Template'}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {showResolveHandoffModal && (
+                <div className="modal-backdrop" onClick={() => !chatActionBusy && setShowResolveHandoffModal(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+                        <div className="modal-header">
+                            <h2>Resolve Handoff</h2>
+                            <button className="btn-icon" onClick={() => setShowResolveHandoffModal(false)} disabled={chatActionBusy}><Icon name="close" size={20} /></button>
+                        </div>
+                        <div style={{ padding: '16px' }}>
+                            <p style={{ margin: 0, color: '#475569', fontSize: '14px', lineHeight: 1.5 }}>
+                                Resume the bot for this conversation and send the customer a feedback request.
+                            </p>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
+                                <button className="btn btn--outline" onClick={() => setShowResolveHandoffModal(false)} disabled={chatActionBusy}>Cancel</button>
+                                <button className="btn btn--success" onClick={submitResolveHumanHandoff} disabled={chatActionBusy}>
+                                    {chatActionBusy ? 'Resolving...' : 'Resolve'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showResolveChatModal && (
+                <div className="modal-backdrop" onClick={() => !chatActionBusy && setShowResolveChatModal(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+                        <div className="modal-header">
+                            <h2>Resolve Support Chat</h2>
+                            <button className="btn-icon" onClick={() => setShowResolveChatModal(false)} disabled={chatActionBusy}><Icon name="close" size={20} /></button>
+                        </div>
+                        <div style={{ padding: '16px' }}>
+                            <p style={{ margin: 0, color: '#475569', fontSize: '14px', lineHeight: 1.5 }}>
+                                Resume the bot and send a feedback request to the customer.
+                            </p>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
+                                <button className="btn btn--outline" onClick={() => setShowResolveChatModal(false)} disabled={chatActionBusy}>Cancel</button>
+                                <button className="btn btn--success" onClick={submitResolveSupportChat} disabled={chatActionBusy}>
+                                    {chatActionBusy ? 'Resolving...' : 'Resolve'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showTeachBotModal && (
+                <div className="modal-backdrop" onClick={() => !chatActionBusy && setShowTeachBotModal(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+                        <form onSubmit={submitTeachBot}>
+                            <div className="modal-header">
+                                <h2>Teach Bot</h2>
+                                <button type="button" className="btn-icon" onClick={() => setShowTeachBotModal(false)} disabled={chatActionBusy}><Icon name="close" size={20} /></button>
+                            </div>
+                            <div style={{ padding: '16px' }}>
+                                <div className="form-group">
+                                    <label className="form-label">Customer Question</label>
+                                    <textarea
+                                        className="form-textarea"
+                                        rows={3}
+                                        value={teachBotForm.question}
+                                        onInput={e => setTeachBotForm(prev => ({ ...prev, question: e.target.value }))}
+                                        placeholder="What did the customer ask?"
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Bot Answer</label>
+                                    <textarea
+                                        className="form-textarea"
+                                        rows={4}
+                                        value={teachBotForm.answer}
+                                        onInput={e => setTeachBotForm(prev => ({ ...prev, answer: e.target.value }))}
+                                        placeholder="What should the bot reply next time?"
+                                        required
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <button type="button" className="btn btn--outline" onClick={() => setShowTeachBotModal(false)} disabled={chatActionBusy}>Cancel</button>
+                                    <button type="submit" className="btn btn--success" disabled={chatActionBusy || !teachBotForm.question.trim() || !teachBotForm.answer.trim()}>
+                                        {chatActionBusy ? 'Saving...' : 'Create FAQ'}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

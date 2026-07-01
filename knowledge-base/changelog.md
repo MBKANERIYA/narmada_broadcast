@@ -2,6 +2,16 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Feature & Refactor: Full Frontend Parity with Reference Platform & Single-Client Adaptation
+**What**: Synchronized all frontend UI components, stores, styles, and configurations from the reference platform (`D:\whatsapp_broadcast_saas`), while stripping out subscription plan paywalls and billing workflows to maintain the single-client architecture.
+**Why**: The user noticed that while backend features were ported earlier, the rich frontend UI capabilities—including Shopify Sync, AI Assistant Phase 2 testing & clustering console, brand theme customizer, and new catalogue management tools—were missing in the project frontend.
+**Files Changed**:
+- `frontend/src/components/*`: Copied updated components from reference platform (`Catalogue.jsx`, `KnowledgeBase.jsx`, `Orders.jsx`, `Overview.jsx`, `WhatsAppChat.jsx`, `WhatsAppBroadcast.jsx`), and adapted `Settings.jsx`, `Sidebar.jsx`, and `AdminPanel.jsx` to remove subscription tabs, plan badges, and upgrade buttons.
+- `frontend/src/stores/store.js`: Integrated Shopify integration actions (`fetchShopifyIntegration`, `saveShopifyIntegration`, `syncShopifyProducts`) and AI Assistant actions (`fetchAiAssistantOverview`, `runAiAssistantTest`, `clusterAiAssistantSuggestions`).
+- `frontend/src/config/plans.js`: Configured `normalizePlanId` and `canAccessView` to grant full workspace access without feature gating or plan restrictions.
+- `frontend/src/App.jsx`: Added brand theme customization (`brandTheme`) and mobile header branding, while removing unused plan upgrade fallbacks and checkout routing.
+- `frontend/src/styles/*`: Replaced styles with full reference theme stylesheets (`main.css` and `landing.css`).
+
 ## 2026-07-01 — Architecture Refactor: Single-Client Transition & Subscription Plan Deletion
 **What**: Removed multi-tenant subscription plan infrastructure and restrictions across frontend and backend components to transition the platform into a dedicated, single-client architecture.
 **Why**: The platform is intended for single-client usage rather than multi-tenant SaaS plan tiers. Plan restrictions, trial timers, user limits, and subscription badges were redundant and confusing in a single-owner deployment.

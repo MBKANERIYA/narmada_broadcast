@@ -1,5 +1,7 @@
+import { useState } from 'preact/hooks';
 import { useStore } from '../stores/store';
 import Icon from './Icons';
+import { canAccessView, normalizePlanId, PLAN_IDS } from '../config/plans';
 
 const NAV_ITEMS = [
     { id: 'overview', label: 'Overview', icon: 'bar-chart' },
@@ -14,7 +16,9 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ isOpen, onClose }) {
     const { currentView, setCurrentView, user, tenant, logout, totalUnread } = useStore();
+    const [logoFailed, setLogoFailed] = useState(false);
     const canOpenPlatformAdmin = user?.role === 'super_admin' || user?.is_super_admin === true;
+    const visibleNavItems = NAV_ITEMS.filter(item => canAccessView(item.id, tenant?.subscription_plan, user));
 
     const handleNav = (viewId) => {
         setCurrentView(viewId);
@@ -22,12 +26,23 @@ export default function Sidebar({ isOpen, onClose }) {
     };
 
     const firmName = tenant?.name || 'WhatsApp Broadcast';
+    const firmInitial = (firmName.trim().charAt(0) || 'W').toUpperCase();
+    const logoUrl = !logoFailed && tenant?.logo_url ? tenant.logo_url : null;
 
     return (
         <aside className={`sidebar ${isOpen ? 'sidebar--open' : ''}`} aria-label="Primary navigation">
             {/* Logo */}
             <div className="sidebar-logo">
-                <div className="sidebar-logo-mark">W</div>
+                <div className="sidebar-logo-mark" aria-hidden="true">
+                    {logoUrl ? (
+                        <img
+                            className="sidebar-logo-image"
+                            src={logoUrl}
+                            alt=""
+                            onError={() => setLogoFailed(true)}
+                        />
+                    ) : firmInitial}
+                </div>
                 <span className="sidebar-logo-text">{firmName}</span>
                 <button className="btn-icon mobile-close-btn" type="button" onClick={onClose} aria-label="Close navigation">
                     <Icon name="x" size={18} />
@@ -36,7 +51,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
             {/* Navigation */}
             <nav className="sidebar-nav">
-                {NAV_ITEMS.map(item => (
+                {visibleNavItems.map(item => (
                     <button
                         key={item.id}
                         className={`sidebar-nav-item ${currentView === item.id ? 'active' : ''}`}

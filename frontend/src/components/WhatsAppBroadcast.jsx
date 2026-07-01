@@ -5,7 +5,7 @@ import Icon from './Icons';
 export default function WhatsAppBroadcast() {
     const {
         fetchWhatsAppRecipients, sendWhatsAppBroadcast, sendWhatsAppMessage,
-        fetchWhatsAppCampaigns, fetchWhatsAppCampaignDetail,
+        fetchWhatsAppCampaigns, fetchWhatsAppCampaignDetail, controlWhatsAppCampaign,
         whatsappRecipients, whatsappCampaigns, showToast,
         uploadTemplateImage, createWhatsAppTemplate, fetchWhatsAppTemplates,
         deleteWhatsAppTemplate, editWhatsAppTemplate, whatsappTemplates
@@ -124,8 +124,7 @@ export default function WhatsAppBroadcast() {
     const deselectAll = () => setSelectedIds([]);
 
     // Templates for dropdown
-    const templatesList = Array.isArray(whatsappTemplates) ? whatsappTemplates : [];
-    const approvedTemplates = templatesList.filter(t => t.status === 'APPROVED');
+    const approvedTemplates = (whatsappTemplates || []).filter(t => t.status === 'APPROVED');
 
     const selectedTemplate = approvedTemplates.find(t => t.name === campaignName);
     const templateVariables = selectedTemplate?.components?.find(c => c.type === 'BODY')?.text?.match(/\{\{\d+\}\}/g) || [];
@@ -173,6 +172,15 @@ export default function WhatsAppBroadcast() {
         try {
             const detail = await fetchWhatsAppCampaignDetail(id);
             setCampaignDetail(detail);
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+    };
+
+    const handleCampaignControl = async (campaign, action) => {
+        try {
+            await controlWhatsAppCampaign(campaign.id, action);
+            showToast(`Campaign ${action === 'cancel' ? 'cancelled' : action === 'pause' ? 'paused' : 'resumed'}`);
         } catch (err) {
             showToast(err.message, 'error');
         }
@@ -629,7 +637,6 @@ export default function WhatsAppBroadcast() {
                         ].map(opt => (
                             <button
                                 key={opt.id}
-                                type="button"
                                 className={`btn ${recipientType === opt.id ? 'btn--primary' : 'btn--outline'}`}
                                 onClick={() => { setRecipientType(opt.id); setSelectedIds([]); }}
                                 style={{ fontSize: '13px' }}
@@ -936,7 +943,24 @@ export default function WhatsAppBroadcast() {
                                     )}
                                 </td>
                                 <td>
-                                    <button className="btn btn--outline" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => viewCampaign(c.id)}>View</button>
+                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                        <button className="btn btn--outline" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => viewCampaign(c.id)}>View</button>
+                                        {['queued', 'processing'].includes(c.status) && (
+                                            <button className="btn btn--outline" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => handleCampaignControl(c, 'pause')}>
+                                                Pause
+                                            </button>
+                                        )}
+                                        {c.status === 'paused' && (
+                                            <button className="btn btn--outline" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => handleCampaignControl(c, 'resume')}>
+                                                Resume
+                                            </button>
+                                        )}
+                                        {['queued', 'processing', 'paused'].includes(c.status) && (
+                                            <button className="btn btn--outline" style={{ fontSize: '12px', padding: '4px 10px', color: '#ef4444' }} onClick={() => handleCampaignControl(c, 'cancel')}>
+                                                Cancel
+                                            </button>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -1185,9 +1209,9 @@ export default function WhatsAppBroadcast() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {templatesList.length === 0 ? (
+                                {(whatsappTemplates || []).length === 0 ? (
                                     <tr><td colSpan={5} style={{ textAlign: 'center', padding: '40px', opacity: 0.5 }}>No templates found</td></tr>
-                                ) : templatesList.map(t => (
+                                ) : whatsappTemplates.map(t => (
                                     <tr key={t.id || t.name}>
                                         <td style={{ fontWeight: 600 }}>{t.name}</td>
                                         <td>{t.category}</td>

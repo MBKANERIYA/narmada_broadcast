@@ -2,6 +2,45 @@ import { useState, useEffect } from 'preact/hooks';
 import { useStore } from '../stores/store';
 import Icon from './Icons';
 
+const PRODUCTS_PER_PAGE = 12;
+
+function blankProductForm() {
+    return {
+        name: '',
+        description: '',
+        mrp: '',
+        selling_price: '',
+        category: '',
+        sku: '',
+        image_url: '',
+        images: [],
+        inventory_available: true,
+        track_inventory: false,
+        inventory_quantity: '',
+        inventory_policy: 'deny'
+    };
+}
+
+function stockStatus(product) {
+    const isUnavailable = product.inventory_available === false || Number(product.inventory_available) === 0;
+    if (isUnavailable) return { label: 'Out of stock', color: '#DC2626', bg: '#FEE2E2' };
+
+    const hasQuantity = product.inventory_quantity !== null && product.inventory_quantity !== undefined && product.inventory_quantity !== '';
+    if (!hasQuantity) return { label: 'Available', color: '#047857', bg: '#D1FAE5' };
+
+    const quantity = Number(product.inventory_quantity);
+    if (!Number.isFinite(quantity)) return null;
+
+    if (quantity <= 0 && product.inventory_policy === 'continue') {
+        return { label: 'Backorder allowed', color: '#1D4ED8', bg: '#DBEAFE' };
+    }
+
+    if (quantity <= 5 && product.inventory_policy !== 'continue') {
+        return { label: `Only ${product.inventory_quantity} left`, color: '#B45309', bg: '#FEF3C7' };
+    }
+    return { label: `${product.inventory_quantity} in stock`, color: '#047857', bg: '#D1FAE5' };
+}
+
 export default function Catalogue() {
     const { showToast } = useStore();
     const [products, setProducts] = useState([]);
@@ -13,17 +52,9 @@ export default function Catalogue() {
     const [sortOption, setSortOption] = useState('newest');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
-    const [formData, setFormData] = useState({
-        name: '',
-        description: '',
-        mrp: '',
-        selling_price: '',
-        category: '',
-        sku: '',
-        image_url: '',
-        images: []
-    });
+    const [formData, setFormData] = useState(blankProductForm);
 
     const api = async (path, options = {}) => {
         const token = localStorage.getItem('token');
@@ -61,9 +92,30 @@ export default function Catalogue() {
         fetchProducts();
     }, []);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, categoryFilter, sortOption]);
+
     const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    };
+
+    const handleTrackInventoryChange = (e) => {
+        const checked = e.target.checked;
+        setFormData(prev => ({
+            ...prev,
+            track_inventory: checked,
+            inventory_quantity: checked ? prev.inventory_quantity : '',
+            inventory_policy: checked ? prev.inventory_policy : 'deny'
+        }));
+    };
+
+    const handleInventoryPolicyChange = (e) => {
+        setFormData(prev => ({
+            ...prev,
+            inventory_policy: e.target.checked ? 'continue' : 'deny'
+        }));
     };
 
     const handleOpenModal = (product = null) => {
@@ -75,6 +127,7 @@ export default function Catalogue() {
                 if (!parsedImages || parsedImages.length === 0) parsedImages = product.image_url ? [product.image_url] : [];
             } catch { parsedImages = product.image_url ? [product.image_url] : []; }
 
+            const hasTrackedQuantity = product.inventory_quantity !== null && product.inventory_quantity !== undefined && product.inventory_quantity !== '';
             setFormData({
                 name: product.name || '',
                 description: product.description || '',
@@ -83,13 +136,15 @@ export default function Catalogue() {
                 category: product.category || '',
                 sku: product.sku || '',
                 image_url: product.image_url || '',
-                images: parsedImages
+                images: parsedImages,
+                inventory_available: !(product.inventory_available === false || Number(product.inventory_available) === 0),
+                track_inventory: hasTrackedQuantity,
+                inventory_quantity: hasTrackedQuantity ? product.inventory_quantity : '',
+                inventory_policy: product.inventory_policy || 'deny'
             });
         } else {
             setEditingProduct(null);
-            setFormData({
-                name: '', description: '', mrp: '', selling_price: '', category: '', sku: '', image_url: '', images: []
-            });
+            setFormData(blankProductForm());
         }
         setShowModal(true);
     };
@@ -151,16 +206,24 @@ export default function Catalogue() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            const payload = {
+                ...formData,
+                inventory_quantity: formData.track_inventory ? formData.inventory_quantity : '',
+                inventory_policy: formData.inventory_policy === 'continue' ? 'continue' : 'deny',
+                inventory_available: Boolean(formData.inventory_available)
+            };
+            delete payload.track_inventory;
+
             let response;
             if (editingProduct) {
                 response = await api(`/products/${editingProduct.id}`, {
                     method: 'PUT',
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify(payload)
                 });
             } else {
                 response = await api('/products', {
                     method: 'POST',
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify(payload)
                 });
             }
 
@@ -204,6 +267,7 @@ export default function Catalogue() {
 
     // Client-side filtering + sorting
     const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
+    const inventoryManagedByShopify = editingProduct?.external_provider === 'shopify';
 
     const filteredProducts = products
         .filter(p => {
@@ -220,6 +284,13 @@ export default function Catalogue() {
                 case 'newest': default: return (b.id || 0) - (a.id || 0);
             }
         });
+
+    const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+    const pageStartIndex = (safeCurrentPage - 1) * PRODUCTS_PER_PAGE;
+    const pageEndIndex = Math.min(pageStartIndex + PRODUCTS_PER_PAGE, filteredProducts.length);
+    const paginatedProducts = filteredProducts.slice(pageStartIndex, pageStartIndex + PRODUCTS_PER_PAGE);
+    const goToPage = (page) => setCurrentPage(Math.min(Math.max(page, 1), totalPages));
 
     return (
         <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -299,8 +370,11 @@ export default function Catalogue() {
                     </button>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-                    {filteredProducts.map(product => (
+                <div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+                        {paginatedProducts.map(product => {
+                            const stock = stockStatus(product);
+                            return (
                         <div
                             key={product.id}
                             className="card"
@@ -373,6 +447,7 @@ export default function Catalogue() {
                                 <div style={{ display: 'flex', gap: '8px', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', flexWrap: 'wrap' }}>
                                     {product.category && <span style={{ padding: '2px 8px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>{product.category}</span>}
                                     {product.sku && <span style={{ padding: '2px 8px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>SKU: {product.sku}</span>}
+                                    {stock && <span style={{ padding: '2px 8px', background: stock.bg, color: stock.color, borderRadius: '12px', fontWeight: 700 }}>{stock.label}</span>}
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
                                     <button className="btn btn-ghost" onClick={() => handleOpenModal(product)} style={{ flex: 1, padding: '6px' }}>
@@ -384,7 +459,24 @@ export default function Catalogue() {
                                 </div>
                             </div>
                         </div>
-                    ))}
+                            );
+                        })}
+                    </div>
+
+                    {filteredProducts.length > PRODUCTS_PER_PAGE && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '20px', padding: '14px 16px', background: 'white', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+                                Showing {pageStartIndex + 1}-{pageEndIndex} of {filteredProducts.length}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <button className="btn btn-secondary" onClick={() => goToPage(safeCurrentPage - 1)} disabled={safeCurrentPage === 1}>Previous</button>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '13px', minWidth: '90px', textAlign: 'center' }}>
+                                    Page {safeCurrentPage} of {totalPages}
+                                </span>
+                                <button className="btn btn-secondary" onClick={() => goToPage(safeCurrentPage + 1)} disabled={safeCurrentPage === totalPages}>Next</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -424,6 +516,49 @@ export default function Catalogue() {
                                     <div className="form-group">
                                         <label className="form-label">SKU (Meta Pixel Content ID)</label>
                                         <input type="text" className="form-input" name="sku" value={formData.sku} onChange={handleInputChange} placeholder="Must match website Pixel ID" />
+                                    </div>
+                                    <div className="form-group" style={{ gridColumn: '1 / -1', padding: '14px', border: '1px solid var(--border)', borderRadius: '12px', background: 'var(--bg-secondary)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+                                            <div>
+                                                <label className="form-label" style={{ marginBottom: '4px' }}>Inventory</label>
+                                                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                                                    {inventoryManagedByShopify
+                                                        ? 'Managed by Shopify. Run Shopify Sync after changing stock in Shopify.'
+                                                        : 'Shown on product cards and used by checkout, Meta catalogue sync, and WhatsApp suggestions.'}
+                                                </p>
+                                            </div>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                                <input type="checkbox" name="inventory_available" checked={formData.inventory_available} onChange={handleInputChange} disabled={inventoryManagedByShopify} />
+                                                Available for sale
+                                            </label>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'end' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700, color: inventoryManagedByShopify ? 'var(--text-muted)' : 'var(--text-secondary)' }}>
+                                                <input type="checkbox" checked={formData.track_inventory} onChange={handleTrackInventoryChange} disabled={inventoryManagedByShopify} />
+                                                Track inventory
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700, color: formData.track_inventory && !inventoryManagedByShopify ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
+                                                <input type="checkbox" checked={formData.inventory_policy === 'continue'} onChange={handleInventoryPolicyChange} disabled={!formData.track_inventory || inventoryManagedByShopify} />
+                                                Allow orders when out of stock
+                                            </label>
+                                            <div className="form-group" style={{ margin: 0 }}>
+                                                <label className="form-label">Quantity available</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="1"
+                                                    className="form-input"
+                                                    name="inventory_quantity"
+                                                    value={formData.inventory_quantity}
+                                                    onChange={handleInputChange}
+                                                    placeholder="Leave blank if not tracking"
+                                                    disabled={!formData.track_inventory || inventoryManagedByShopify}
+                                                />
+                                            </div>
+                                            <div style={{ fontSize: '12px', lineHeight: 1.5, color: 'var(--text-muted)', paddingBottom: '10px' }}>
+                                                Blank quantity means available/unavailable is controlled by the sale toggle only.
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                         <label className="form-label">Images</label>
