@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import Product from '../models/Product.js';
 import { generateEmbedding } from '../services/smartResponder.js';
+import { getUploadsDir } from '../utils/uploads.js';
 
 const router = express.Router();
 const PRODUCT_UPLOAD_FIELD = 'images';
@@ -33,9 +34,12 @@ function runUpload(uploadMiddleware) {
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const uploadDir = path.join(process.cwd(), 'uploads');
-        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-        cb(null, uploadDir);
+        try {
+            const uploadDir = getUploadsDir();
+            cb(null, uploadDir);
+        } catch (err) {
+            cb(err);
+        }
     },
     filename: (req, file, cb) => {
         const originalBase = path.basename(file.originalname || 'product-image');

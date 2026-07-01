@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import config from './config.js';
 import { auth } from './middleware/auth.js';
 import { initDatabase } from './database.js';
+import { getUploadsDir } from './utils/uploads.js';
 
 // Initialize DB for serverless environment
 initDatabase().catch(console.error);
@@ -44,7 +45,7 @@ app.use(cors({
 
 app.get('/health', (req, res) => res.json({ status: 'healthy' }));
 app.get('/', (req, res) => res.json({ message: 'WhatsApp Marketing Platform API (MongoDB)' }));
-app.use('/api/v1/uploads', express.static(join(process.cwd(), 'uploads')));
+app.use('/api/v1/uploads', express.static(getUploadsDir()));
 
 // Public Webhook (No Auth)
 app.use('/api/v1/whatsapp-webhook', webhookRoutes);

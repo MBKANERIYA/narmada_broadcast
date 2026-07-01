@@ -10,6 +10,7 @@ import WhatsAppChatMessage from '../models/WhatsAppChatMessage.js';
 import Contact from '../models/Contact.js';
 import User from '../models/User.js';
 import Setting from '../models/Setting.js';
+import { getUploadsDir } from '../utils/uploads.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -337,8 +338,7 @@ router.post('/conversations/:id/send-media', upload.single('media'), async (req,
         
         const result = await sendMediaMessage(conversation.phone, mediaType, { id: metaMediaId }, req.body.caption || '', req.tenant);
 
-        const uploadDir = path.join(process.cwd(), 'uploads');
-        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+        const uploadDir = getUploadsDir();
         
         const safeFilename = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
         const localFileName = `${Date.now()}_${safeFilename}`;
@@ -529,7 +529,7 @@ router.get('/media/:media_id', async (req, res) => {
         if (media_id.startsWith('local_media:')) {
             const fileName = media_id.replace('local_media:', '');
             const safeName = path.basename(fileName);
-            const filePath = path.join(process.cwd(), 'uploads', safeName);
+            const filePath = path.join(getUploadsDir(), safeName);
             
             if (!fs.existsSync(filePath)) {
                 return res.status(404).json({ error: 'Local media file not found on disk' });

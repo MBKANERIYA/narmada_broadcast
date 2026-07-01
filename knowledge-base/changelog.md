@@ -2,6 +2,15 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Fix: Serverless Read-Only Filesystem Uploads Compatibility (`/var/task/uploads`)
+**What**: Created `getUploadsDir()` utility in `backend/src/utils/uploads.js` and updated all file/media upload routes and static file serving in `app.js`, `products.js`, and `whatsapp-chat.js`.
+**Why**: In serverless runtime environments like Vercel and AWS Lambda, the working directory (`process.cwd()` / `/var/task`) is read-only. Attempting to upload attachments or media in the Chat Inbox failed with `ENOENT: no such file or directory, mkdir '/var/task/uploads'`. The new utility dynamically detects serverless environments and read-only filesystems and falls back to writing files in `/tmp/uploads` (`os.tmpdir()/uploads`), while serving static files cleanly.
+**Files Changed**:
+- `backend/src/utils/uploads.js`: Created new helper utility for serverless-safe uploads directory resolution.
+- `backend/src/app.js`: Updated express static route `/api/v1/uploads` to serve from `getUploadsDir()`.
+- `backend/src/routes/whatsapp-chat.js`: Updated local media storage and stream reading to use `getUploadsDir()`.
+- `backend/src/routes/products.js`: Updated multer diskStorage destination to use `getUploadsDir()`.
+
 ## 2026-07-01 — Fix: Serverless Cold Start DB Buffering in Webhook Handler
 **What**: Added explicit `await initDatabase()` to the start of the webhook POST handler in `backend/src/routes/webhook.js`.
 **Why**: In serverless deployment environments like Vercel, top-level asynchronous database initialization promises may not complete before incoming webhook requests hit Lambda functions on cold start. By awaiting database initialization inside the route handler and adding fallback logic for `Setting.findOne()`, we prevent Mongoose connection buffering timeouts when Meta WhatsApp webhooks are received.
