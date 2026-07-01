@@ -2,6 +2,7 @@ import { Router } from 'express';
 import WhatsAppMessage from '../models/WhatsAppMessage.js';
 import WhatsAppConversation from '../models/WhatsAppConversation.js';
 import WhatsAppChatMessage from '../models/WhatsAppChatMessage.js';
+import Contact from '../models/Contact.js';
 import Setting from '../models/Setting.js';
 import { emitToTenant } from '../services/websocket.js';
 import { normalizePhone } from '../services/whatsapp.js';
@@ -80,14 +81,29 @@ router.post('/', async (req, res) => {
                         let conversation = await WhatsAppConversation.findOne({ tenant_id: tenantId, phone: fromPhone });
                         
                         if (!conversation) {
+                            let contact = await Contact.findOne({ tenant_id: tenantId, phone: { $regex: new RegExp(`${fromPhone.slice(-10)}$`) } });
+                            if (!contact) {
+                                contact = await Contact.create({
+                                    tenant_id: tenantId,
+                                    name: contactName,
+                                    phone: `+${fromPhone}`,
+                                    source: 'whatsapp',
+                                    whatsapp_consent: true
+                                });
+                            }
                             conversation = new WhatsAppConversation({
                                 tenant_id: tenantId,
                                 phone: fromPhone,
-                                contact_name: contactName,
+                                contact_name: contact?.name || contactName,
+                                contact_id: contact?._id || null,
                                 window_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000)
                             });
                         } else {
                             if (!conversation.contact_name) conversation.contact_name = contactName;
+                            if (!conversation.contact_id) {
+                                const contact = await Contact.findOne({ tenant_id: tenantId, phone: { $regex: new RegExp(`${fromPhone.slice(-10)}$`) } });
+                                if (contact) conversation.contact_id = contact._id;
+                            }
                         }
 
                         // Save chat message

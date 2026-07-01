@@ -2,6 +2,13 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Feature: Sync Broadcast Messages to Chat Inbox & Auto-Link Contacts
+**What**: Synced broadcast campaign messages to the WhatsApp Chat Inbox and added automatic contact lookup/creation in webhooks and broadcasts.
+**Why**: When broadcast campaigns were sent from the Broadcast tab (`processBroadcast`), messages were logged to `WhatsAppMessage` but did not create or update records in `WhatsAppConversation` or `WhatsAppChatMessage`. As a result, contacts who were sent campaigns (like `maulik`) did not appear in the Chat Inbox until they replied. Additionally, inbound messages in `webhook.js` were creating conversations without linking `contact_id`. Now, all outgoing broadcast messages create/update conversations, link contacts, and appear in the Chat Inbox. A backfill script was also run to sync existing sent broadcast messages.
+**Files Changed**:
+- `backend/src/routes/whatsapp.js`: Updated `processBroadcast` to find or create `WhatsAppConversation` and insert `WhatsAppChatMessage` records for successfully sent broadcast messages.
+- `backend/src/routes/webhook.js`: Added automatic `Contact` lookup/creation when inbound webhook messages arrive to ensure `contact_id` and `contact_name` are linked.
+
 ## 2026-07-01 — Fix: WhatsAppChatMessage sent_by Cast to ObjectId Validation Error
 **What**: Fixed Mongoose validation error `sent_by: Cast to ObjectId failed for value "admin-user-id"` when sending outbound chat messages or templates.
 **Why**: In the single-user admin authentication setup, `req.user.userId` is the literal string `"admin-user-id"`. However, the `WhatsAppChatMessage` model defined `sent_by` as an `ObjectId` reference to `User`. This mismatch caused Mongoose to throw a validation error whenever an outbound message was created. The field was updated to `String` (matching `WhatsAppCampaign.sent_by`), and `.populate('sent_by')` was removed from chat query routes.

@@ -7,6 +7,8 @@ import multer from 'multer';
 import Contact from '../models/Contact.js';
 import WhatsAppCampaign from '../models/WhatsAppCampaign.js';
 import WhatsAppMessage from '../models/WhatsAppMessage.js';
+import WhatsAppConversation from '../models/WhatsAppConversation.js';
+import WhatsAppChatMessage from '../models/WhatsAppChatMessage.js';
 import { sendTemplateMessage, sendBulkMessages, normalizePhone, uploadMediaForTemplate, createTemplate, editTemplate, fetchTemplates, deleteTemplate } from '../services/whatsapp.js';
 import { auth } from '../middleware/auth.js';
 import { loadSettings } from '../middleware/loadSettings.js';
@@ -201,12 +203,47 @@ async function processBroadcast(campaignId, recipients, campaignName, templatePa
         const results = await sendBulkMessages(recipients, campaignName, templateParams, 50, 1000, languageCode, tenant);
         console.log(`[Broadcast #${campaignId}] Done. Success: ${results.successful}, Failed: ${results.failed}`);
 
-        // Update message statuses
+        // Update message statuses and sync with Chat Inbox
+        const tenantId = tenant?._id ? tenant._id.toString() : '6a3a72a84065eb9ea35938db';
         for (const msg of results.messageIds) {
             await WhatsAppMessage.updateOne(
                 { campaign_id: campaignId, phone: msg.phone },
                 { status: 'sent', sent_at: new Date(), provider_message_id: msg.messageId }
             );
+
+            try {
+                let conversation = await WhatsAppConversation.findOne({ tenant_id: tenantId, phone: msg.phone });
+                if (!conversation) {
+                    const contact = await Contact.findOne({ phone: { $regex: new RegExp(`${msg.phone.slice(-10)}$`) }, tenant_id: tenantId });
+                    conversation = await WhatsAppConversation.create({
+                        tenant_id: tenantId,
+                        phone: msg.phone,
+                        contact_name: msg.name || contact?.name || msg.phone,
+                        contact_id: contact?._id || null,
+                        last_message_text: `[Broadcast Template: ${campaignName}]`.substring(0, 100),
+                        last_message_at: new Date(),
+                        window_expires_at: null
+                    });
+                } else {
+                    if (msg.name && !conversation.contact_name) conversation.contact_name = msg.name;
+                    conversation.last_message_text = `[Broadcast Template: ${campaignName}]`.substring(0, 100);
+                    conversation.last_message_at = new Date();
+                    await conversation.save();
+                }
+
+                await WhatsAppChatMessage.create({
+                    tenant_id: tenantId,
+                    conversation_id: conversation._id,
+                    direction: 'outbound',
+                    message_type: 'template',
+                    body: `[Broadcast Template: ${campaignName}]`,
+                    provider_message_id: msg.messageId,
+                    status: 'sent',
+                    sent_by: 'admin-user-id'
+                });
+            } catch (chatErr) {
+                console.error(`[Broadcast #${campaignId}] Error syncing chat inbox for ${msg.phone}:`, chatErr.message);
+            }
         }
         for (const err of results.errors) {
             const normalized = normalizePhone(err.phone) || err.phone;
