@@ -2,6 +2,12 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — UI: Remove Default Admin Credentials Hint
+**What**: Removed the hardcoded admin credentials (`admin` / `admin123`) hint box from the frontend Login page.
+**Why**: The hint was displaying default login credentials on the public login page, which is a security risk for a production environment.
+**Files Changed**:
+- `frontend/src/components/Login.jsx`: Deleted the div containing the credentials hint.
+
 ## 2026-07-01 — Feature: Pull Products from Meta Catalogue
 **What**: Added a "Sync from Meta" button to the Catalogue page and fixed a typo in the Meta Catalog ID saving logic that prevented fetching and pushing.
 **Why**: The user's database had a typo in the `whatsapp_catalog_id` (missing `65`) which prevented products from syncing up to Meta. Furthermore, the user wanted a way to fetch their existing 23 products from Meta into the local platform.

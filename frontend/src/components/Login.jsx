@@ -29,9 +29,7 @@ export default function AuthPage() {
                     </div>
                 </div>
 
-                <div style={{ background: 'var(--bg-tertiary)', padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '12px', color: 'var(--text-secondary)', borderLeft: '3px solid var(--accent-primary)' }}>
-                    <strong>Admin Credentials:</strong> <code>admin</code> / <code>admin123</code>
-                </div>
+
 
                 {error && <div className="auth-error">{error}</div>}
 
@@ -44,27 +42,27 @@ export default function AuthPage() {
                     <label>
                         <span>Password</span>
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                            <input 
-                                type={showPassword ? 'text' : 'password'} 
-                                value={form.password} 
-                                onInput={update('password')} 
-                                placeholder="Enter password (default: admin123)" 
-                                required 
-                                minLength={3} 
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                value={form.password}
+                                onInput={update('password')}
+                                placeholder="Enter password (default: admin123)"
+                                required
+                                minLength={3}
                                 style={{ width: '100%', paddingRight: '40px' }}
                             />
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                style={{ 
-                                    position: 'absolute', 
-                                    right: '12px', 
-                                    background: 'none', 
-                                    border: 'none', 
-                                    cursor: 'pointer', 
-                                    color: '#94a3b8', 
-                                    display: 'flex', 
-                                    padding: 0 
+                                style={{
+                                    position: 'absolute',
+                                    right: '12px',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: '#94a3b8',
+                                    display: 'flex',
+                                    padding: 0
                                 }}
                                 title={showPassword ? "Hide password" : "Show password"}
                             >
