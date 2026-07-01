@@ -196,7 +196,7 @@ export default function KnowledgeBase() {
             <div className="page-header">
                 <div>
                     <h1 className="page-title">Smart Knowledge Base</h1>
-                    <p className="page-subtitle">Add frequently asked questions. The AI Semantic Engine will automatically match customer questions to these answers.</p>
+                    <p className="page-subtitle">Add frequently asked questions. Smart Automation will match customer questions to these answers.</p>
                 </div>
             </div>
 
@@ -208,7 +208,7 @@ export default function KnowledgeBase() {
                     <span className="stat-change">Active Questions</span>
                 </div>
                 <div className="stat-card">
-                    <span className="stat-label">AI Status</span>
+                    <span className="stat-label">Automation Status</span>
                     <span className="stat-value" style={{ color: 'var(--accent-success)' }}>Active</span>
                     <span className="stat-change">Semantic Matching</span>
                 </div>

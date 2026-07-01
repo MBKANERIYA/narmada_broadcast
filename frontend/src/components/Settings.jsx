@@ -17,7 +17,7 @@ const BILLING_PLAN_COPY = {
     },
 };
 
-const AI_FEATURE_FLAGS = [
+const AUTOMATION_FEATURE_FLAGS = [
     { key: 'retrieval_v2', title: 'Smart Retrieval v2', desc: 'Hybrid keyword + semantic matching with confidence bands.' },
     { key: 'disambiguation', title: '"Did you mean?"', desc: 'Tappable list of likely questions on uncertain match.' },
     { key: 'embeddings_v2', title: 'Multilingual', desc: 'Understand Hindi / Hinglish queries.' },
@@ -124,7 +124,7 @@ export default function Settings() {
         createBillingOrder, verifyBillingPayment,
         fetchShopifyIntegration, saveShopifyIntegration, syncShopifyProducts,
         updateChatbotSettings,
-        fetchAiAssistantOverview, runAiAssistantTest, clusterAiAssistantSuggestions,
+        fetchSmartAutomationOverview, runSmartAutomationTest, clusterSmartAutomationSuggestions,
         showToast, tenant
     } = useStore();
 
@@ -152,10 +152,10 @@ export default function Settings() {
     const [embStatus, setEmbStatus] = useState(null);
     const [embBusy, setEmbBusy] = useState(false);
     const [selectedModel, setSelectedModel] = useState('');
-    const [aiOverview, setAiOverview] = useState(null);
-    const [aiBusy, setAiBusy] = useState(false);
-    const [aiTestMessage, setAiTestMessage] = useState('');
-    const [aiTestResult, setAiTestResult] = useState(null);
+    const [automationOverview, setAutomationOverview] = useState(null);
+    const [automationBusy, setAutomationBusy] = useState(false);
+    const [automationTestMessage, setAutomationTestMessage] = useState('');
+    const [automationTestResult, setAutomationTestResult] = useState(null);
 
     useEffect(() => {
         fetchTenantSettings();
@@ -256,7 +256,7 @@ export default function Settings() {
         }
     };
 
-    // --- AI Assistant: embedding-model status + re-embed (Phase 2) ---
+    // --- Smart Automation: embedding-model status + re-embed ---
     const authHeaders = () => ({
         'Authorization': `Bearer ${localStorage.getItem('narmada_broadcast_token')}`,
         'x-tenant-slug': localStorage.getItem('tenant_slug') || 'default',
@@ -274,12 +274,12 @@ export default function Settings() {
         } catch { /* non-fatal */ }
     };
 
-    const fetchAiOverview = async () => {
+    const fetchAutomationOverview = async () => {
         try {
-            const data = await fetchAiAssistantOverview();
-            setAiOverview(data);
+            const data = await fetchSmartAutomationOverview();
+            setAutomationOverview(data);
         } catch (err) {
-            console.error('AI Assistant overview error:', err);
+            console.error('Smart Automation overview error:', err);
         }
     };
 
@@ -289,7 +289,7 @@ export default function Settings() {
         }
         if (activeTab === 'chatbot') {
             fetchEmbStatus();
-            fetchAiOverview();
+            fetchAutomationOverview();
         }
     }, [activeTab]);
 
@@ -316,29 +316,29 @@ export default function Settings() {
         }
     };
 
-    const handleAiTest = async () => {
-        if (!aiTestMessage.trim()) return;
-        setAiBusy(true);
+    const handleAutomationTest = async () => {
+        if (!automationTestMessage.trim()) return;
+        setAutomationBusy(true);
         try {
-            const result = await runAiAssistantTest(aiTestMessage.trim());
-            setAiTestResult(result);
+            const result = await runSmartAutomationTest(automationTestMessage.trim());
+            setAutomationTestResult(result);
         } catch (err) {
-            showToast(err.message || 'AI Assistant test failed', 'error');
+            showToast(err.message || 'Smart Automation test failed', 'error');
         } finally {
-            setAiBusy(false);
+            setAutomationBusy(false);
         }
     };
 
     const handleClusterSuggestions = async () => {
-        setAiBusy(true);
+        setAutomationBusy(true);
         try {
-            await clusterAiAssistantSuggestions();
-            await fetchAiOverview();
+            await clusterSmartAutomationSuggestions();
+            await fetchAutomationOverview();
             showToast('Suggestions queue refreshed', 'success');
         } catch (err) {
             showToast(err.message || 'Failed to refresh suggestions', 'error');
         } finally {
-            setAiBusy(false);
+            setAutomationBusy(false);
         }
     };
 
@@ -471,11 +471,11 @@ export default function Settings() {
         { id: 'profile', label: 'Firm Profile', icon: 'briefcase' },
         { id: 'whatsapp', label: 'WhatsApp', icon: 'whatsapp' },
         { id: 'shopify', label: 'Shopify Sync', icon: 'refresh-cw' },
-        { id: 'chatbot', label: 'Chatbot & Hours', icon: 'message-circle' },
+        { id: 'chatbot', label: 'Automation & Hours', icon: 'message-circle' },
     ];
     const parsedBotSettings = parseBotSettings(tenantSettings || {});
     const isCommercePlan = true;
-    const activeFeatureCount = AI_FEATURE_FLAGS.filter(flag => botForm.flags?.[flag.key]).length;
+    const activeFeatureCount = AUTOMATION_FEATURE_FLAGS.filter(flag => botForm.flags?.[flag.key]).length;
     const configuredRazorpaySecrets = [
         parsedBotSettings.razorpay_key_id,
         parsedBotSettings.has_razorpay_key_secret,
@@ -869,7 +869,7 @@ export default function Settings() {
                 </div>
             )}
 
-            {/* ── Chatbot & Hours Tab ── */}
+            {/* Automation & Hours Tab */}
             {activeTab === 'chatbot' && (
                 <div className="settings-chatbot-grid">
                     {/* ── LEFT: Bot Configuration ── */}
@@ -890,8 +890,8 @@ export default function Settings() {
                                         </strong>
                                     </div>
                                     <div className="settings-summary-item">
-                                        <span>AI features</span>
-                                        <strong>{activeFeatureCount} of {AI_FEATURE_FLAGS.length} enabled</strong>
+                                        <span>Smart features</span>
+                                        <strong>{activeFeatureCount} of {AUTOMATION_FEATURE_FLAGS.length} enabled</strong>
                                     </div>
                                     <div className="settings-summary-item">
                                         <span>Business hours</span>
@@ -911,7 +911,7 @@ export default function Settings() {
                                     </div>
                                 </div>
                                 <div className="settings-feature-list">
-                                    {AI_FEATURE_FLAGS.map(feature => (
+                                    {AUTOMATION_FEATURE_FLAGS.map(feature => (
                                         <div key={feature.key} className="settings-feature-row">
                                             <div>
                                                 <strong>{feature.title}</strong>
@@ -938,10 +938,10 @@ export default function Settings() {
 
                             {/* Feature Flags */}
                             <div style={{ marginBottom: '20px' }}>
-                                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>AI Assistant (Beta)</div>
+                                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>Smart Automation</div>
                                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px 0' }}>Each feature is additive and off by default.</p>
                                 <div style={{ display: 'grid', gap: '8px' }}>
-                                    {AI_FEATURE_FLAGS.map(f => (
+                                    {AUTOMATION_FEATURE_FLAGS.map(f => (
                                         <label key={f.key} htmlFor={`flag-${f.key}`}
                                             style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', borderRadius: '8px', background: botForm.flags?.[f.key] ? 'var(--accent-primary-alpha, rgba(37,211,102,0.06))' : 'var(--bg-tertiary)', cursor: 'pointer', border: '1px solid', borderColor: botForm.flags?.[f.key] ? 'var(--accent-primary)' : 'transparent', transition: 'all 0.15s' }}>
                                             <input type="checkbox" id={`flag-${f.key}`}
@@ -1018,7 +1018,7 @@ export default function Settings() {
                                         <label className="form-label" style={{ fontSize: '12px' }}>After-hours action</label>
                                         <select className="form-select" value={botForm.after_hours_action}
                                             onChange={e => setBotForm(f => ({ ...f, after_hours_action: e.target.value }))}>
-                                            <option value="respond_normally">Respond Normally (AI chatbot)</option>
+                                            <option value="respond_normally">Respond Normally (Smart Automation)</option>
                                             <option value="send_away_message">Send Away Message</option>
                                             <option value="remain_silent">Remain Silent</option>
                                         </select>
@@ -1098,45 +1098,45 @@ export default function Settings() {
                         )}
                     </div>
 
-                    {/* ── RIGHT: AI Assistant Control Center ── */}
+                    {/* Smart Automation Control Center */}
                     <div style={{ display: 'grid', gap: '16px' }}>
                         {/* Score + Metrics */}
                         <div className="card" style={{ padding: '16px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                                <h2 style={{ margin: 0, fontSize: '17px' }}>AI Assistant Control Center</h2>
-                                <button type="button" className="btn btn--outline" onClick={fetchAiOverview} disabled={aiBusy} style={{ fontSize: '12px', padding: '4px 12px' }}>↻ Refresh</button>
+                                <h2 style={{ margin: 0, fontSize: '17px' }}>Smart Automation Control Center</h2>
+                                <button type="button" className="btn btn--outline" onClick={fetchAutomationOverview} disabled={automationBusy} style={{ fontSize: '12px', padding: '4px 12px' }}>↻ Refresh</button>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '14px' }}>
                                 <div style={{ background: 'var(--bg-tertiary)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-primary)', lineHeight: 1 }}>{aiOverview?.score?.score ?? '—'}</div>
+                                    <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-primary)', lineHeight: 1 }}>{automationOverview?.score?.score ?? '—'}</div>
                                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>Smartness Score</div>
-                                    {aiOverview?.score?.grade && <div style={{ fontSize: '10px', marginTop: '2px', color: 'var(--text-muted)' }}>Grade: <strong style={{ color: aiOverview.score.grade === 'A' ? 'var(--accent-success)' : aiOverview.score.grade === 'F' ? 'var(--accent-danger)' : 'var(--text-primary)' }}>{aiOverview.score.grade}</strong></div>}
+                                    {automationOverview?.score?.grade && <div style={{ fontSize: '10px', marginTop: '2px', color: 'var(--text-muted)' }}>Grade: <strong style={{ color: automationOverview.score.grade === 'A' ? 'var(--accent-success)' : automationOverview.score.grade === 'F' ? 'var(--accent-danger)' : 'var(--text-primary)' }}>{automationOverview.score.grade}</strong></div>}
                                 </div>
                                 <div style={{ background: 'var(--bg-tertiary)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-success)', lineHeight: 1 }}>{aiOverview?.analytics?.deflection_rate ?? 0}<span style={{ fontSize: '14px' }}>%</span></div>
+                                    <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-success)', lineHeight: 1 }}>{automationOverview?.analytics?.deflection_rate ?? 0}<span style={{ fontSize: '14px' }}>%</span></div>
                                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>Deflection</div>
                                 </div>
                                 <div style={{ background: 'var(--bg-tertiary)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '28px', fontWeight: 800, color: aiOverview?.analytics?.handoff_rate > 20 ? 'var(--accent-danger)' : 'var(--accent-warning, #f59e0b)', lineHeight: 1 }}>{aiOverview?.analytics?.handoff_rate ?? 0}<span style={{ fontSize: '14px' }}>%</span></div>
+                                    <div style={{ fontSize: '28px', fontWeight: 800, color: automationOverview?.analytics?.handoff_rate > 20 ? 'var(--accent-danger)' : 'var(--accent-warning, #f59e0b)', lineHeight: 1 }}>{automationOverview?.analytics?.handoff_rate ?? 0}<span style={{ fontSize: '14px' }}>%</span></div>
                                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>Handoff</div>
                                 </div>
                             </div>
-                            {aiOverview?.analytics && (
+                            {automationOverview?.analytics && (
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                     <div style={{ background: 'var(--bg-tertiary)', borderRadius: '8px', padding: '10px' }}>
                                         <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px' }}>Auto-resolved</div>
-                                        <div style={{ fontSize: '18px', fontWeight: 700 }}>{aiOverview.analytics.auto_resolved_rate ?? 0}%</div>
+                                        <div style={{ fontSize: '18px', fontWeight: 700 }}>{automationOverview.analytics.auto_resolved_rate ?? 0}%</div>
                                     </div>
                                     <div style={{ background: 'var(--bg-tertiary)', borderRadius: '8px', padding: '10px' }}>
                                         <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px' }}>Total Interactions</div>
-                                        <div style={{ fontSize: '18px', fontWeight: 700 }}>{aiOverview.analytics.total_interactions ?? 0}</div>
+                                        <div style={{ fontSize: '18px', fontWeight: 700 }}>{automationOverview.analytics.total_interactions ?? 0}</div>
                                     </div>
                                 </div>
                             )}
-                            {aiOverview?.digest && aiOverview.digest.score !== undefined && (
+                            {automationOverview?.digest && automationOverview.digest.score !== undefined && (
                                 <div style={{ marginTop: '12px', padding: '10px 12px', background: 'var(--bg-tertiary)', borderRadius: '8px', fontSize: '12px', color: 'var(--text-secondary)' }}>
                                     <strong style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Weekly Digest</strong>
-                                    <div style={{ marginTop: '4px' }}>Score: <strong>{aiOverview.digest.score}</strong> · Deflection: <strong>{aiOverview.digest.deflection_rate ?? 0}%</strong> · Open: <strong>{aiOverview.digest.open_suggestions ?? 0}</strong></div>
+                                    <div style={{ marginTop: '4px' }}>Score: <strong>{automationOverview.digest.score}</strong> · Deflection: <strong>{automationOverview.digest.deflection_rate ?? 0}%</strong> · Open: <strong>{automationOverview.digest.open_suggestions ?? 0}</strong></div>
                                 </div>
                             )}
                         </div>
@@ -1145,12 +1145,12 @@ export default function Settings() {
                         <div className="card" style={{ padding: '16px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                                 <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>Suggestions Queue</h3>
-                                <button type="button" className="btn btn--outline" onClick={handleClusterSuggestions} disabled={aiBusy} style={{ fontSize: '12px', padding: '4px 12px' }}>Build</button>
+                                <button type="button" className="btn btn--outline" onClick={handleClusterSuggestions} disabled={automationBusy} style={{ fontSize: '12px', padding: '4px 12px' }}>Build</button>
                             </div>
-                            {(aiOverview?.suggestions || []).length === 0
+                            {(automationOverview?.suggestions || []).length === 0
                                 ? <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center' }}>No open suggestions — bot is answering well! 🎉</div>
                                 : <div style={{ display: 'grid', gap: '6px' }}>
-                                    {(aiOverview?.suggestions || []).slice(0, 8).map(item => (
+                                    {(automationOverview?.suggestions || []).slice(0, 8).map(item => (
                                         <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', padding: '8px 10px', background: 'var(--bg-tertiary)', borderRadius: '6px' }}>
                                             <span style={{ fontSize: '12px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
                                             <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', flexShrink: 0, background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '10px' }}>{item.source_count}×</span>
@@ -1158,11 +1158,11 @@ export default function Settings() {
                                     ))}
                                   </div>
                             }
-                            {aiOverview?.analytics?.top_unanswered?.length > 0 && (
+                            {automationOverview?.analytics?.top_unanswered?.length > 0 && (
                                 <div style={{ marginTop: '14px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
                                     <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>Top Unanswered</div>
                                     <div style={{ display: 'grid', gap: '4px' }}>
-                                        {aiOverview.analytics.top_unanswered.slice(0, 5).map((q, i) => (
+                                        {automationOverview.analytics.top_unanswered.slice(0, 5).map((q, i) => (
                                             <div key={i} style={{ fontSize: '12px', color: 'var(--text-secondary)', padding: '4px 0', borderBottom: '1px solid var(--border-color)' }}>
                                                 {typeof q === 'string' ? q : q.query || q.normalized_message || JSON.stringify(q)}
                                             </div>
@@ -1177,16 +1177,16 @@ export default function Settings() {
                             <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: 700 }}>Faithful test console</h3>
                             <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>Routes through the real responder.</p>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-                                <textarea className="form-textarea" rows={2} value={aiTestMessage}
-                                    onInput={e => setAiTestMessage(e.target.value)}
+                                <textarea className="form-textarea" rows={2} value={automationTestMessage}
+                                    onInput={e => setAutomationTestMessage(e.target.value)}
                                     placeholder="e.g. Where is my order?" style={{ flex: 1, marginBottom: 0, fontSize: '13px' }} />
-                                <button type="button" className="btn btn--primary" onClick={handleAiTest} disabled={aiBusy || !aiTestMessage.trim()} style={{ whiteSpace: 'nowrap', alignSelf: 'stretch' }}>
-                                    {aiBusy ? '…' : 'Test'}
+                                <button type="button" className="btn btn--primary" onClick={handleAutomationTest} disabled={automationBusy || !automationTestMessage.trim()} style={{ whiteSpace: 'nowrap', alignSelf: 'stretch' }}>
+                                    {automationBusy ? '…' : 'Test'}
                                 </button>
                             </div>
-                            {aiTestResult && (
+                            {automationTestResult && (
                                 <pre style={{ marginTop: '10px', padding: '10px', background: 'var(--bg-tertiary)', borderRadius: '8px', fontSize: '11px', whiteSpace: 'pre-wrap', maxHeight: '200px', overflow: 'auto', lineHeight: 1.5 }}>
-                                    {JSON.stringify(aiTestResult.reply || aiTestResult, null, 2)}
+                                    {JSON.stringify(automationTestResult.reply || automationTestResult, null, 2)}
                                 </pre>
                             )}
                         </div>

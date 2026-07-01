@@ -12,7 +12,7 @@
 | Hosting | Vercel |
 | Auth | Single-client JWT admin login |
 | WhatsApp API | Meta Cloud API |
-| AI/Chatbot | Gemini embeddings when `AI_API_KEY` exists, lexical fallback otherwise |
+| Smart Automation | Local MiniLM/E5 embeddings with lexical fallback; no external provider key |
 | Test Runner | Node built-in `node:test`, ESLint, Vite build |
 
 ## Directory Structure
@@ -68,7 +68,7 @@ narmada_broadcast/
 | `decisions.md` | Before changing architecture, auth, database, deployment, or testing choices |
 | `known-issues.md` | Before debugging anything |
 | `testing.md` | Before writing or changing tests |
-| `chatbot.md` | Before touching Smart FAQ, AI Assistant, embeddings, or bot replies |
+| `chatbot.md` | Before touching Smart FAQs, Smart Automation, embeddings, or bot replies |
 | `frontend.md` | Before touching the app shell or UI components |
 | `security.md` | Before touching auth, secrets, webhooks, uploads, or payment flows |
 | `changelog.md` | When tracing history or preparing a handoff |

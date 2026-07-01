@@ -2,6 +2,19 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Restore Local Smart Automation For Vercel Fork
+**What**: Removed the external provider-key Smart Automation path from the Narmada Vercel fork, restored local embedding models with lexical fallback, renamed active UI/API surfaces to Smart Automation, and updated deployment docs so Vercel no longer asks for an AI key.
+**Why**: The client deployment must be a single-client version of the main WhatsApp Broadcast platform, not a cloud-provider chatbot variant. The earlier fork repair made a Gemini key optional, but the correct product contract is no external provider key requirement.
+**Impact**: Vercel env setup now requires only infrastructure secrets such as `MONGO_URI` and `JWT_SECRET`; Settings uses `/tenant-settings/smart-automation/*`; FAQ/product vectors use local MiniLM/E5 model keys when available; lexical fallback remains for missing vectors or model cold-start failures.
+**Files Changed**: `README.md`, `backend/package.json`, `backend/package-lock.json`, `backend/src/routes/knowledge-base.js`, `backend/src/routes/products.js`, `backend/src/routes/tenant-settings.js`, `backend/src/services/smartResponder.js`, `backend/test/regression.test.js`, `frontend/src/components/KnowledgeBase.jsx`, `frontend/src/components/Settings.jsx`, `frontend/src/components/WhatsAppChat.jsx`, `frontend/src/config/plans.js`, `frontend/src/stores/store.js`, `knowledge-base/ARCHITECTURE.md`, `knowledge-base/DEPLOYMENT.md`, `knowledge-base/DEVELOPMENT_GUIDE.md`, `knowledge-base/README.md`, `knowledge-base/active-context.md`, `knowledge-base/chatbot.md`, `knowledge-base/decisions.md`, `knowledge-base/known-issues.md`, `knowledge-base/security.md`, `knowledge-base/testing.md`
+**Tests**: PASS - `cd backend && npm test` (19 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (9 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Commit**: Pending
+
+- Added `@huggingface/transformers` to the Mongo/Vercel fork and changed `smartResponder.generateEmbedding()` to use local feature extraction.
+- Changed Knowledge Base, Product, and re-embed flows to tag vectors with local model keys from `embeddingConfig.js`.
+- Renamed active frontend/store/backend routes from AI Assistant language to Smart Automation.
+- Added regression coverage that fails if active source or product docs reintroduce external provider key requirements.
+
 ## 2026-07-01 - Vercel Single-Client Deployment Repair
 **What**: Removed the hardcoded MongoDB fallback, restored missing Vercel API contracts for auth, chatbot, AI Assistant, embeddings, and Knowledge Base, added text-only bot fallback, refreshed deployment docs, and removed an unused vulnerable mailer dependency.
 **Why**: The independent Narmada Vercel deployment was not behaving as a clean single-client product: chatbot/settings routes returned 404, Knowledge Base responses did not match the frontend contract, stale browser auth could open the dashboard without validation, and MongoDB isolation depended on an exposed fallback URI.

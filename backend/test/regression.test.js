@@ -44,24 +44,24 @@ test('JWT session validation route exists and frontend does not trust stale pers
   assert.match(appSource, /isAuthReady/);
 });
 
-test('tenant settings route exposes AI assistant and embedding endpoints used by Settings UI', () => {
+test('tenant settings route exposes Smart Automation and local embedding endpoints used by Settings UI', () => {
   const routeSource = readRepoFile('backend/src/routes/tenant-settings.js');
 
   for (const pattern of [
-    /router\.get\('\/ai-assistant\/analytics'/,
-    /router\.get\('\/ai-assistant\/suggestions'/,
-    /router\.get\('\/ai-assistant\/score'/,
-    /router\.get\('\/ai-assistant\/digest'/,
-    /router\.post\('\/ai-assistant\/test'/,
-    /router\.post\('\/ai-assistant\/learning\/cluster'/,
+    /router\.get\('\/smart-automation\/analytics'/,
+    /router\.get\('\/smart-automation\/suggestions'/,
+    /router\.get\('\/smart-automation\/score'/,
+    /router\.get\('\/smart-automation\/digest'/,
+    /router\.post\('\/smart-automation\/test'/,
+    /router\.post\('\/smart-automation\/learning\/cluster'/,
     /router\.get\('\/embeddings'/,
     /router\.post\('\/embeddings\/reembed'/,
   ]) {
     assert.match(routeSource, pattern);
   }
 
-  assert.match(routeSource, /api_key_configured:\s*Boolean\(process\.env\.AI_API_KEY\)/);
-  assert.match(routeSource, /AI_API_KEY is required to re-embed/);
+  assert.doesNotMatch(routeSource, /AI_API_KEY|api_key_configured|fallback_mode|gemini-text-embedding-004/i);
+  assert.match(routeSource, /Object\.values\(EMBEDDING_MODELS\)/);
 });
 
 test('knowledge base API matches frontend contracts for list, test console, and phrasings', () => {
@@ -78,12 +78,58 @@ test('knowledge base API matches frontend contracts for list, test console, and 
   assert.match(routeSource, /router\.delete\('\/:id\/phrasings\/:phrasingId'/);
 });
 
-test('smart responder can score text-only FAQs when Gemini embeddings are unavailable', async () => {
+test('smart responder can score text-only FAQs when vectors are unavailable', async () => {
   const { scoreTextMatch } = await importFromBackend('src/services/smartResponder.js');
 
   assert.ok(scoreTextMatch('What are your delivery charges?', 'Delivery charges and shipping fees') >= 0.45);
   assert.ok(scoreTextMatch('blue silk blouse', 'Blue silk blouse with lining') >= 0.45);
   assert.equal(scoreTextMatch('delivery charges', 'return policy warranty'), 0);
+});
+
+test('active source and product docs do not require an external AI provider', () => {
+  const externalProviderPattern = /gemini|openai|generativelanguage|AI_API_KEY|GEMINI_API_KEY/i;
+  const misleadingProductPattern = /AI Assistant|AI chatbot|Chatbot & Hours|AI Status|AI Semantic Engine|Resume AI Bot|Pause AI Bot|AI features/i;
+  const checkedFiles = [
+    'README.md',
+    'backend/package.json',
+    'backend/src/config.js',
+    'backend/src/config/embeddingConfig.js',
+    'backend/src/routes/knowledge-base.js',
+    'backend/src/routes/products.js',
+    'backend/src/routes/tenant-settings.js',
+    'backend/src/services/smartResponder.js',
+    'frontend/src/components/KnowledgeBase.jsx',
+    'frontend/src/components/Settings.jsx',
+    'frontend/src/components/WhatsAppChat.jsx',
+    'frontend/src/config/plans.js',
+    'frontend/src/stores/store.js',
+    'knowledge-base/README.md',
+    'knowledge-base/ARCHITECTURE.md',
+    'knowledge-base/DEPLOYMENT.md',
+    'knowledge-base/DEVELOPMENT_GUIDE.md',
+    'knowledge-base/chatbot.md',
+    'knowledge-base/security.md',
+  ];
+
+  for (const file of checkedFiles) {
+    assert.doesNotMatch(readRepoFile(file), externalProviderPattern, `${file} should not imply Gemini/OpenAI/API-key setup`);
+  }
+
+  for (const file of [
+    'frontend/src/components/KnowledgeBase.jsx',
+    'frontend/src/components/Settings.jsx',
+    'frontend/src/components/WhatsAppChat.jsx',
+    'frontend/src/config/plans.js',
+    'frontend/src/stores/store.js',
+    'knowledge-base/README.md',
+    'knowledge-base/ARCHITECTURE.md',
+    'knowledge-base/chatbot.md',
+  ]) {
+    assert.doesNotMatch(readRepoFile(file), misleadingProductPattern, `${file} should use Smart Automation naming`);
+  }
+
+  const backendPackage = JSON.parse(readRepoFile('backend/package.json'));
+  assert.equal(backendPackage.dependencies['@huggingface/transformers'], '^4.2.0');
 });
 
 test('Razorpay webhook signatures require a valid HMAC over the raw body', async () => {

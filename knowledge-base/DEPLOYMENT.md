@@ -40,7 +40,6 @@ Preview, and Development as needed:
 ```bash
 MONGO_URI=<mongodb-connection-string>
 JWT_SECRET=<strong-random-jwt-secret>
-AI_API_KEY=<gemini-api-key-optional-but-recommended>
 CORS_ORIGINS=https://narmada-broadcast-8vox.vercel.app
 APP_DOMAIN=narmada-broadcast-8vox.vercel.app
 ```
@@ -122,7 +121,7 @@ curl https://narmada-broadcast-8vox.vercel.app/api/v1/tenant-settings
 
 For authenticated checks, log in with the client admin credentials and verify:
 
-- Settings -> Chatbot & Hours loads without 404s.
+- Settings -> Automation & Hours loads without 404s.
 - Knowledge Base list loads and newly added FAQs persist.
 - Test Your Bot returns a match for a saved FAQ.
 - WhatsApp settings can be saved for this client.
@@ -133,8 +132,8 @@ For authenticated checks, log in with the client admin credentials and verify:
 |---------|--------------|-----|
 | Backend logs say `MONGO_URI is required` | Vercel env var missing | Add `MONGO_URI=<mongodb-connection-string>` and redeploy |
 | Login works but Settings/KB 500 | Mongo user or network access wrong | Check Atlas user password, database permissions, and network access |
-| Bot test returns no match | No FAQs/products or no overlap | Add FAQs/products; `AI_API_KEY` improves matching but text fallback still works |
-| Embedding re-embed returns 400 | `AI_API_KEY` missing | Add Gemini API key in Vercel and redeploy |
+| Bot test returns no match | No FAQs/products or no text overlap | Add FAQs/products and use Re-embed if local vectors are missing |
+| Embedding re-embed returns 400 | Unknown model key | Select one of the listed local models and retry |
 | Browser opens dashboard from old state | Stale local storage | Current app validates `/auth/me`; clear site data if testing old bundles |
 
 ## What Not To Do

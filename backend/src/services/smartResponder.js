@@ -1,46 +1,37 @@
+import { pipeline } from '@huggingface/transformers';
 import KnowledgeBase from '../models/KnowledgeBase.js';
 import Product from '../models/Product.js';
 import FaqPhrasing from '../models/FaqPhrasing.js';
 import { MATCH_THRESHOLD, flagEnabled } from '../config/botConfig.js';
 
-let isModelWarmed = false;
+const LEGACY_MODEL_ID = 'Xenova/all-MiniLM-L6-v2';
+const extractors = new Map();
 
-export async function getExtractor() {
-    if (!process.env.AI_API_KEY) {
-        console.warn('[SmartResponder] Warning: AI_API_KEY is missing. Smart replies will fail.');
+export async function getExtractor(modelId = LEGACY_MODEL_ID) {
+    if (!extractors.has(modelId)) {
+        console.log(`[SmartResponder] Loading local embedding model ${modelId}...`);
+        const extractor = await pipeline('feature-extraction', modelId);
+        extractors.set(modelId, extractor);
+        console.log(`[SmartResponder] Model ${modelId} loaded successfully.`);
     }
-    return true;
+    return extractors.get(modelId);
 }
 
 export async function initModel() {
-    if (!isModelWarmed) {
-        console.log('[SmartResponder] Initializing Google Gemini Embeddings API...');
-        isModelWarmed = true;
+    try {
+        await getExtractor();
+    } catch (err) {
+        console.error('[SmartResponder] Error pre-warming local model:', err);
     }
 }
 
 export async function generateEmbedding(text, opts = {}) {
-    if (!process.env.AI_API_KEY) throw new Error('AI_API_KEY missing');
-    
+    const modelId = opts.modelId || LEGACY_MODEL_ID;
     const prefix = opts.prefix || '';
+    const extractor = await getExtractor(modelId);
     const input = prefix ? `${prefix}${text}` : text;
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${process.env.AI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            model: "models/text-embedding-004",
-            content: { parts: [{ text: input }] }
-        })
-    });
-    
-    if (!response.ok) {
-        const err = await response.json();
-        throw new Error(`Gemini API Error: ${err.error?.message || response.statusText}`);
-    }
-    
-    const data = await response.json();
-    return data.embedding.values;
+    const output = await extractor(input, { pooling: 'mean', normalize: true });
+    return Array.from(output.data);
 }
 
 export function cosineSimilarity(vecA, vecB) {

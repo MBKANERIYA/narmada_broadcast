@@ -22,7 +22,6 @@ PORT=3000
 NODE_ENV=development
 MONGO_URI=<mongodb-connection-string>
 JWT_SECRET=<strong-random-jwt-secret>
-AI_API_KEY=<gemini-api-key-optional>
 ```
 
 Start the backend:
@@ -58,7 +57,7 @@ npm run dev -- --host 127.0.0.1
 - Use Mongoose models from `backend/src/models/`.
 - Use `req.tenant` and `req.tenantId` from `loadSettings` for singleton client context.
 - Do not add a hardcoded MongoDB URI. Production/Vercel must use `MONGO_URI`.
-- Do not make FAQ/product saves depend on `AI_API_KEY`; use optional embeddings plus fallback behavior.
+- Do not make FAQ/product saves depend on an external provider key; use local embeddings plus fallback behavior.
 - Keep route responses aligned with frontend store/component contracts and add regression tests for any cross-stack contract.
 
 ## Frontend Patterns
@@ -85,8 +84,8 @@ npm audit --audit-level=high
 ## Common Gotchas
 
 1. Vercel will fail production startup without `MONGO_URI`.
-2. Settings AI Assistant calls several routes in parallel; missing one route creates noisy 404s.
+2. Settings Smart Automation calls several routes in parallel; missing one route creates noisy 404s.
 3. Knowledge Base list must return `{ faqs: [...] }`.
-4. `AI_API_KEY` is optional for matching, but required for re-embedding.
+4. Re-embed uses local model keys from `embeddingConfig.js`; it must not ask for a provider key.
 5. Vercel serverless storage is ephemeral; do not assume local uploads persist forever.
 6. Do not restore unmounted mailer or SaaS signup code without a real requirement and tests.

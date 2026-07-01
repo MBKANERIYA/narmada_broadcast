@@ -33,7 +33,7 @@ export const PLAN_DEFINITIONS = Object.freeze({
         id: PLAN_IDS.COMMERCE,
         displayName: 'Commerce plan',
         priceMonthly: 449,
-        description: 'Everything in Broadcast plus inbox, catalogue, orders, Smart FAQs, and AI Assistant.',
+        description: 'Everything in Broadcast plus inbox, catalogue, orders, Smart FAQs, and Smart Automation.',
     }),
 });
 

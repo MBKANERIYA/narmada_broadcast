@@ -347,12 +347,12 @@ export const useStore = create(
                 get().fetchTenantSettings();
             },
 
-            fetchAiAssistantOverview: async () => {
+            fetchSmartAutomationOverview: async () => {
                 const [analytics, suggestions, score, digest] = await Promise.all([
-                    api('/tenant-settings/ai-assistant/analytics'),
-                    api('/tenant-settings/ai-assistant/suggestions'),
-                    api('/tenant-settings/ai-assistant/score'),
-                    api('/tenant-settings/ai-assistant/digest'),
+                    api('/tenant-settings/smart-automation/analytics'),
+                    api('/tenant-settings/smart-automation/suggestions'),
+                    api('/tenant-settings/smart-automation/score'),
+                    api('/tenant-settings/smart-automation/digest'),
                 ]);
                 return {
                     analytics: analytics.analytics || {},
@@ -362,15 +362,15 @@ export const useStore = create(
                 };
             },
 
-            runAiAssistantTest: async (message, options = {}) => {
-                return await api('/tenant-settings/ai-assistant/test', {
+            runSmartAutomationTest: async (message, options = {}) => {
+                return await api('/tenant-settings/smart-automation/test', {
                     method: 'POST',
                     body: JSON.stringify({ message, ...options }),
                 });
             },
 
-            clusterAiAssistantSuggestions: async () => {
-                return await api('/tenant-settings/ai-assistant/learning/cluster', {
+            clusterSmartAutomationSuggestions: async () => {
+                return await api('/tenant-settings/smart-automation/learning/cluster', {
                     method: 'POST',
                     body: JSON.stringify({ limit: 100 }),
                 });

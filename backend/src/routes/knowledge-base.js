@@ -7,6 +7,7 @@ import {
     invalidateTenantVectorCache,
     scoreTextMatch,
 } from '../services/smartResponder.js';
+import { embeddingForTenant } from '../config/embeddingConfig.js';
 
 const router = Router();
 const MATCH_THRESHOLD = 0.45;
@@ -23,13 +24,16 @@ function faqToClient(faq) {
     };
 }
 
-async function optionalEmbedding(text) {
-    if (!process.env.AI_API_KEY) return [];
+async function optionalEmbedding(text, botSettings = {}) {
+    const model = embeddingForTenant(botSettings);
     try {
-        return await generateEmbedding(text);
+        return {
+            vector: await generateEmbedding(text, { modelId: model.modelId, prefix: model.passagePrefix }),
+            model: model.key,
+        };
     } catch (error) {
-        console.warn('[KnowledgeBase] Embedding skipped:', error.message);
-        return [];
+        console.warn('[KnowledgeBase] Local embedding skipped:', error.message);
+        return { vector: [], model: model.key };
     }
 }
 
@@ -112,13 +116,14 @@ router.post('/', async (req, res) => {
         const { question, answer } = req.body;
         if (!question || !answer) return res.status(400).json({ error: 'Question and answer required' });
 
-        const vector = await optionalEmbedding(question);
+        const embedding = await optionalEmbedding(question, req.tenant?.bot_settings || {});
         const tenantId = tenantIdFromRequest(req);
         const faq = new KnowledgeBase({
             tenant_id: tenantId,
             question,
             answer,
-            question_vector: vector,
+            question_vector: embedding.vector,
+            embedding_model: embedding.model,
             is_active: true,
         });
         await faq.save();
@@ -144,12 +149,13 @@ router.post('/import', async (req, res) => {
                 skipped++;
                 continue;
             }
-            const vector = await optionalEmbedding(f.question);
+            const embedding = await optionalEmbedding(f.question, req.tenant?.bot_settings || {});
             const faq = new KnowledgeBase({
                 tenant_id: tenantId,
                 question: f.question,
                 answer: f.answer,
-                question_vector: vector,
+                question_vector: embedding.vector,
+                embedding_model: embedding.model,
                 is_active: f.is_active ?? true,
             });
             await faq.save();
@@ -188,12 +194,13 @@ router.post('/:id/phrasings', async (req, res) => {
         if (!faq) return res.status(404).json({ error: 'FAQ not found' });
 
         const tenantId = tenantIdFromRequest(req);
-        const vector = await optionalEmbedding(phrasing);
+        const embedding = await optionalEmbedding(phrasing, req.tenant?.bot_settings || {});
         const created = await FaqPhrasing.create({
             tenant_id: tenantId,
             faq_id: faq._id,
             phrasing,
-            phrasing_vector: vector,
+            phrasing_vector: embedding.vector,
+            embedding_model: embedding.model,
         });
         invalidateTenantVectorCache(tenantId);
         res.status(201).json({
@@ -227,14 +234,15 @@ router.put('/:id', async (req, res) => {
         const { question, answer, is_active } = req.body;
         if (!question || !answer) return res.status(400).json({ error: 'Question and answer required' });
 
-        const vector = await optionalEmbedding(question);
+        const embedding = await optionalEmbedding(question, req.tenant?.bot_settings || {});
         const tenantId = tenantIdFromRequest(req);
         const faq = await KnowledgeBase.findByIdAndUpdate(
             req.params.id,
             {
                 question,
                 answer,
-                question_vector: vector,
+                question_vector: embedding.vector,
+                embedding_model: embedding.model,
                 is_active: is_active ?? true,
             },
             { new: true }

@@ -13,11 +13,20 @@ This document logs the architectural choices made during the development of the 
 
 ## Decision: Smart Bot Uses Gemini Embeddings With Lexical Fallback
 **Date**: 2026-07-01
-**Status**: Accepted
+**Status**: Superseded
 **Context**: The deployed fork's chatbot and Knowledge Base were failing when `AI_API_KEY` was missing or when frontend AI Assistant routes did not exist. The product should remain usable before embeddings are configured.
 **Decision**: Store FAQs/products even when embeddings cannot be generated, use Gemini embeddings when `AI_API_KEY` exists, and use deterministic lexical matching as the fallback responder path.
 **Alternatives Considered**: Require `AI_API_KEY` before any FAQ/product can be saved, or return no bot matches until re-embed completes. Both were rejected because they make the client deployment feel broken during setup.
 **Consequences**: Basic bot matching works immediately; semantic quality improves after adding `AI_API_KEY` and running re-embed.
+**Superseded By**: [Single-Client Vercel Product Uses Local Smart Automation](#decision-single-client-vercel-product-uses-local-smart-automation)
+
+## Decision: Single-Client Vercel Product Uses Local Smart Automation
+**Date**: 2026-07-02
+**Status**: Accepted
+**Context**: The Narmada fork should be an independent single-client version of the main WhatsApp Broadcast platform, not a separate cloud-AI chatbot product. Requiring a provider key for Smart Automation created confusion and diverged from the main product.
+**Decision**: Use local embedding models through `@huggingface/transformers` plus deterministic lexical fallback. Keep Vercel/MongoDB isolation for this client's deployment, but do not require Gemini, OpenAI, or any external provider key for FAQ/product matching or re-embedding.
+**Alternatives Considered**: Keep the Gemini embedding endpoint as optional, or remove embeddings entirely and use only lexical matching. Optional Gemini was rejected because it changes the product/deployment contract; lexical-only was rejected because the main platform already uses local semantic matching.
+**Consequences**: Vercel env setup only needs product infrastructure secrets like `MONGO_URI` and `JWT_SECRET`; local model cold starts may be slower on Vercel, so lexical fallback remains required.
 **Superseded By**:
 
 ## Decision: Preact + Vite Frontend Framework

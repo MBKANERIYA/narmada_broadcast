@@ -27,11 +27,11 @@ Security is split across request authentication, singleton client scoping, webho
 ## Known Gotchas
 - `express.json()` captures `req.rawBody` through its `verify` hook; do not remove that hook or Razorpay signature verification will stop working.
 - `mergeSecretSettings()` preserves stored Razorpay secrets when the frontend sends blank strings. Treat blank secret updates as "unchanged", not "clear this secret".
-- The smart responder now uses Gemini embeddings when `AI_API_KEY` exists and lexical fallback otherwise. Do not make FAQ/product saves depend on an API key.
+- The smart responder uses local embeddings with lexical fallback. Do not make FAQ/product saves depend on any external provider key.
 - `rg` returns exit code 1 when a secret-pattern scan finds no matches; that is a pass for this use case.
 
 ## How It Is Tested
-- `backend/test/regression.test.js` covers env-only Mongo, `/auth/me` session validation, AI Assistant route contracts, Knowledge Base contracts, lexical fallback, Razorpay signature validation, removal of public debug/unmounted mailer routes, labeled campaign schema support, realtime event key compatibility, persisted bot pause contracts, settings secret masking, deployment-doc placeholders, and frontend mobile regressions.
+- `backend/test/regression.test.js` covers env-only Mongo, `/auth/me` session validation, Smart Automation route contracts, Knowledge Base contracts, lexical fallback, absence of external provider key requirements, Razorpay signature validation, removal of public debug/unmounted mailer routes, labeled campaign schema support, realtime event key compatibility, persisted bot pause contracts, settings secret masking, deployment-doc placeholders, and frontend mobile regressions.
 - Run `npm audit --audit-level=high` from both `frontend/` and `backend/`.
 - Run a targeted secret scan from the repo root for project-specific production-looking examples. Keep exact guard patterns in tests or local scripts so documentation does not contain the literal banned tokens:
 

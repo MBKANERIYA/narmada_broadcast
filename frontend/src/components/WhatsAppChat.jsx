@@ -857,7 +857,7 @@ export default function WhatsAppChat() {
                                     <button
                                         className="btn-icon"
                                         onClick={() => toggleBotPause(selectedConvId)}
-                                        title={isBotPaused ? 'Resume AI Bot' : 'Pause AI Bot'}
+                                        title={isBotPaused ? 'Resume Smart Automation' : 'Pause Smart Automation'}
                                         style={{ color: isBotPaused ? '#EF4444' : '#64748b' }}
                                     >
                                         <Icon name={isBotPaused ? 'play' : 'pause'} size={18} />

@@ -22,13 +22,14 @@
 
 ## Current Session Status
 
-As of 2026-07-01:
+As of 2026-07-02:
 
-- PASS - `cd backend && npm test` (18 tests).
+- PASS - `cd backend && npm test` (19 tests).
 - PASS - backend PowerShell `node --check` sweep across `backend/src/**/*.js`.
 - PASS - `cd frontend && npm run lint` with 9 warnings and 0 errors.
 - PASS - `cd frontend && npm run build`.
 - PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`.
+- PASS - `git diff --check`.
 
 ## Test File Conventions
 Backend regression tests live in `backend/test/*.test.js` and should use the built-in Node test runner unless a broader integration framework is deliberately introduced and logged in `decisions.md`.
@@ -55,9 +56,9 @@ Frontend automated component tests are not configured yet. Until they exist, kee
 - Settings must cover secret masking so tokens and payment secrets are not rehydrated into browser form state after reload.
 
 ## Mocks, Fakes, and Fixtures
-No shared runtime mocks or fixtures exist yet. Current regression tests use source inspection and pure helper tests so they do not require MongoDB Atlas, Meta, Razorpay, Gemini, Shopify, Vercel, SMTP, or Socket.io.
+No shared runtime mocks or fixtures exist yet. Current regression tests use source inspection and pure helper tests so they do not require MongoDB Atlas, Meta, Razorpay, Shopify, Vercel, SMTP, or Socket.io.
 
-External services that need fakes once integration tests are added: MongoDB, Meta Graph API, Razorpay, Gemini embeddings, Shopify, SMTP, Socket.io, and Vercel routing.
+External services that need fakes once integration tests are added: MongoDB, Meta Graph API, Razorpay, Shopify, SMTP, Socket.io, and Vercel routing.
 
 ## Known Flaky Tests
 None - keep it that way.

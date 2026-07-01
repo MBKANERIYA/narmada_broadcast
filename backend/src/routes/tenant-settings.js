@@ -9,6 +9,7 @@ import {
     handleSmartReply,
     invalidateTenantVectorCache,
 } from '../services/smartResponder.js';
+import { DEFAULT_EMBEDDING_MODEL, EMBEDDING_MODELS, embeddingForTenant, getEmbeddingModel } from '../config/embeddingConfig.js';
 import {
     botSmartnessScore,
     clusterUnansweredSuggestions,
@@ -160,18 +161,18 @@ router.put('/chatbot', async (req, res) => {
     }
 });
 
-router.get('/ai-assistant/analytics', async (req, res) => {
+router.get('/smart-automation/analytics', async (req, res) => {
     try {
         const setting = await getSettings();
         const analytics = await getBotAnalytics(tenantIdFromRequest(req, setting));
         res.json({ analytics });
     } catch (error) {
-        console.error('AI assistant analytics error:', error);
+        console.error('Smart automation analytics error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
-router.get('/ai-assistant/suggestions', async (req, res) => {
+router.get('/smart-automation/suggestions', async (req, res) => {
     try {
         const suggestions = await BotSuggestion.find({ status: 'open' })
             .sort({ source_count: -1, updated_at: -1 })
@@ -184,33 +185,33 @@ router.get('/ai-assistant/suggestions', async (req, res) => {
             })),
         });
     } catch (error) {
-        console.error('AI assistant suggestions error:', error);
+        console.error('Smart automation suggestions error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
-router.get('/ai-assistant/score', async (req, res) => {
+router.get('/smart-automation/score', async (req, res) => {
     try {
         const setting = await getSettings();
         res.json(await botSmartnessScore(tenantIdFromRequest(req, setting)));
     } catch (error) {
-        console.error('AI assistant score error:', error);
+        console.error('Smart automation score error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
-router.get('/ai-assistant/digest', async (req, res) => {
+router.get('/smart-automation/digest', async (req, res) => {
     try {
         const setting = await getSettings();
         const digest = await weeklyDigest(tenantIdFromRequest(req, setting));
         res.json({ digest });
     } catch (error) {
-        console.error('AI assistant digest error:', error);
+        console.error('Smart automation digest error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
-router.post('/ai-assistant/test', async (req, res) => {
+router.post('/smart-automation/test', async (req, res) => {
     try {
         const message = String(req.body?.message || '').trim();
         if (!message) return res.status(400).json({ error: 'Message is required' });
@@ -228,12 +229,12 @@ router.post('/ai-assistant/test', async (req, res) => {
             matched_answer: reply?.type === 'faq' ? reply.text : null,
         });
     } catch (error) {
-        console.error('AI assistant test error:', error);
+        console.error('Smart automation test error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
-router.post('/ai-assistant/learning/cluster', async (req, res) => {
+router.post('/smart-automation/learning/cluster', async (req, res) => {
     try {
         const setting = await getSettings();
         const suggestions = await clusterUnansweredSuggestions(tenantIdFromRequest(req, setting), {
@@ -241,7 +242,7 @@ router.post('/ai-assistant/learning/cluster', async (req, res) => {
         });
         res.json({ suggestions });
     } catch (error) {
-        console.error('AI assistant cluster error:', error);
+        console.error('Smart automation cluster error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -249,7 +250,7 @@ router.post('/ai-assistant/learning/cluster', async (req, res) => {
 router.get('/embeddings', async (req, res) => {
     try {
         const setting = await getSettings();
-        const activeModel = setting.bot_settings?.embedding_model || 'gemini-text-embedding-004';
+        const activeModel = embeddingForTenant(setting.bot_settings || {}).key;
         const [faqs, products] = await Promise.all([
             KnowledgeBase.countDocuments({}),
             Product.countDocuments({}),
@@ -257,11 +258,14 @@ router.get('/embeddings', async (req, res) => {
 
         res.json({
             active_model: activeModel,
-            available_models: ['gemini-text-embedding-004'],
-            api_key_configured: Boolean(process.env.AI_API_KEY),
+            default_model: DEFAULT_EMBEDDING_MODEL,
+            available_models: Object.values(EMBEDDING_MODELS).map((model) => ({
+                key: model.key,
+                label: model.label,
+                multilingual: model.multilingual,
+            })),
             faqs,
             products,
-            fallback_mode: !process.env.AI_API_KEY,
         });
     } catch (error) {
         console.error('Embeddings status error:', error);
@@ -271,11 +275,14 @@ router.get('/embeddings', async (req, res) => {
 
 router.post('/embeddings/reembed', async (req, res) => {
     try {
-        if (!process.env.AI_API_KEY) {
-            return res.status(400).json({ error: 'AI_API_KEY is required to re-embed FAQs and products' });
+        const modelKey = req.body?.model || DEFAULT_EMBEDDING_MODEL;
+        if (!EMBEDDING_MODELS[modelKey]) {
+            return res.status(400).json({
+                error: 'Unknown or missing embedding model',
+                available: Object.keys(EMBEDDING_MODELS),
+            });
         }
-
-        const model = req.body?.model || 'gemini-text-embedding-004';
+        const model = getEmbeddingModel(modelKey);
         const [faqs, products] = await Promise.all([
             KnowledgeBase.find({}),
             Product.find({}),
@@ -283,8 +290,11 @@ router.post('/embeddings/reembed', async (req, res) => {
 
         let faqCount = 0;
         for (const faq of faqs) {
-            faq.question_vector = await generateEmbedding(faq.question);
-            faq.embedding_model = model;
+            faq.question_vector = await generateEmbedding(faq.question, {
+                modelId: model.modelId,
+                prefix: model.passagePrefix,
+            });
+            faq.embedding_model = model.key;
             await faq.save();
             faqCount++;
         }
@@ -293,8 +303,11 @@ router.post('/embeddings/reembed', async (req, res) => {
         for (const product of products) {
             const text = productEmbeddingText(product);
             if (!text) continue;
-            product.product_vector = await generateEmbedding(text);
-            product.embedding_model = model;
+            product.product_vector = await generateEmbedding(text, {
+                modelId: model.modelId,
+                prefix: model.passagePrefix,
+            });
+            product.embedding_model = model.key;
             product.updated_at = new Date();
             await product.save();
             productCount++;
@@ -303,13 +316,17 @@ router.post('/embeddings/reembed', async (req, res) => {
         const setting = await getSettings();
         setting.bot_settings = {
             ...(setting.bot_settings || {}),
-            embedding_model: model,
+            embedding_model: model.key,
+            flags: {
+                ...((setting.bot_settings || {}).flags || {}),
+                embeddings_v2: model.key !== DEFAULT_EMBEDDING_MODEL,
+            },
         };
         setting.updated_at = new Date();
         await setting.save();
 
         invalidateTenantVectorCache(tenantIdFromRequest(req, setting));
-        res.json({ model, faqs: faqCount, products: productCount });
+        res.json({ model: model.key, faqs: faqCount, products: productCount });
     } catch (error) {
         console.error('Embeddings reembed error:', error);
         res.status(500).json({ error: error.message || 'Server error' });

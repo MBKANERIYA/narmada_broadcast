@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-019: Vercel Fork Drifted Into External Provider Smart Automation
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: The Vercel deployment repair path made Smart Automation appear to require or benefit from a provider key, and active UI/docs still used AI Assistant wording. This conflicted with the main WhatsApp Broadcast platform contract, where automation is local and self-contained.
+**Root Cause**: The coworker-created fork had accumulated mixed frontend/backend automation naming and a Gemini embedding implementation while being adapted to MongoDB/Vercel.
+**Workaround**: None needed after this fix. Before redeploy, do not add any provider key in Vercel for Smart Automation.
+**Fix**: Replaced the provider embedding call with local `@huggingface/transformers` feature extraction, moved Settings routes to `/smart-automation/*`, updated FAQ/product/re-embed vector tagging to use local model keys, renamed active product-facing UI copy, and removed provider-key guidance from active docs.
+**Regression Test**: `backend/test/regression.test.js` covers Smart Automation route contracts and fails if active source/product docs reintroduce provider-key wording.
+
 ## ISSUE-018: Narmada Vercel Fork Had Mongo Isolation And Chatbot Route Drift
 **Status**: Resolved
 **Severity**: Critical

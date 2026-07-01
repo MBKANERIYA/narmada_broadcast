@@ -11,7 +11,7 @@ workspace deployed independently on Vercel.
 | Backend | Express.js on Vercel Node functions |
 | Database | MongoDB Atlas via Mongoose |
 | WhatsApp | Meta Cloud API |
-| AI | Gemini embeddings when configured, lexical fallback otherwise |
+| Smart Automation | Local embeddings with lexical fallback; no external provider key |
 | Deployment | Vercel from `MBKANERIYA/narmada_broadcast` |
 
 ## Local Setup
@@ -31,7 +31,6 @@ PORT=3000
 NODE_ENV=development
 MONGO_URI=<mongodb-connection-string>
 JWT_SECRET=<strong-random-jwt-secret>
-AI_API_KEY=<gemini-api-key-optional>
 ```
 
 Run locally:
@@ -66,12 +65,11 @@ Set these in Vercel before deploying:
 ```env
 MONGO_URI=<mongodb-connection-string>
 JWT_SECRET=<strong-random-jwt-secret>
-AI_API_KEY=<gemini-api-key-optional-but-recommended>
 CORS_ORIGINS=https://narmada-broadcast-8vox.vercel.app
 APP_DOMAIN=narmada-broadcast-8vox.vercel.app
 ```
 
-Important: do not commit real MongoDB, JWT, Meta, Razorpay, Shopify, or AI keys.
+Important: do not commit real MongoDB, JWT, Meta, Razorpay, or Shopify secrets.
 
 ## Documentation
 
