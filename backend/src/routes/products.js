@@ -87,7 +87,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        let { name, description, mrp, selling_price, category, sku, image_url, images } = req.body;
+        let { name, description, mrp, selling_price, category, sku, image_url, images, available_for_sale, track_inventory, allow_backorder, quantity } = req.body;
         if (!name) return res.status(400).json({ error: 'Product name is required' });
 
         if (images && Array.isArray(images) && images.length > 0) {
@@ -96,16 +96,25 @@ router.post('/', async (req, res) => {
             images = [image_url];
         }
 
-        const searchString = `Product: ${name}\nCategory: ${category || 'General'}\nDescription: ${description || ''}\nPrice: ${selling_price || mrp || ''}`;
-        const vector = await generateEmbedding(searchString);
+        let vector = [];
+        try {
+            const searchString = `Product: ${name}\nCategory: ${category || 'General'}\nDescription: ${description || ''}\nPrice: ${selling_price || mrp || ''}`;
+            vector = await generateEmbedding(searchString);
+        } catch (embErr) {
+            console.warn('[Products] Embedding generation skipped (AI_API_KEY missing?):', embErr.message);
+        }
 
         const product = new Product({
             name, description: description || '', mrp: mrp || 0, selling_price: selling_price || 0,
-            category: category || '', sku: sku || '', image_url: image_url || '', images: images || [], product_vector: vector
+            category: category || '', sku: sku || '', image_url: image_url || '', images: images || [], product_vector: vector,
+            inventory_available: available_for_sale !== false,
+            inventory_quantity: quantity != null ? Number(quantity) : null,
+            inventory_policy: allow_backorder ? 'continue' : 'deny',
         });
         await product.save();
         res.status(201).json({ message: 'Product added successfully!', id: product._id });
     } catch (error) {
+        console.error('[Products] Failed to add product:', error);
         res.status(500).json({ error: 'Failed to add product' });
     }
 });
@@ -113,7 +122,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        let { name, description, mrp, selling_price, category, sku, image_url, images } = req.body;
+        let { name, description, mrp, selling_price, category, sku, image_url, images, available_for_sale, track_inventory, allow_backorder, quantity } = req.body;
 
         if (!name) return res.status(400).json({ error: 'Product name is required' });
 
@@ -123,17 +132,29 @@ router.put('/:id', async (req, res) => {
             images = [image_url];
         }
 
-        const searchString = `Product: ${name}\nCategory: ${category || 'General'}\nDescription: ${description || ''}\nPrice: ${selling_price || mrp || ''}`;
-        const vector = await generateEmbedding(searchString);
+        let vector = [];
+        try {
+            const searchString = `Product: ${name}\nCategory: ${category || 'General'}\nDescription: ${description || ''}\nPrice: ${selling_price || mrp || ''}`;
+            vector = await generateEmbedding(searchString);
+        } catch (embErr) {
+            console.warn('[Products] Embedding generation skipped (AI_API_KEY missing?):', embErr.message);
+        }
 
-        const product = await Product.findByIdAndUpdate(id, {
+        const updateData = {
             name, description: description || '', mrp: mrp || 0, selling_price: selling_price || 0,
-            category: category || '', sku: sku || '', image_url: image_url || '', images: images || [], product_vector: vector
-        });
+            category: category || '', sku: sku || '', image_url: image_url || '', images: images || [],
+            inventory_available: available_for_sale !== false,
+            inventory_quantity: quantity != null ? Number(quantity) : null,
+            inventory_policy: allow_backorder ? 'continue' : 'deny',
+        };
+        if (vector.length > 0) updateData.product_vector = vector;
+
+        const product = await Product.findByIdAndUpdate(id, updateData);
 
         if (!product) return res.status(404).json({ error: 'Product not found' });
         res.json({ message: 'Product updated successfully!' });
     } catch (error) {
+        console.error('[Products] Failed to update product:', error);
         res.status(500).json({ error: 'Failed to update product' });
     }
 });

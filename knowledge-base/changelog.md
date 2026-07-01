@@ -2,6 +2,12 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Bugfix: Product Creation Fails When AI_API_KEY Is Not Set
+**What**: Fixed "Failed to add product" error in the Catalogue. Product creation and update routes crashed because `generateEmbedding()` throws when `AI_API_KEY` is missing. Now embedding generation is wrapped in a try/catch so products save successfully with an empty vector. Also mapped frontend inventory fields (`available_for_sale`, `track_inventory`, `allow_backorder`, `quantity`) to the correct Mongoose schema fields (`inventory_available`, `inventory_quantity`, `inventory_policy`).
+**Why**: The `AI_API_KEY` environment variable is optional and may not be configured yet. Products should still be saveable to the catalogue without AI embeddings — the bot just won't be able to semantically match them until the key is added.
+**Files Changed**:
+- `backend/src/routes/products.js`: Made `generateEmbedding` optional with graceful fallback in both `POST /` and `PUT /:id` routes. Added error logging. Fixed field name mapping to match Product model schema.
+
 ## 2026-07-01 — Bugfix & Feature: Implement `/api/v1/analytics/dashboard` Endpoint with Mongoose Aggregation
 **What**: Resolved `GET http://localhost:5173/api/v1/analytics/dashboard 404 (Not Found)` error by updating `backend/src/routes/analytics.js` to support the `/dashboard` route and return structured metrics expected by the new frontend `Overview.jsx` component.
 **Why**: When the frontend components were synchronized from the reference platform, `Overview.jsx` called `/api/v1/analytics/dashboard` expecting top-level `metrics` (`totalContacts`, `totalOrders`, `totalRevenue`, `totalCampaigns`, `totalConversations`) and time-series arrays. The local backend analytics route was a legacy stub returning only `summary` on `/`. Replaced the stub with complete Mongoose aggregations across `Order`, `Contact`, `WhatsAppCampaign`, `WhatsAppConversation`, and `WhatsAppChatMessage` models.
