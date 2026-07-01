@@ -45,7 +45,8 @@ export async function syncProductToMeta(product) {
                         availability: availability,
                         condition: 'new',
                         price: priceString,
-                        image_url: imageUrl,
+                        image_link: imageUrl,
+                        link: 'https://narmada.com', // Meta requires a link
                         brand: 'Narmada', // Default brand if none exists
                     }
                 }

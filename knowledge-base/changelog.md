@@ -6,7 +6,7 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 **What**: Added a "Sync from Meta" button to the Catalogue page and fixed a typo in the Meta Catalog ID saving logic that prevented fetching and pushing.
 **Why**: The user's database had a typo in the `whatsapp_catalog_id` (missing `65`) which prevented products from syncing up to Meta. Furthermore, the user wanted a way to fetch their existing 23 products from Meta into the local platform.
 **Files Changed**:
-- `backend/src/services/metaCatalogSync.js`: Added the mandatory `item_type: 'PRODUCT_ITEM'` parameter to the `items_batch` Graph API payload to fix silently failed product upserts and deletions.
+- `backend/src/services/metaCatalogSync.js`: Added `item_type: 'PRODUCT_ITEM'` parameter to the `items_batch` payload. Renamed `image_url` to `image_link` and added a default `link` parameter to satisfy Meta Commerce API requirements and resolve yellow warning triangles on uploaded products.
 - `backend/src/routes/products.js`: Added `POST /sync-meta` endpoint to fetch products from Meta Graph API and upsert them into the local MongoDB instance.
 - `frontend/src/components/Catalogue.jsx`: Added "Sync from Meta" button.
 

@@ -5,11 +5,10 @@ import { syncProductToMeta } from './src/services/metaCatalogSync.js';
 async function run() {
     await mongoose.connect('mongodb+srv://maulik:maulik@cluster0.bg20tsw.mongodb.net/whatsapp_saas');
     
-    // Simulate a product object
     const dummyProduct = {
         _id: new mongoose.Types.ObjectId(),
-        sku: 'TEST_META_PUSH_001',
-        name: 'Test Meta Push API',
+        sku: 'TEST_META_PUSH_002',
+        name: 'Test Meta Push API 002',
         description: 'Testing the Meta Commerce API integration',
         inventory_available: true,
         inventory_quantity: 10,
