@@ -2,6 +2,12 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Bugfix: Resolve Server Crash on Catalog Load
+**What**: Fixed an `ERR_MODULE_NOT_FOUND` crash that caused the backend server to fail on startup. Removed the `node-fetch` import from `metaCatalogSync.js`.
+**Why**: The backend runs on Node.js 18+ which has native `fetch` support. The `node-fetch` package was not in `package.json`, causing the entire backend process to crash. This resulted in the frontend Vite proxy returning a 504 HTML error page which failed to parse as JSON.
+**Files Changed**:
+- `backend/src/services/metaCatalogSync.js`: Removed `import fetch from 'node-fetch'`.
+
 ## 2026-07-01 — Feature: Meta Commerce Catalog Real-Time Sync
 **What**: Developed a two-way synchronization service to automatically push products created or modified in the platform's Catalogue to the connected Meta Commerce Manager catalog.
 **Why**: When administrators add products in the dashboard, they expect them to be immediately available on WhatsApp for sharing via catalogue cards. This eliminates the need for double data entry in both the SaaS dashboard and Meta Business Suite.
