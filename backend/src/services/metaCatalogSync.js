@@ -34,6 +34,7 @@ export async function syncProductToMeta(product) {
         const priceString = `${priceValue} INR`;
 
         const payload = {
+            item_type: 'PRODUCT_ITEM',
             requests: [
                 {
                     method: 'UPDATE', // UPDATE acts as an upsert in Meta Catalog Batch API
@@ -92,6 +93,7 @@ export async function deleteProductFromMeta(product) {
         const contentId = product.sku || product._id.toString();
 
         const payload = {
+            item_type: 'PRODUCT_ITEM',
             requests: [
                 {
                     method: 'DELETE',
