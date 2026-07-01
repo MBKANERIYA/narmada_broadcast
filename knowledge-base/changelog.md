@@ -2,6 +2,13 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Fix: WhatsAppChatMessage sent_by Cast to ObjectId Validation Error
+**What**: Fixed Mongoose validation error `sent_by: Cast to ObjectId failed for value "admin-user-id"` when sending outbound chat messages or templates.
+**Why**: In the single-user admin authentication setup, `req.user.userId` is the literal string `"admin-user-id"`. However, the `WhatsAppChatMessage` model defined `sent_by` as an `ObjectId` reference to `User`. This mismatch caused Mongoose to throw a validation error whenever an outbound message was created. The field was updated to `String` (matching `WhatsAppCampaign.sent_by`), and `.populate('sent_by')` was removed from chat query routes.
+**Files Changed**:
+- `backend/src/models/WhatsAppChatMessage.js`: Changed `sent_by` schema definition from `ObjectId` to `String`.
+- `backend/src/routes/whatsapp-chat.js`: Removed `.populate('sent_by', 'name')` and updated `sender_name` mapping to support string user IDs.
+
 ## 2026-06-30 — Feature: WhatsApp Chat Inbox MongoDB Migration
 **What**: Migrated the `whatsapp-chat.js` routes and Meta `webhook.js` to use MongoDB models and re-enabled the chat inbox functionality.
 **Why**: The chat inbox routes were temporarily stubbed during the MongoDB migration because they relied on raw MySQL queries. This caused the chat inbox to show "No conversations found" and "replies not shows" on incoming messages. The webhooks now correctly process and store incoming messages into MongoDB, creating conversations seamlessly.

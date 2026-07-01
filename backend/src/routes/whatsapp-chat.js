@@ -220,7 +220,6 @@ router.get('/conversations/:id/messages', async (req, res) => {
         }
 
         const messages = await WhatsAppChatMessage.find(filter)
-            .populate('sent_by', 'name')
             .sort({ _id: -1 })
             .limit(safeLimit)
             .lean();
@@ -241,7 +240,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
             messages: messages.map(m => ({
                 ...m,
                 id: m._id.toString(),
-                sender_name: m.sent_by?.name
+                sender_name: typeof m.sent_by === 'object' ? m.sent_by?.name : (m.sent_by || m.direction === 'outbound' ? 'Admin User' : undefined)
             })),
             total,
             has_more: before_id ? messages.length === safeLimit : total > safeLimit,

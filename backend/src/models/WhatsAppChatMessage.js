@@ -11,7 +11,7 @@ const WhatsAppChatMessageSchema = new mongoose.Schema({
     provider_message_id: { type: String, default: null },
     status: { type: String, enum: ['sent', 'delivered', 'read', 'failed', 'received'], default: 'sent' },
     error_message: { type: String, default: null },
-    sent_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null } // The admin user who sent it, if outbound
+    sent_by: { type: String, default: null } // The admin user who sent it, if outbound
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 WhatsAppChatMessageSchema.index({ conversation_id: 1, created_at: -1 });
