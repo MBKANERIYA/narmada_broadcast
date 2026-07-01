@@ -2,6 +2,12 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-01 — Bugfix & Feature: Implement `/api/v1/analytics/dashboard` Endpoint with Mongoose Aggregation
+**What**: Resolved `GET http://localhost:5173/api/v1/analytics/dashboard 404 (Not Found)` error by updating `backend/src/routes/analytics.js` to support the `/dashboard` route and return structured metrics expected by the new frontend `Overview.jsx` component.
+**Why**: When the frontend components were synchronized from the reference platform, `Overview.jsx` called `/api/v1/analytics/dashboard` expecting top-level `metrics` (`totalContacts`, `totalOrders`, `totalRevenue`, `totalCampaigns`, `totalConversations`) and time-series arrays. The local backend analytics route was a legacy stub returning only `summary` on `/`. Replaced the stub with complete Mongoose aggregations across `Order`, `Contact`, `WhatsAppCampaign`, `WhatsAppConversation`, and `WhatsAppChatMessage` models.
+**Files Changed**:
+- `backend/src/routes/analytics.js`: Replaced stub route with full MongoDB aggregation pipeline supporting both `/` and `/dashboard` endpoints.
+
 ## 2026-07-01 — Refactor: Remove Multi-Tenant Authentication & Marketing Landing Page for Dedicated Admin Login
 **What**: Removed multi-tenant user signup tabs, registration forms, and pricing landing page. Streamlined authentication to a direct single-client workspace login supporting default `admin` / `admin123` credentials. Mounted global tenant loading middleware across all backend API routes.
 **Why**: For a single-user platform without subscription upgrade plans, marketing pricing pages and self-service registration flows were unnecessary. The platform now directly prompts unauthenticated users for admin credentials (`admin` / `admin123`) to access the complete workspace.
