@@ -6,19 +6,17 @@ import Setting from '../models/Setting.js';
  * @param {Object} product - The product document from MongoDB.
  */
 export async function syncProductToMeta(product) {
+    const contentId = product.sku || product._id.toString();
     try {
         const settings = await Setting.findOne({ singletonId: 'admin_settings' });
         if (!settings || !settings.whatsapp_catalog_id || !settings.whatsapp_access_token) {
             console.log('[MetaCatalogSync] Skipping sync: Catalog ID or Access Token not configured.');
-            return;
+            return { ok: false, skipped: true, contentId, error: 'Catalog ID or Access Token not configured.' };
         }
 
         const catalogId = settings.whatsapp_catalog_id;
         const accessToken = settings.whatsapp_access_token;
         const url = `https://graph.facebook.com/v19.0/${catalogId}/items_batch`;
-
-        // Determine product ID for Meta (use SKU if available, fallback to Mongo ID)
-        const contentId = product.sku || product._id.toString();
 
         // Determine availability
         const availability = (product.inventory_available !== false && (product.inventory_quantity === null || product.inventory_quantity > 0)) ? 'in stock' : 'out of stock';
@@ -64,15 +62,20 @@ export async function syncProductToMeta(product) {
 
         const data = await response.json();
         
-        if (data.error) {
-            console.error('[MetaCatalogSync] Meta API Error:', data.error.message);
+        if (!response.ok || data.error) {
+            const message = data.error?.message || `Meta API returned HTTP ${response.status}`;
+            console.error('[MetaCatalogSync] Meta API Error:', message);
+            return { ok: false, contentId, error: message, metaError: data.error || null };
         } else if (data.handles && data.handles.length > 0) {
             console.log(`[MetaCatalogSync] Product ${contentId} queued for sync successfully. Batch ID:`, data.handles[0]);
+            return { ok: true, contentId, handle: data.handles[0] };
         } else {
             console.log('[MetaCatalogSync] Unexpected Meta response:', data);
+            return { ok: true, contentId, handle: null };
         }
     } catch (error) {
         console.error('[MetaCatalogSync] Failed to sync product:', error.message);
+        return { ok: false, contentId, error: error.message };
     }
 }
 
@@ -81,17 +84,16 @@ export async function syncProductToMeta(product) {
  * @param {Object} product - The product document from MongoDB.
  */
 export async function deleteProductFromMeta(product) {
+    const contentId = product.sku || product._id.toString();
     try {
         const settings = await Setting.findOne({ singletonId: 'admin_settings' });
         if (!settings || !settings.whatsapp_catalog_id || !settings.whatsapp_access_token) {
-            return;
+            return { ok: false, skipped: true, contentId, error: 'Catalog ID or Access Token not configured.' };
         }
 
         const catalogId = settings.whatsapp_catalog_id;
         const accessToken = settings.whatsapp_access_token;
         const url = `https://graph.facebook.com/v19.0/${catalogId}/items_batch`;
-
-        const contentId = product.sku || product._id.toString();
 
         const payload = {
             item_type: 'PRODUCT_ITEM',
@@ -116,12 +118,16 @@ export async function deleteProductFromMeta(product) {
 
         const data = await response.json();
         
-        if (data.error) {
-            console.error('[MetaCatalogSync] Meta API Error on delete:', data.error.message);
+        if (!response.ok || data.error) {
+            const message = data.error?.message || `Meta API returned HTTP ${response.status}`;
+            console.error('[MetaCatalogSync] Meta API Error on delete:', message);
+            return { ok: false, contentId, error: message, metaError: data.error || null };
         } else {
             console.log(`[MetaCatalogSync] Product ${contentId} queued for deletion successfully.`);
+            return { ok: true, contentId, handle: data.handles?.[0] || null };
         }
     } catch (error) {
         console.error('[MetaCatalogSync] Failed to delete product from Meta:', error.message);
+        return { ok: false, contentId, error: error.message };
     }
 }

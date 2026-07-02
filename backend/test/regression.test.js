@@ -455,6 +455,33 @@ test('Catalogue declares hooks before any loading return', () => {
   assert.ok(hookIndex < loadingReturnIndex, 'search/sort/filter hooks must be declared before loading return');
 });
 
+test('Meta catalogue sync publishes imported products for WhatsApp visibility and surfaces failures', () => {
+  const productsRouteSource = readRepoFile('backend/src/routes/products.js');
+  const metaSyncSource = readRepoFile('backend/src/services/metaCatalogSync.js');
+  const catalogueSource = readRepoFile('frontend/src/components/Catalogue.jsx');
+
+  const syncRouteStart = productsRouteSource.indexOf("router.post('/sync-meta'");
+  const pushRouteStart = productsRouteSource.indexOf("router.post('/push-to-meta'");
+  const productsListStart = productsRouteSource.indexOf("router.get('/'");
+
+  assert.ok(syncRouteStart > -1, 'sync-meta route exists');
+  assert.ok(pushRouteStart > syncRouteStart, 'push-to-meta route follows sync-meta');
+  assert.ok(productsListStart > pushRouteStart, 'product list route follows push-to-meta');
+
+  const syncMetaRoute = productsRouteSource.slice(syncRouteStart, pushRouteStart);
+  const pushToMetaRoute = productsRouteSource.slice(pushRouteStart, productsListStart);
+
+  assert.match(syncMetaRoute, /retailer_id/);
+  assert.match(syncMetaRoute, /const sku = item\.retailer_id \|\| item\.id/);
+  assert.match(syncMetaRoute, /meta_product_id:\s*item\.id/);
+  assert.match(syncMetaRoute, /publishResults\.push\(await syncProductToMeta\(product\)\)/);
+  assert.match(pushToMetaRoute, /const results = \[\]/);
+  assert.match(pushToMetaRoute, /failed:\s*publishSummary\.failed/);
+  assert.match(metaSyncSource, /return\s+\{\s*ok:\s*false/);
+  assert.match(catalogueSource, /Publish to WhatsApp/);
+  assert.match(catalogueSource, /data\.failed\s*>\s*0/);
+});
+
 test('mobile app shell exposes an openable drawer and avoids misleading admin nav', () => {
   const sidebarSource = readRepoFile('frontend/src/components/Sidebar.jsx');
   const mainCss = readRepoFile('frontend/src/styles/main.css');

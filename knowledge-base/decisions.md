@@ -2,6 +2,15 @@
 
 This document logs the architectural choices made during the development of the WhatsApp Broadcast SaaS.
 
+## Decision: Meta Catalogue Import Queues WhatsApp Publishing
+**Date**: 2026-07-02
+**Status**: Accepted
+**Context**: The client can add products directly in Meta and then sync them into the dashboard. Operators naturally expect products visible in the dashboard to become visible in the WhatsApp customer catalogue too, but dashboard import and WhatsApp publication are separate steps.
+**Decision**: Treat Meta import as an import-plus-publish workflow for this single-client product. `Sync from Meta` imports products into MongoDB, preserves Meta's Graph object ID as `meta_product_id`, uses `retailer_id` as local `sku` when available, and queues the imported products through the same Meta `items_batch` publishing path used by `Publish to WhatsApp`.
+**Alternatives Considered**: Keep import and publish fully separate, or rely on manual Meta Commerce Manager configuration. Separate steps caused the observed confusion and left products invisible to customers. Manual Commerce Manager configuration is too easy to miss for this self-use deployment.
+**Consequences**: Syncing from Meta may publish all imported products to the WhatsApp-visible catalogue, which matches this client's requirement. If a future client wants staging/draft products, add an explicit draft flag instead of silently reverting to import-only behavior.
+**Superseded By**:
+
 ## Decision: Deployment Remote Uses naramadaessence/broadcast
 **Date**: 2026-07-02
 **Status**: Accepted

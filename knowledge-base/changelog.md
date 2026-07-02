@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-07-02 — Fix Meta Catalogue WhatsApp Visibility
+**What**: Made Meta catalogue import queue imported products for WhatsApp customer visibility and report Meta publish failures honestly.
+**Why**: Products added in Meta were syncing into the dashboard but were not necessarily visible to WhatsApp customers; the old bulk push route could also show success even if Meta rejected a product.
+**Impact**: `Sync from Meta` now imports products, preserves Meta Graph IDs separately, prefers `retailer_id` as the WhatsApp product SKU/content ID, and queues each imported product through the Meta `items_batch` publishing path. The old `Push to Meta` UI is now labeled `Publish to WhatsApp`.
+**Files Changed**: `backend/src/routes/products.js`, `backend/src/services/metaCatalogSync.js`, `frontend/src/components/Catalogue.jsx`, `backend/test/regression.test.js`, `knowledge-base/README.md`, `knowledge-base/catalogue.md`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/decisions.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - `cd backend && npm test` (29 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (10 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`.
+**Commit**: Pending
+
+- Added publish result reporting to `syncProductToMeta()` so API routes can distinguish queued products from Meta failures.
+- Updated `POST /api/v1/products/sync-meta` to request `retailer_id`, update `sku` correctly, store `meta_product_id`, and queue imported products for WhatsApp publishing.
+- Updated `POST /api/v1/products/push-to-meta` to return queued/failed counts instead of counting every loop iteration as a success.
+- Added a dedicated Catalogue KB topic documenting dashboard visibility versus WhatsApp customer visibility.
+
 ## 2026-07-02 — Switch Deployment Remote To naramadaessence/broadcast
 **What**: Changed local deployment remote and docs from `MBKANERIYA/narmada_broadcast` to `naramadaessence/broadcast`.
 **Why**: The new Vercel deployment repo is `naramadaessence/broadcast`, it contains the current product files, and this account has direct write access there.

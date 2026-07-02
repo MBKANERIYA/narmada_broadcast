@@ -24,7 +24,7 @@
 
 As of 2026-07-02:
 
-- PASS - `cd backend && npm test` (28 tests).
+- PASS - `cd backend && npm test` (29 tests).
 - PASS - backend PowerShell `node --check` sweep across `backend/src/**/*.js`.
 - PASS - `cd frontend && npm run lint` with 10 warnings and 0 errors.
 - PASS - `cd frontend && npm run build`.
@@ -64,6 +64,7 @@ Frontend automated component tests are not configured yet. Until they exist, kee
 - Smart Automation unmatched-message fallback must ask the customer before
   creating a human handoff, and only a Yes response should set `needs_human`.
 - Broadcast targeting must cover all recipient types, including tags, labels, and custom selections.
+- Catalogue sync must cover Meta `retailer_id` imports, WhatsApp publish queueing, and visible failure reporting when Meta rejects a publish request.
 - Settings must cover secret masking so tokens and payment secrets are not rehydrated into browser form state after reload.
 
 ## Mocks, Fakes, and Fixtures

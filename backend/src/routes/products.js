@@ -26,6 +26,18 @@ function publicUploadUrl(req, filename) {
     return `${protocol}://${host}/api/v1/products/images/${filename}`;
 }
 
+function summarizeMetaPublishResults(results) {
+    const failures = results.filter(result => !result?.ok);
+    return {
+        queued: results.length - failures.length,
+        failed: failures.length,
+        failures: failures.slice(0, 5).map(result => ({
+            sku: result?.contentId || '',
+            error: result?.error || 'Unknown Meta sync error'
+        }))
+    };
+}
+
 function runUpload(uploadMiddleware) {
     return (req, res, next) => {
         uploadMiddleware(req, res, (error) => {
@@ -118,7 +130,7 @@ router.post('/sync-meta', async (req, res) => {
 
         const catalogId = settings.whatsapp_catalog_id;
         const accessToken = settings.whatsapp_access_token;
-        const url = `https://graph.facebook.com/v19.0/${catalogId}/products?fields=id,name,description,price,image_url,availability,inventory,brand&access_token=${accessToken}`;
+        const url = `https://graph.facebook.com/v19.0/${catalogId}/products?fields=id,retailer_id,name,description,price,image_url,availability,inventory,brand&access_token=${accessToken}`;
         
         const response = await fetch(url);
         const data = await response.json();
@@ -130,10 +142,18 @@ router.post('/sync-meta', async (req, res) => {
 
         const items = data.data || [];
         let imported = 0;
+        const publishResults = [];
 
         for (const item of items) {
+            const sku = item.retailer_id || item.id;
             // Find if product exists by SKU or Meta ID
-            let product = await Product.findOne({ $or: [{ sku: item.id }] });
+            let product = await Product.findOne({
+                $or: [
+                    { sku },
+                    { sku: item.id },
+                    { meta_product_id: item.id }
+                ]
+            });
             
             // Try to extract price as number from string (e.g., "449.00 INR" -> 449)
             let price = 0;
@@ -145,7 +165,8 @@ router.post('/sync-meta', async (req, res) => {
             if (!product) {
                 product = new Product({
                     name: item.name || 'Untitled',
-                    sku: item.id,
+                    sku,
+                    meta_product_id: item.id,
                     description: item.description || '',
                     mrp: price,
                     selling_price: price,
@@ -157,6 +178,8 @@ router.post('/sync-meta', async (req, res) => {
                 });
             } else {
                 product.name = item.name || product.name;
+                product.sku = sku || product.sku;
+                product.meta_product_id = item.id || product.meta_product_id;
                 product.description = item.description || product.description;
                 product.mrp = price || product.mrp;
                 product.selling_price = price || product.selling_price;
@@ -167,10 +190,22 @@ router.post('/sync-meta', async (req, res) => {
                 product.inventory_available = item.availability === 'in stock';
             }
             await product.save();
+            publishResults.push(await syncProductToMeta(product));
             imported++;
         }
 
-        res.json({ message: `Successfully synced ${imported} products from Meta Catalogue.` });
+        const publishSummary = summarizeMetaPublishResults(publishResults);
+        const message = publishSummary.failed > 0
+            ? `Synced ${imported} products from Meta. Queued ${publishSummary.queued} for WhatsApp publishing; ${publishSummary.failed} failed.`
+            : `Successfully synced ${imported} products from Meta and queued ${publishSummary.queued} for WhatsApp publishing.`;
+
+        res.status(publishSummary.failed > 0 ? 207 : 200).json({
+            message,
+            imported,
+            published: publishSummary.queued,
+            failed: publishSummary.failed,
+            failures: publishSummary.failures
+        });
     } catch (error) {
         console.error('[MetaSync] Sync failed:', error);
         res.status(500).json({ error: 'Failed to sync products from Meta' });
@@ -180,12 +215,21 @@ router.post('/sync-meta', async (req, res) => {
 router.post('/push-to-meta', async (req, res) => {
     try {
         const products = await Product.find();
-        let pushed = 0;
+        const results = [];
         for (const product of products) {
-            await syncProductToMeta(product);
-            pushed++;
+            results.push(await syncProductToMeta(product));
         }
-        res.json({ message: `Successfully queued ${pushed} products to push to Meta Catalogue. They will appear in WhatsApp shortly.` });
+        const publishSummary = summarizeMetaPublishResults(results);
+        const message = publishSummary.failed > 0
+            ? `Queued ${publishSummary.queued} products for WhatsApp publishing; ${publishSummary.failed} failed.`
+            : `Successfully queued ${publishSummary.queued} products for WhatsApp publishing. They will appear in WhatsApp shortly.`;
+
+        res.status(publishSummary.failed > 0 ? 207 : 200).json({
+            message,
+            pushed: publishSummary.queued,
+            failed: publishSummary.failed,
+            failures: publishSummary.failures
+        });
     } catch (error) {
         console.error('[MetaSync] Push failed:', error);
         res.status(500).json({ error: 'Failed to push products to Meta' });
