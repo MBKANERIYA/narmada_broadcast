@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-026: Unmatched Messages Needed Confirmation Before Human Handoff
+**Status**: Resolved
+**Severity**: Medium
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: When Smart Automation did not understand a customer message, the flow either left the customer with no recovery prompt or could escalate to a human-style handoff without an explicit customer confirmation.
+**Root Cause**: The webhook had no dedicated unknown-message confirmation state. Unanswered messages were only logged for learning, while handoff state was reserved for Smart Flow handoff replies.
+**Workaround**: None needed after this fix.
+**Fix**: Added a Yes/No confirmation prompt for no-match replies, persisted the pending prompt in `conversation.bot_state.awaiting_human_confirmation`, and moved `needs_human`/`bot_paused` escalation behind a Yes response.
+**Regression Test**: `backend/test/regression.test.js` test `Smart Automation asks before escalating unmatched messages to a human`.
+
 ## ISSUE-025: Duplicate Resolve Actions Sent Two Feedback Requests
 **Status**: Resolved
 **Severity**: High
