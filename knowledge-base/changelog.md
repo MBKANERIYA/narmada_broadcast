@@ -188,15 +188,15 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
-## 2026-07-02 — WhatsApp Native Cart Processing
-**What**: Added webhook handling for `msg.type === 'order'` to automatically parse and store incoming WhatsApp carts as native backend Orders.
-**Why**: When customers submitted a shopping cart via the new WhatsApp Catalog feature, the webhook had no handler for `msg.type === 'order'`, meaning orders were silently ignored by the platform and the AI bot didn't know what to do.
-**Files Changed**: `backend/src/routes/webhook.js`
-- Added parsing for `msg.order.product_items`.
+## 2026-07-02 — WhatsApp Native Cart Processing & Chat Inbox Rendering
+**What**: Added webhook handling for `msg.type === 'order'` and fixed the frontend Chat Inbox to properly render incoming shopping carts.
+**Why**: When customers submitted a shopping cart, the webhook ignored it, and the Chat Inbox frontend mistakenly required a `media_id` to render `order` type messages, causing them to remain completely invisible in the admin dashboard.
+**Files Changed**: `backend/src/routes/webhook.js`, `frontend/src/components/WhatsAppChat.jsx`
+- Added backend parsing for `msg.order.product_items`.
 - Dynamically imports `Order` and `Product` models to map cart SKUs to local prices.
 - Creates a new `Order` record in the database.
 - Automatically sends a confirmation chat message containing the order total to the customer.
-- Bypasses the AI bot so it doesn't accidentally send FAQ responses to cart submissions.
+- Updated `WhatsAppChat.jsx` to render a beautiful "🛒 Shopping Cart" bubble in the Chat Inbox when a customer sends an order, even without an attached product thumbnail image.
 
 ## 2026-07-02 — Native WhatsApp Catalog Product Messages
 **What**: Updated the bot webhook to send an interactive Single Product Message instead of a plain text image when a product is retrieved.
