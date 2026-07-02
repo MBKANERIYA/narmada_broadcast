@@ -188,6 +188,12 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Fixed Webhook Crash on Cart Submission
+**What**: Added `order` to the `message_type` enum in the `WhatsAppChatMessage` database schema.
+**Why**: When the webhook tried to save the incoming cart message, Mongoose threw a strict schema validation error because `'order'` was not an allowed `message_type` enum value. This caused the webhook to crash silently before it could create the actual `Order` or emit updates to the frontend Chat Inbox.
+**Files Changed**: `backend/src/models/WhatsAppChatMessage.js`
+- Expanded the `message_type` enum to include `'order'`.
+
 ## 2026-07-02 — WhatsApp Native Cart Processing & Chat Inbox Rendering
 **What**: Added webhook handling for `msg.type === 'order'` and fixed the frontend Chat Inbox to properly render incoming shopping carts.
 **Why**: When customers submitted a shopping cart, the webhook ignored it, and the Chat Inbox frontend mistakenly required a `media_id` to render `order` type messages, causing them to remain completely invisible in the admin dashboard.

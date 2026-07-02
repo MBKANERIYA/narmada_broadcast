@@ -4,7 +4,7 @@ const WhatsAppChatMessageSchema = new mongoose.Schema({
     tenant_id: { type: String, required: true },
     conversation_id: { type: mongoose.Schema.Types.ObjectId, ref: 'WhatsAppConversation', required: true },
     direction: { type: String, enum: ['inbound', 'outbound'], required: true },
-    message_type: { type: String, enum: ['text', 'image', 'video', 'audio', 'document', 'template', 'interactive', 'location', 'contacts', 'unknown'], default: 'text' },
+    message_type: { type: String, enum: ['text', 'image', 'video', 'audio', 'document', 'template', 'interactive', 'location', 'contacts', 'unknown', 'order'], default: 'text' },
     body: { type: String, default: '' },
     media_id: { type: String, default: null },
     media_mime_type: { type: String, default: null },
