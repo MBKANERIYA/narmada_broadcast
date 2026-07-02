@@ -201,6 +201,14 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Fixed Meta Image Fetch Failures (Vercel Storage Issue)
+**What**: Migrated local product image uploads to store directly in MongoDB instead of Vercel's temporary disk.
+**Why**: Because Vercel uses ephemeral serverless functions, images saved to disk (`/tmp`) were deleted immediately. When Meta Commerce Manager tried to fetch the image URLs, it received 404 Not Found errors, causing Meta to reject the products due to "broken image links". 
+**Files Changed**: `backend/src/models/Image.js`, `backend/src/routes/products.js`
+- Created a new `Image` mongoose model to store binary image data and content types.
+- Rewrote the multer upload middleware to use `memoryStorage()` instead of `diskStorage()`.
+- Created a new `/api/v1/products/images/:filename` route to serve images directly from the database, ensuring permanent availability for Meta's crawlers.
+
 ## 2026-07-02 — Bulk Push to Meta Catalog Functionality
 **What**: Added a new `/api/v1/products/push-to-meta` backend route and a "Push to Meta" button on the frontend Catalogue page.
 **Why**: Products added to Meta Commerce Manager via a Data Feed do not automatically map to the WhatsApp Sales Channel unless manually configured. Pushing products via the Meta Graph API automatically assigns them to WhatsApp, ensuring all active products are visible in the WhatsApp catalog to customers.

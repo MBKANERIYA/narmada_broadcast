@@ -8,6 +8,7 @@ import { embeddingForTenant } from '../config/embeddingConfig.js';
 import { getUploadsDir } from '../utils/uploads.js';
 import { syncProductToMeta, deleteProductFromMeta } from '../services/metaCatalogSync.js';
 import Setting from '../models/Setting.js';
+import Image from '../models/Image.js';
 
 const router = express.Router();
 const PRODUCT_UPLOAD_FIELD = 'images';
@@ -22,7 +23,7 @@ function isAllowedProductImage(file) {
 function publicUploadUrl(req, filename) {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
-    return `${protocol}://${host}/api/v1/uploads/${filename}`;
+    return `${protocol}://${host}/api/v1/products/images/${filename}`;
 }
 
 function runUpload(uploadMiddleware) {
@@ -35,21 +36,7 @@ function runUpload(uploadMiddleware) {
     };
 }
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        try {
-            const uploadDir = getUploadsDir();
-            cb(null, uploadDir);
-        } catch (err) {
-            cb(err);
-        }
-    },
-    filename: (req, file, cb) => {
-        const originalBase = path.basename(file.originalname || 'product-image');
-        const safeFilename = originalBase.replace(/[^a-zA-Z0-9.-]/g, '_') || 'product-image';
-        cb(null, `${Date.now()}_${Math.round(Math.random() * 1e9)}_${safeFilename}`);
-    }
-});
+const storage = multer.memoryStorage();
 const upload = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 },
@@ -59,20 +46,67 @@ const upload = multer({
     },
 });
 
-router.post('/upload-images', runUpload(upload.array(PRODUCT_UPLOAD_FIELD, 10)), (req, res) => {
+router.post('/upload-images', runUpload(upload.array(PRODUCT_UPLOAD_FIELD, 10)), async (req, res) => {
     try {
         if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No images uploaded' });
-        const imageUrls = req.files.map(file => publicUploadUrl(req, file.filename));
+        
+        const imageUrls = [];
+        for (const file of req.files) {
+            const originalBase = path.basename(file.originalname || 'image.jpg');
+            const safeFilename = originalBase.replace(/[^a-zA-Z0-9.-]/g, '_');
+            const filename = `${Date.now()}_${Math.round(Math.random() * 1e9)}_${safeFilename}`;
+            
+            await Image.create({
+                filename,
+                contentType: file.mimetype,
+                data: file.buffer
+            });
+            
+            imageUrls.push(publicUploadUrl(req, filename));
+        }
+        
         res.json({ image_urls: imageUrls, image_url: imageUrls[0] });
     } catch (error) {
+        console.error('Image upload error:', error);
         res.status(500).json({ error: 'Failed to upload images' });
     }
 });
 
-router.post('/upload-image', runUpload(upload.single('image')), (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
-    const imageUrl = publicUploadUrl(req, req.file.filename);
-    return res.json({ image_url: imageUrl, image_urls: [imageUrl] });
+router.post('/upload-image', runUpload(upload.single('image')), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+        
+        const file = req.file;
+        const originalBase = path.basename(file.originalname || 'image.jpg');
+        const safeFilename = originalBase.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const filename = `${Date.now()}_${Math.round(Math.random() * 1e9)}_${safeFilename}`;
+        
+        await Image.create({
+            filename,
+            contentType: file.mimetype,
+            data: file.buffer
+        });
+        
+        const imageUrl = publicUploadUrl(req, filename);
+        return res.json({ image_url: imageUrl, image_urls: [imageUrl] });
+    } catch (error) {
+        console.error('Single image upload error:', error);
+        res.status(500).json({ error: 'Failed to upload image' });
+    }
+});
+
+router.get('/images/:filename', async (req, res) => {
+    try {
+        const image = await Image.findOne({ filename: req.params.filename });
+        if (!image) return res.status(404).send('Image not found');
+        
+        res.set('Content-Type', image.contentType);
+        // Cache aggressively since these are static product images
+        res.set('Cache-Control', 'public, max-age=31536000');
+        res.send(image.data);
+    } catch (error) {
+        res.status(500).send('Error serving image');
+    }
 });
 
 router.post('/sync-meta', async (req, res) => {
