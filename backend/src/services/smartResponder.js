@@ -1,11 +1,26 @@
-import { pipeline } from '@huggingface/transformers';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { env, pipeline } from '@huggingface/transformers';
 import KnowledgeBase from '../models/KnowledgeBase.js';
 import Product from '../models/Product.js';
 import FaqPhrasing from '../models/FaqPhrasing.js';
 import { MATCH_THRESHOLD, flagEnabled } from '../config/botConfig.js';
 
 const LEGACY_MODEL_ID = 'Xenova/all-MiniLM-L6-v2';
+const TRANSFORMERS_CACHE_DIR = process.env.TRANSFORMERS_CACHE_DIR || path.join(os.tmpdir(), 'narmada-transformers-cache');
 const extractors = new Map();
+
+function configureTransformersRuntime() {
+    try {
+        fs.mkdirSync(TRANSFORMERS_CACHE_DIR, { recursive: true });
+        env.cacheDir = TRANSFORMERS_CACHE_DIR;
+    } catch (err) {
+        console.warn('[SmartResponder] Unable to prepare local model cache:', err.message);
+    }
+}
+
+configureTransformersRuntime();
 
 export async function getExtractor(modelId = LEGACY_MODEL_ID) {
     if (!extractors.has(modelId)) {

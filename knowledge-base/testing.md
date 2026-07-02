@@ -24,7 +24,7 @@
 
 As of 2026-07-02:
 
-- PASS - `cd backend && npm test` (19 tests).
+- PASS - `cd backend && npm test` (20 tests).
 - PASS - backend PowerShell `node --check` sweep across `backend/src/**/*.js`.
 - PASS - `cd frontend && npm run lint` with 9 warnings and 0 errors.
 - PASS - `cd frontend && npm run build`.

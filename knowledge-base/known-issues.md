@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-020: Vercel Transformer Cache Tried To Write Under Read-Only Bundle
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: Switching Settings -> Automation & Hours to the multilingual E5 model on `https://narmada-broadcast-8vox.vercel.app/` showed `ENOENT: no such file or directory, mkdir '/var/task/backend/node_modules/@huggingface...'`.
+**Root Cause**: Transformers.js defaults its filesystem cache to a package-local `.cache` directory. On Vercel, `/var/task` is the deployed bundle and is read-only, so model downloads could not create cache folders there.
+**Workaround**: None needed after this fix. If a non-Vercel host needs a custom writable location, set `TRANSFORMERS_CACHE_DIR`.
+**Fix**: `backend/src/services/smartResponder.js` now sets `env.cacheDir` to `process.env.TRANSFORMERS_CACHE_DIR || path.join(os.tmpdir(), 'narmada-transformers-cache')` before any `pipeline()` model load.
+**Regression Test**: `backend/test/regression.test.js` asserts the Smart Responder configures a writable Transformers cache for serverless deploys.
+
 ## ISSUE-019: Vercel Fork Drifted Into External Provider Smart Automation
 **Status**: Resolved
 **Severity**: High

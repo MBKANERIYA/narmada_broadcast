@@ -2,6 +2,18 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Use Writable Transformer Cache On Vercel
+**What**: Configured the local Smart Automation embedding runtime to cache HuggingFace model files under a writable temp directory instead of the deployed package bundle.
+**Why**: The live Vercel deployment failed when switching to the multilingual E5 model because Transformers.js tried to create its default cache under `/var/task/backend/node_modules/...`, which is read-only in Vercel functions.
+**Impact**: Settings -> Automation & Hours can re-embed and switch local MiniLM/E5 models on Vercel without requiring any AI provider key; cold starts may still download model files into `/tmp`.
+**Files Changed**: `backend/src/services/smartResponder.js`, `backend/test/regression.test.js`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/chatbot.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - `cd backend && npm test` (20 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (9 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Commit**: Pending
+
+- Set `env.cacheDir` before any `pipeline()` load so Transformers.js writes cache files to `os.tmpdir()/narmada-transformers-cache`.
+- Added a regression test that fails if Smart Automation falls back to a package-local cache path on serverless deploys.
+- Documented the Vercel `/var/task` read-only cache failure and the optional `TRANSFORMERS_CACHE_DIR` override.
+
 ## 2026-07-02 — Fix: Postinstall Shell Interpolation Error
 **What**: Modified the `postinstall` script in `backend/package.json` to use string concatenation (`+`) instead of ES6 template literals (`${}`).
 **Why**: Vercel executes `npm` scripts in a POSIX shell. The shell interpreted `${p}` and `${d}` as empty shell variables, causing a syntax error in the Node.js script during the Vercel build. This fix ensures the optimization script runs correctly.

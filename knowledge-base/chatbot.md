@@ -24,6 +24,7 @@ available and deterministic lexical matching as the fallback.
 ## Conventions And Rules
 
 - Do not add any external provider key requirement for Smart Automation.
+- Configure local model cache paths before loading `@huggingface/transformers` pipelines; Vercel must use a writable temp cache, not `node_modules`.
 - FAQ and product saves must remain usable even if vector generation fails.
 - Keep `invalidateTenantVectorCache()` calls when FAQ, phrasing, product, or bot-setting changes affect retrieval.
 - The Knowledge Base list API returns `{ faqs: [...] }` because the frontend consumes `data.faqs`.
@@ -34,6 +35,7 @@ available and deterministic lexical matching as the fallback.
 ## Known Gotchas
 
 - Vercel functions are stateless; local model warmup can happen again after cold starts.
+- Vercel's `/var/task` bundle is read-only. `smartResponder.js` points Transformers.js at `os.tmpdir()/narmada-transformers-cache`; only override it with `TRANSFORMERS_CACHE_DIR` when the target path is writable.
 - If vectors are empty because a previous deployment skipped embedding, use the Settings re-embed action.
 - Do not rename the persisted `bot_settings` field without a migration; it is internal state even though the UI says Smart Automation.
 
@@ -44,6 +46,7 @@ available and deterministic lexical matching as the fallback.
 - Smart Automation route contracts used by Settings.
 - Knowledge Base list/test/phrasings contracts used by the frontend.
 - `scoreTextMatch()` behavior for text-only FAQ/product matching.
+- Serverless-safe Transformers.js cache configuration for local model downloads.
 - Absence of external provider key requirements in active source and product docs.
 
 Run:
