@@ -55,6 +55,9 @@ router.post('/', async (req, res) => {
                         let mediaId = null;
                         let mediaMimeType = null;
                         
+                        let parsedOrderItems = null;
+                        let orderTotalAmount = 0;
+                        
                         if (msg.type === 'text') {
                             bodyText = msg.text?.body || '';
                         } else if (msg.type === 'image') {
@@ -82,9 +85,34 @@ router.post('/', async (req, res) => {
                                 bodyText = msg.interactive?.list_reply?.title || '[List Reply]';
                             }
                         } else if (msg.type === 'order') {
+                            const { default: Product } = await import('../models/Product.js');
                             const orderItems = msg.order?.product_items || [];
-                            const itemCount = orderItems.reduce((acc, item) => acc + parseInt(item.quantity || 1), 0);
-                            bodyText = `🛒 Cart Received: ${itemCount} items`;
+                            parsedOrderItems = [];
+                            
+                            let itemLines = [];
+                            for (const item of orderItems) {
+                                const sku = item.product_retailer_id;
+                                const qty = parseInt(item.quantity || 1);
+                                let itemPrice = parseFloat(item.item_price || 0);
+                                
+                                const product = await Product.findOne({ sku });
+                                const name = product ? product.name : `Product (${sku})`;
+                                if (product) {
+                                    itemPrice = product.selling_price || product.mrp || itemPrice;
+                                }
+                                
+                                orderTotalAmount += itemPrice * qty;
+                                parsedOrderItems.push({
+                                    product_id: product?._id,
+                                    sku,
+                                    item_name: name,
+                                    quantity: qty,
+                                    price: itemPrice
+                                });
+                                itemLines.push(`• ${name} (x${qty})`);
+                            }
+                            
+                            bodyText = `🛒 Cart Received: ${orderItems.length} items\n\n${itemLines.join('\n')}\n\nTotal: ₹${orderTotalAmount.toFixed(2)}`;
                         }
 
                         // Check if message already exists
@@ -145,48 +173,22 @@ router.post('/', async (req, res) => {
                         emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
 
                         // --- NEW: Handle Order Creation ---
-                        if (msg.type === 'order') {
+                        if (msg.type === 'order' && parsedOrderItems) {
                             try {
                                 const { default: Order } = await import('../models/Order.js');
-                                const { default: Product } = await import('../models/Product.js');
-                                
-                                const productItems = msg.order?.product_items || [];
-                                let totalAmount = 0;
-                                const parsedItems = [];
-                                
-                                for (const item of productItems) {
-                                    const sku = item.product_retailer_id;
-                                    const qty = parseInt(item.quantity || 1);
-                                    let itemPrice = parseFloat(item.item_price || 0);
-                                    
-                                    const product = await Product.findOne({ sku });
-                                    const name = product ? product.name : `Product (${sku})`;
-                                    if (product) {
-                                        itemPrice = product.selling_price || product.mrp || itemPrice;
-                                    }
-                                    
-                                    totalAmount += itemPrice * qty;
-                                    parsedItems.push({
-                                        product_id: product?._id,
-                                        sku,
-                                        item_name: name,
-                                        quantity: qty,
-                                        price: itemPrice
-                                    });
-                                }
                                 
                                 const newOrder = await Order.create({
                                     tenant_id: tenantId,
                                     contact_id: conversation.contact_id,
                                     phone: fromPhone,
                                     customer_name: conversation.contact_name,
-                                    total_amount: totalAmount,
+                                    total_amount: orderTotalAmount,
                                     currency: 'INR',
-                                    items: parsedItems,
+                                    items: parsedOrderItems,
                                     source_channel: 'whatsapp_cart'
                                 });
                                 
-                                const confirmText = `Thank you for your order! 🎉\n\nYour cart has been received. Your total is ₹${totalAmount.toFixed(2)}.\n\nOur team will process it shortly.`;
+                                const confirmText = `Thank you for your order! 🎉\n\nYour cart has been received. Your total is ₹${orderTotalAmount.toFixed(2)}.\n\nOur team will process it shortly.`;
                                 const result = await sendTextMessage(fromPhone, confirmText, setting);
                                 
                                 if (result && result.messageId) {
