@@ -342,7 +342,20 @@ router.post('/', async (req, res) => {
                                     interactionMetadata.product_id = product._id || product.id;
                                     const caption = `*${product.name}*\n${product.description ? product.description + '\n' : ''}\nPrice: ₹${product.selling_price || product.mrp}`;
 
-                                    if (product.image_url) {
+                                    if (setting.whatsapp_catalog_id && product.sku) {
+                                        const interactivePayload = {
+                                            type: "product",
+                                            body: { text: caption },
+                                            action: {
+                                                catalog_id: setting.whatsapp_catalog_id,
+                                                product_retailer_id: product.sku
+                                            }
+                                        };
+                                        const { sendInteractiveMessage } = await import('../services/whatsapp.js');
+                                        result = await sendInteractiveMessage(fromPhone, interactivePayload, setting);
+                                        textToSave = caption;
+                                        typeToSave = 'interactive';
+                                    } else if (product.image_url) {
                                         result = await sendMediaMessage(fromPhone, 'image', { link: product.image_url }, caption, setting);
                                         textToSave = caption;
                                         typeToSave = 'image';
