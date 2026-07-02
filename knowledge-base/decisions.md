@@ -2,6 +2,15 @@
 
 This document logs the architectural choices made during the development of the WhatsApp Broadcast SaaS.
 
+## Decision: Unknown Smart Automation Misses Require Customer Confirmation Before Handoff
+**Date**: 2026-07-02
+**Status**: Accepted
+**Context**: Smart Automation can receive random strings or unsupported questions that do not match FAQs, products, Smart Flows, or retrieval. Immediately setting `needs_human` for those misses creates unnecessary support handoffs and makes the bot look more aggressive than helpful.
+**Decision**: Store unmatched-message fallback as a pending confirmation in `conversation.bot_state.awaiting_human_confirmation` and send WhatsApp Yes/No buttons. Only a Yes response sets `needs_human`, pauses the bot, records `handoff_reason = 'customer_confirmed_handoff'`, and emits `handoff_requested`. A No response clears the pending state and asks the customer to rephrase.
+**Alternatives Considered**: Keep silent logging only, or immediately hand off every miss. Silent logging gives customers no recovery path. Immediate handoff floods the Needs Human queue and contradicts the user-facing ask-before-handoff requirement.
+**Consequences**: The Needs Human queue now represents customer-confirmed unknown-message escalations for this path. Bot learning still records unanswered messages, and operators are only pulled in after customer consent.
+**Superseded By**:
+
 ## Decision: Handoff Resolve Owns Handoff Feedback
 **Date**: 2026-07-02
 **Status**: Accepted

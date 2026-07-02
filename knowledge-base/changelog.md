@@ -2,6 +2,19 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Ask Before Unknown-Message Human Handoff
+**What**: Changed Smart Automation's unmatched-message fallback to ask the customer before creating a human handoff.
+**Why**: Random or unsupported customer messages should not immediately mark a chat as `needs_human`. The customer should choose whether they want a person to join.
+**Impact**: When Smart Automation finds no FAQ, product, flow, or retrieval answer, WhatsApp sends Yes/No buttons asking whether to add a human. Yes sets `needs_human`, pauses the bot, emits `handoff_requested`, and sends the existing store-team notification. No clears the pending state and asks the customer to rephrase.
+**Files Changed**: `backend/src/services/humanHandoffConfirmation.js`, `backend/src/routes/webhook.js`, `backend/test/regression.test.js`, `knowledge-base/README.md`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/decisions.md`, `knowledge-base/chatbot.md`, `knowledge-base/chat-inbox.md`, `knowledge-base/whatsapp-webhook.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - `cd backend && npm test` (26 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (10 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Commit**: Pending
+
+- Added a small helper for the confirmation prompt payload and Yes/No parsing.
+- Persisted pending confirmation in `conversation.bot_state.awaiting_human_confirmation`.
+- Kept the existing human handoff state/event path behind a customer confirmation.
+- Added regression coverage for the prompt, reply parser, pending state, and webhook wiring.
+
 ## 2026-07-02 — Fix Duplicate Chat Resolve Feedback
 **What**: Removed the duplicate feedback-sending resolve path from Chat Inbox handoff conversations.
 **Why**: Conversations that were both `needs_human` and `bot_paused` showed the Needs Human handoff resolve action and the generic Resolve Chat action, allowing two feedback requests to be sent to the same customer.

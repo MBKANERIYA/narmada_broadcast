@@ -104,6 +104,42 @@ test('Smart Automation tries FAQ retrieval before no-order human handoff', () =>
   assert.match(responderSource, /return legacyReply \|\| deferredFlowReply/);
 });
 
+test('Smart Automation asks before escalating unmatched messages to a human', async () => {
+  const webhookSource = readRepoFile('backend/src/routes/webhook.js');
+  const {
+    HUMAN_HANDOFF_CONFIRMATION_PROMPT,
+    buildHumanHandoffConfirmationPrompt,
+    parseHumanHandoffConfirmationReply,
+  } = await importFromBackend('src/services/humanHandoffConfirmation.js');
+
+  assert.equal(
+    HUMAN_HANDOFF_CONFIRMATION_PROMPT,
+    "Sorry, I didn't understand. Do you want me to add a human to resolve your issue?"
+  );
+  assert.deepEqual(buildHumanHandoffConfirmationPrompt().action.buttons.map((button) => button.reply.id), [
+    'request_human_yes',
+    'request_human_no',
+  ]);
+
+  assert.equal(parseHumanHandoffConfirmationReply({ bodyText: 'yes' }), 'yes');
+  assert.equal(parseHumanHandoffConfirmationReply({ bodyText: 'No thanks' }), 'no');
+  assert.equal(
+    parseHumanHandoffConfirmationReply({
+      interactive: { type: 'button_reply', button_reply: { id: 'request_human_yes', title: 'Yes' } },
+    }),
+    'yes'
+  );
+  assert.equal(parseHumanHandoffConfirmationReply({ bodyText: 'where is my order?' }), null);
+
+  assert.match(webhookSource, /parseHumanHandoffConfirmationReply/);
+  assert.match(webhookSource, /awaiting_human_confirmation/);
+  assert.match(webhookSource, /if \(confirmationReply === 'yes'\)/);
+  assert.match(webhookSource, /handoff_reason = 'customer_confirmed_handoff'/);
+  assert.match(webhookSource, /if \(confirmationReply === 'no'\)/);
+  assert.match(webhookSource, /buildHumanHandoffConfirmationPrompt\(\)/);
+  assert.match(webhookSource, /interactionType:\s*'human_handoff_confirmation'/);
+});
+
 test('smart responder can score text-only FAQs when vectors are unavailable', async () => {
   const { scoreTextMatch } = await importFromBackend('src/services/smartResponder.js');
 
