@@ -2,6 +2,12 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Fix: Vercel Large Functions Support
+**What**: Added `VERCEL_SUPPORT_LARGE_FUNCTIONS: 1` to `vercel.json` environment configurations.
+**Why**: The addition of `@huggingface/transformers` to the backend increased the Serverless Function size to ~397MB, exceeding Vercel's default 250MB limit. This setting opts the deployment into Vercel's large functions beta, allowing the deployment to succeed.
+**Files Changed**: `vercel.json`
+**Commit**: `076c242`
+
 ## 2026-07-02 — Sync: Pulled Latest Code
 **What**: Executed `git pull origin main` to fetch and accept all incoming changes from the remote repository.
 **Why**: User request to sync the local codebase with the remote repository.
