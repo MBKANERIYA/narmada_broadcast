@@ -49,6 +49,7 @@ export default function Catalogue() {
     const [editingProduct, setEditingProduct] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [syncingMeta, setSyncingMeta] = useState(false);
+    const [pushingMeta, setPushingMeta] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOption, setSortOption] = useState('newest');
     const [categoryFilter, setCategoryFilter] = useState('');
@@ -99,6 +100,18 @@ export default function Catalogue() {
             showToast(err.message, 'error');
         } finally {
             setSyncingMeta(false);
+        }
+    };
+
+    const handlePushToMeta = async () => {
+        try {
+            setPushingMeta(true);
+            const data = await api('/products/push-to-meta', { method: 'POST' });
+            showToast(data.message, 'success');
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setPushingMeta(false);
         }
     };
 
@@ -321,9 +334,13 @@ export default function Catalogue() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    <button className="btn btn-secondary" onClick={handleSyncFromMeta} disabled={syncingMeta} style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
-                        {syncingMeta ? <Icon name="loader" size={16} /> : <Icon name="refresh-cw" size={16} />}
+                    <button className="btn btn-secondary" onClick={handleSyncFromMeta} disabled={syncingMeta || pushingMeta} style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
+                        {syncingMeta ? <Icon name="loader" size={16} /> : <Icon name="download" size={16} />}
                         {syncingMeta ? 'Syncing...' : 'Sync from Meta'}
+                    </button>
+                    <button className="btn btn-secondary" onClick={handlePushToMeta} disabled={syncingMeta || pushingMeta} style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
+                        {pushingMeta ? <Icon name="loader" size={16} /> : <Icon name="upload" size={16} />}
+                        {pushingMeta ? 'Pushing...' : 'Push to Meta'}
                     </button>
                     <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
                         <Icon name="plus" size={16} /> Add Product

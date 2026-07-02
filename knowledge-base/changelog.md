@@ -201,6 +201,13 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Bulk Push to Meta Catalog Functionality
+**What**: Added a new `/api/v1/products/push-to-meta` backend route and a "Push to Meta" button on the frontend Catalogue page.
+**Why**: Products added to Meta Commerce Manager via a Data Feed do not automatically map to the WhatsApp Sales Channel unless manually configured. Pushing products via the Meta Graph API automatically assigns them to WhatsApp, ensuring all active products are visible in the WhatsApp catalog to customers.
+**Files Changed**: `backend/src/routes/products.js`, `frontend/src/components/Catalogue.jsx`
+- `backend/src/routes/products.js`: Created the `POST /push-to-meta` endpoint which iterates over all local products and pushes them to Meta via `syncProductToMeta`.
+- `frontend/src/components/Catalogue.jsx`: Added a UI button next to "Sync from Meta" to trigger the bulk push process.
+
 ## 2026-07-02 — Enhanced Cart Display in Chat Inbox
 **What**: Updated the webhook logic to fetch product details *before* saving the chat message, so the Chat Inbox now displays the full list of ordered items and the total amount.
 **Why**: The user requested that the "🛒 Shopping Cart" bubble in the Chat Inbox show the exact items the customer ordered instead of a generic "Cart Received: X items" message.

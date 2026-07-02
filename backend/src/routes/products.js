@@ -143,6 +143,21 @@ router.post('/sync-meta', async (req, res) => {
     }
 });
 
+router.post('/push-to-meta', async (req, res) => {
+    try {
+        const products = await Product.find();
+        let pushed = 0;
+        for (const product of products) {
+            await syncProductToMeta(product);
+            pushed++;
+        }
+        res.json({ message: `Successfully queued ${pushed} products to push to Meta Catalogue. They will appear in WhatsApp shortly.` });
+    } catch (error) {
+        console.error('[MetaSync] Push failed:', error);
+        res.status(500).json({ error: 'Failed to push products to Meta' });
+    }
+});
+
 router.get('/', async (req, res) => {
     try {
         const products = await Product.find().sort({ created_at: -1 });
