@@ -191,14 +191,14 @@ export const useStore = create(
                     localStorage.setItem('user', JSON.stringify(data.user));
                     if (data.tenant) localStorage.setItem('tenant_slug', data.tenant.slug);
 
-                    set({
+                    set((state) => ({
                         user: data.user,
                         tenant: data.tenant || null,
                         isAuthenticated: true,
                         isAuthReady: true,
-                        currentView: getDefaultViewForPlan(data.tenant?.subscription_plan, data.user),
+                        currentView: state.currentView && state.currentView !== 'overview' && data.tenant ? state.currentView : getDefaultViewForPlan(data.tenant?.subscription_plan, data.user),
                         error: null,
-                    });
+                    }));
                     return true;
                 } catch (error) {
                     set({ error: error.message });
@@ -219,14 +219,14 @@ export const useStore = create(
                     localStorage.setItem('user', JSON.stringify(data.user));
                     if (data.tenant) localStorage.setItem('tenant_slug', data.tenant.slug);
 
-                    set({
+                    set((state) => ({
                         user: data.user,
                         tenant: data.tenant || null,
                         isAuthenticated: true,
                         isAuthReady: true,
-                        currentView: getDefaultViewForPlan(data.tenant?.subscription_plan, data.user),
+                        currentView: state.currentView && state.currentView !== 'overview' && data.tenant ? state.currentView : getDefaultViewForPlan(data.tenant?.subscription_plan, data.user),
                         error: null,
-                    });
+                    }));
                     return true;
                 } catch {
                     localStorage.removeItem(AUTH_TOKEN_KEY);

@@ -240,6 +240,11 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Fix App Refresh Behavior & Blank Screen
+**What**: Preserved `currentView` across page refreshes and added a loading spinner during session validation.
+**Why**: When users refreshed the app, the frontend would briefly show a completely blank screen while checking the auth session. Once the session check finished, the app aggressively reset the user's view back to the "Overview" page instead of remembering the page they were on (like Contacts). Now, the app correctly remembers and restores the active view after a refresh, and displays a nice loading spinner during the cold start.
+**Files Changed**: `frontend/src/stores/store.js`, `frontend/src/app.jsx`
+
 ## 2026-07-02 — Contact CSV Import Array Parsing Fix
 **What**: Updated `backend/src/routes/contacts.js` to correctly handle `c.tags` and `c.labels` when they are passed as Arrays from the frontend.
 **Why**: After fixing the frontend parser, it passed cleanly formatted string arrays to the backend payload. However, the backend blindly attempted to run `.split(',')` on the tags, which crashed (TypeError: `c.tags.split is not a function`) because they were already Arrays, causing 100% of imported contacts to be skipped.
