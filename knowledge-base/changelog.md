@@ -2,6 +2,19 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Fix Chat Feedback And Vercel Inbox Refresh
+**What**: Made support feedback button replies terminal webhook events and added a polling fallback for Chat Inbox on Vercel.
+**Why**: WhatsApp Good/Bad feedback replies were falling through into Smart Automation and producing unrelated bot answers, and Vercel serverless sockets could leave Chat Inbox stale until a manual refresh.
+**Impact**: Feedback button replies now store `last_support_feedback`, send a simple thank-you, and skip bot automation. Chat Inbox refreshes conversations and the open thread every 5 seconds while mounted, and refreshes immediately on tab focus/visibility. The pre-existing labeled-broadcast static test was also updated to match the current Mongo route assignment.
+**Files Changed**: `backend/src/services/supportFeedback.js`, `backend/src/routes/webhook.js`, `backend/test/regression.test.js`, `frontend/src/components/WhatsAppChat.jsx`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/decisions.md`, `knowledge-base/chat-inbox.md`, `knowledge-base/whatsapp-webhook.md`, `knowledge-base/frontend.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - `cd backend && npm test` (28 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (10 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Commit**: Pending
+
+- Added `supportFeedback.js` to parse stable `feedback_good`/`feedback_bad` button IDs without treating typed "Good" as support feedback.
+- Short-circuited webhook processing before Smart Automation when support feedback is received.
+- Added a Vercel-safe Chat Inbox polling fallback using current refs for search, filter, and selected conversation.
+- Updated regression coverage for support feedback, Vercel inbox refresh, and the current labeled-broadcast Mongo query shape.
+
 ## 2026-07-02 — Ask Before Unknown-Message Human Handoff
 **What**: Changed Smart Automation's unmatched-message fallback to ask the customer before creating a human handoff.
 **Why**: Random or unsupported customer messages should not immediately mark a chat as `needs_human`. The customer should choose whether they want a person to join.
