@@ -66,6 +66,7 @@ router.post('/', async (req, res) => {
                         
                         let parsedOrderItems = null;
                         let orderTotalAmount = 0;
+                        let cancelOrderId = null;
                         
                         if (msg.type === 'text') {
                             bodyText = msg.text?.body || '';
@@ -92,35 +93,9 @@ router.post('/', async (req, res) => {
                                 bodyText = msg.interactive?.button_reply?.title || '[Button Reply]';
                                 const payloadId = msg.interactive?.button_reply?.id || '';
                                 
-                                // --- Handle Cancel Order Button ---
+                                // --- Detect Cancel Order Button ---
                                 if (payloadId.startsWith('cancel_order_')) {
-                                    const orderId = payloadId.split('cancel_order_')[1];
-                                    try {
-                                        const { default: Order } = await import('../models/Order.js');
-                                        await Order.findByIdAndUpdate(orderId, {
-                                            $set: { checkout_status: 'cancelled', fulfillment_status: 'cancelled', payment_status: 'failed' }
-                                        });
-                                        const cancelReply = "Your order has been cancelled successfully. 🛑\nIf you'd like to order again, simply send us a new cart.";
-                                        const result = await sendTextMessage(fromPhone, cancelReply, setting);
-                                        if (result && result.messageId) {
-                                            await WhatsAppChatMessage.create({
-                                                tenant_id: tenantId,
-                                                conversation_id: conversation._id,
-                                                direction: 'outbound',
-                                                message_type: 'text',
-                                                body: cancelReply,
-                                                provider_message_id: result.messageId,
-                                                status: 'sent'
-                                            });
-                                        }
-                                        conversation.last_message_text = cancelReply.substring(0, 100);
-                                        conversation.last_message_at = new Date();
-                                        await conversation.save();
-                                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
-                                    } catch (err) {
-                                        console.error('[Webhook] Failed to cancel order:', err);
-                                    }
-                                    continue; // Stop further bot processing for this message
+                                    cancelOrderId = payloadId.split('cancel_order_')[1];
                                 }
                             } else if (msg.interactive?.type === 'list_reply') {
                                 bodyText = msg.interactive?.list_reply?.title || '[List Reply]';
@@ -212,6 +187,36 @@ router.post('/', async (req, res) => {
                         await conversation.save();
 
                         emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+
+                        // --- Execute Cancel Order Action ---
+                        if (cancelOrderId) {
+                            try {
+                                const { default: Order } = await import('../models/Order.js');
+                                await Order.findByIdAndUpdate(cancelOrderId, {
+                                    $set: { checkout_status: 'cancelled', fulfillment_status: 'cancelled', payment_status: 'failed' }
+                                });
+                                const cancelReply = "Your order has been cancelled successfully. 🛑\nIf you'd like to order again, simply send us a new cart.";
+                                const result = await sendTextMessage(fromPhone, cancelReply, setting);
+                                if (result && result.messageId) {
+                                    await WhatsAppChatMessage.create({
+                                        tenant_id: tenantId,
+                                        conversation_id: conversation._id,
+                                        direction: 'outbound',
+                                        message_type: 'text',
+                                        body: cancelReply,
+                                        provider_message_id: result.messageId,
+                                        status: 'sent'
+                                    });
+                                }
+                                conversation.last_message_text = cancelReply.substring(0, 100);
+                                conversation.last_message_at = new Date();
+                                await conversation.save();
+                                emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+                            } catch (err) {
+                                console.error('[Webhook] Failed to cancel order:', err);
+                            }
+                            continue; // Stop further bot processing for this message
+                        }
 
                         // --- NEW: Handle Order Creation ---
                         if (msg.type === 'order' && parsedOrderItems) {
