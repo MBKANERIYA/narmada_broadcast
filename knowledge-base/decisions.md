@@ -2,6 +2,15 @@
 
 This document logs the architectural choices made during the development of the WhatsApp Broadcast SaaS.
 
+## Decision: Chat Inbox Commerce Filters Use Mongo Order State
+**Date**: 2026-07-02
+**Status**: Accepted
+**Context**: The main broadcast platform commit `3f088251462d3ae1210bfcfe3d13f0bb612cab7d` added Chat Inbox commerce filters using SQL `EXISTS` predicates. Narmada is a single-client Vercel fork backed by MongoDB/Mongoose, so copying the SQL route would not run.
+**Decision**: Implement the same filter contract through Mongo `Order` queries in `backend/src/routes/whatsapp-chat.js`. The route derives phone sets for paid orders, unpaid hosted-checkout orders, and abandoned carts, returns `filter_counts`, and marks each conversation with commerce flags. `Order.tenant_id` is explicit with a `single-tenant` default, while the query remains compatible with older order documents that may not have the field.
+**Alternatives Considered**: Copy the SQL strings from the main platform, keep the old client-side tab filtering, or only port the frontend dropdown. SQL would break on Mongo, client-side filtering would be wrong with pagination/counts, and frontend-only changes would show filters that the API could not honor.
+**Consequences**: The Narmada fork matches the main platform UX while preserving its Mongo/Vercel deployment model. Counts are computed from the current archived/search base filter; for very large inboxes this may later need a Mongo aggregation optimization.
+**Superseded By**:
+
 ## Decision: No-Order Handoff Is Deferred Behind FAQ Retrieval
 **Date**: 2026-07-02
 **Status**: Accepted

@@ -1923,71 +1923,53 @@ tr:hover td {
   background: rgba(255, 255, 255, 0.18);
 }
 
-.chat-filter-tabs {
+.chat-filter-control {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  padding: 8px;
+  gap: 7px;
+  padding: 10px 14px;
   border-bottom: 1px solid #e0ebe5;
   background: #eef6f2;
 }
 
-.chat-filter-tabs button {
-  min-width: 0;
-  min-height: 40px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
+.chat-filter-control label {
   color: #64748b;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 800;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 8px;
-}
-
-.chat-filter-tabs button span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-filter-tabs button strong {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748b;
-  background: #ffffff;
   font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
-.chat-filter-tabs button.is-active {
+.chat-filter-select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.chat-filter-select-wrap svg {
+  position: absolute;
+  left: 12px;
   color: #0f766e;
-  border-color: #b8e4d1;
+  pointer-events: none;
+}
+
+.chat-filter-select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #bddfce;
+  border-radius: 8px;
   background: #ffffff;
-  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.08);
+  color: #0f172a;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 36px 0 36px;
+  outline: none;
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.06);
 }
 
-.chat-filter-tabs button.is-active strong {
-  color: #ffffff;
-  background: #0f766e;
-}
-
-.chat-filter-tabs button.is-danger.is-active {
-  color: #b42318;
-  border-color: #ffd1ca;
-}
-
-.chat-filter-tabs button.is-danger.is-active strong {
-  background: #dc2626;
+.chat-filter-select:focus {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
 }
 
 .chat-conversation-list {
@@ -2094,6 +2076,16 @@ tr:hover td {
 .conversation-chip.is-paid {
   color: #0f766e;
   background: #dcfce7;
+}
+
+.conversation-chip.is-unpaid {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.conversation-chip.is-abandoned {
+  color: #7c3aed;
+  background: #ede9fe;
 }
 
 .conversation-chip.is-human {

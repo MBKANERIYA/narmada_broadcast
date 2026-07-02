@@ -16,6 +16,7 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
 | `backend/src/routes/whatsapp-chat.js` | Express routes for conversations, messages, send/reply actions, bot pause, handoff resolution, teach-from-chat, labels, and media proxying. |
 | `backend/src/models/WhatsAppConversation.js` | Conversation state including `bot_paused`, `needs_human`, `handoff_reason`, `bot_state`, labels, unread counts, and service-window timestamps. |
 | `backend/src/models/WhatsAppChatMessage.js` | Stored inbound/outbound chat messages. |
+| `backend/src/models/Order.js` | Commerce state used to tag/filter conversations as paid, unpaid hosted-checkout orders, or abandoned carts. |
 | `backend/src/routes/webhook.js` | Creates/updates conversations from incoming WhatsApp webhooks and marks Smart Automation handoffs. |
 
 ## Conventions And Rules
@@ -30,6 +31,17 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
   optionally send the same feedback request.
 - `GET /conversations?needs_human=1` must filter the handoff queue
   server-side; the Needs Human tab depends on this.
+- `GET /conversations?filter=<value>` is the current filter contract. Supported
+  values are `all`, `unread`, `paid`, `unpaid_orders`, `abandoned_carts`, and
+  `needs_human`. Legacy `paid=1` and `needs_human=1` callers still map to the
+  corresponding filter.
+- The conversations response must include `filter_counts` plus conversation
+  booleans `has_paid_order`, `has_unpaid_order`, and `has_abandoned_cart`.
+- Commerce filters are computed from Mongo `Order` rows matched by phone. Unpaid
+  orders are hosted-checkout `ordered` + pending-payment orders with a payment
+  link. Abandoned carts are hosted-checkout `open` + pending-payment sessions
+  without a payment link, not expired, and older than
+  `CHECKOUT_ABANDONED_AFTER_MINUTES` (default 30 minutes).
 - `POST /conversations/:id/teach` turns a question/answer from Chat Inbox into
   a Smart FAQ through `teachFromConversation()`.
 - Handoff state belongs in MongoDB, not localStorage, because webhook
@@ -55,6 +67,8 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
   authorizes it.
 - Uploaded local media is serverless-temp backed; persistent media storage is
   not yet implemented for Vercel.
+- Older checkout orders may not have `tenant_id`; the commerce filter keeps a
+  single-client compatibility path for those documents.
 
 ## How It Is Tested
 
@@ -66,6 +80,8 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
 - Teach-from-chat route coverage.
 - Persisted `bot_paused` behavior and webhook pause checks.
 - Compact-header UI class contracts and Mongo-safe chat date formatting.
+- Commerce-status filtering through Mongo orders, including `filter_counts`,
+  dropdown UI state, and paid/unpaid/abandoned chips.
 
 Run:
 
@@ -78,5 +94,6 @@ npm test
 
 - `chatbot.md` for Smart Automation matching, handoff generation, and teaching.
 - `frontend.md` for app shell and UI conventions.
+- `hosted-checkout.md` for checkout order states used by commerce filters.
 - `security.md` for auth, secret handling, and server-side handoff state.
 - `testing.md` for full verification gates.
