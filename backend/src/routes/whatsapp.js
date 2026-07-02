@@ -135,7 +135,6 @@ router.post('/broadcast', async (req, res) => {
         };
         
         if (recipientType !== 'custom') {
-            baseFilter.whatsapp_consent = true;
             if (recipientFilter) {
                 if (recipientFilter.location) baseFilter.location = { $regex: new RegExp(recipientFilter.location, 'i') };
                 if (recipientFilter.min_ticket) baseFilter.ticket_size = { ...(baseFilter.ticket_size || {}), $gte: parseFloat(recipientFilter.min_ticket) };
