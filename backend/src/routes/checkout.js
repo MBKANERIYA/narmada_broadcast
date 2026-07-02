@@ -50,13 +50,28 @@ function parseImages(value, fallback) {
 }
 
 async function maybeCreatePaymentLink({ tenant, order, customer, req }) {
-    if (!tenant?.razorpay_key_id || !tenant?.razorpay_key_secret) {
+    const keyId = tenant?.razorpay_key_id || process.env.RAZORPAY_KEY_ID;
+    const keySecret = tenant?.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET;
+
+    if (!keyId || !keySecret) {
         return null;
     }
 
+    if (keyId.includes('demo_key')) {
+        console.log('[Checkout] Using mock Razorpay test credentials. Generating fake payment link.');
+        const fakePaymentLink = {
+            id: 'plink_mock_' + Date.now(),
+            short_url: `${publicBaseUrl(req)}/checkout/${order.checkout_token}?mock_payment=true`
+        };
+        await Order.findByIdAndUpdate(order._id || order.id, {
+            $set: { payment_link: fakePaymentLink.short_url, payment_link_id: fakePaymentLink.id }
+        });
+        return fakePaymentLink;
+    }
+
     const razorpay = new Razorpay({
-        key_id: tenant.razorpay_key_id,
-        key_secret: tenant.razorpay_key_secret,
+        key_id: keyId,
+        key_secret: keySecret,
     });
 
     const paymentLink = await razorpay.paymentLink.create({
