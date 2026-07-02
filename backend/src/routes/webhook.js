@@ -181,6 +181,8 @@ router.post('/', async (req, res) => {
                         if (msg.type === 'order' && parsedOrderItems) {
                             try {
                                 const { default: Order } = await import('../models/Order.js');
+                                const crypto = await import('crypto');
+                                const checkoutToken = crypto.randomBytes(24).toString('hex');
                                 
                                 const newOrder = await Order.create({
                                     tenant_id: tenantId,
@@ -190,10 +192,18 @@ router.post('/', async (req, res) => {
                                     total_amount: orderTotalAmount,
                                     currency: 'INR',
                                     items: parsedOrderItems,
-                                    source_channel: 'whatsapp_cart'
+                                    source_channel: 'whatsapp_cart',
+                                    checkout_token: checkoutToken,
+                                    checkout_status: 'open',
+                                    checkout_expires_at: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
                                 });
                                 
-                                const confirmText = `Thank you for your order! 🎉\n\nYour cart has been received. Your total is ₹${orderTotalAmount.toFixed(2)}.\n\nOur team will process it shortly.`;
+                                const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+                                const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
+                                const baseUrl = `${protocol}://${host}`;
+                                const checkoutLink = `${baseUrl}/checkout/${checkoutToken}`;
+                                
+                                const confirmText = `Thank you for your order! 🎉\n\nYour cart has been received. Your total is ₹${orderTotalAmount.toFixed(2)}.\n\nTo confirm your order and provide delivery details, please complete your payment securely here:\n${checkoutLink}`;
                                 const result = await sendTextMessage(fromPhone, confirmText, setting);
                                 
                                 if (result && result.messageId) {

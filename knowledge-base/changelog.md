@@ -201,6 +201,14 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — WhatsApp Cart Checkout Link Integration
+**What**: Updated the WhatsApp Shopping Cart webhook to automatically generate a secure checkout link and send it in the confirmation reply.
+**Why**: Previously, when a customer placed an order via the WhatsApp catalog, the bot simply replied "Our team will process it shortly." Now, the bot generates a unique `checkout_token` and provides a direct link to the platform's hosted checkout page so the customer can immediately enter their delivery details and pay via Razorpay.
+**Files Changed**: `backend/src/routes/webhook.js`
+- Modified the `msg.type === 'order'` handler to generate a `crypto.randomBytes` checkout token.
+- Updated the order creation payload to initialize `checkout_status: 'open'`.
+- Changed the `confirmText` response to include the full `https://.../checkout/:token` URL.
+
 ## 2026-07-02 — Fixed Broadcast UI Filter Mismatch
 **What**: Ensured that the "Send Broadcast" functionality respects the frontend UI filters (Location, Ticket Size, Search) instead of ignoring them and broadcasting to the entire contact list.
 **Why**: When sending a broadcast (with "All Contacts" or "Labeled" options), the frontend correctly displayed a filtered count (e.g., "Sending to 2 contacts"), but the backend ignored those extra filters and sent the broadcast to everyone in the database, causing a mismatch and unintended messages.
