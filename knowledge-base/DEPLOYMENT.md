@@ -1,256 +1,146 @@
 # Deployment Guide
 
-## Infrastructure Overview
+## Current Deployment Shape
+
+Narmada Broadcast is a single-client product deployed from
+`MBKANERIYA/narmada_broadcast` to Vercel.
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                  Hostinger VPS (Ubuntu)                    │
-│                  Host: srv1566548                          │
-│                                                            │
-│  ┌──────────┐     ┌────────────────────────────────────┐  │
-│  │  Nginx   │────→│  App 1: ProCRM (port 3000)         │  │
-│  │  :80/:443│     │  PM2 name: "procrm"                │  │
-│  │          │     │  Path: /opt/procrm/                 │  │
-│  │          │     └────────────────────────────────────┘  │
-│  │          │                                              │
-│  │          │     ┌────────────────────────────────────┐  │
-│  │          │────→│  App 2: WhatsApp Broadcast (3001)  │  │
-│  │          │     │  PM2 name: "whatsapp-broadcast"    │  │
-│  │          │     │  Path: /opt/whatsapp-broadcast/    │  │
-│  └──────────┘     └────────────────────────────────────┘  │
-│                                                            │
-│  ┌──────────┐                                              │
-│  │ MySQL 8  │  DB: whatsapp_broadcast                      │
-│  │ :3306    │  User: wauser                                │
-│  └──────────┘                                              │
-└──────────────────────────────────────────────────────────┘
+Browser
+  |
+  | same-origin /api/v1/*
+  v
+Vercel frontend service (frontend/)
+  |
+  | /api/* route
+  v
+Vercel Node service (backend/src/app.js)
+  |
+  v
+MongoDB Atlas database for this client only
 ```
 
-## Domain: broadcast.innodify.in
+## Vercel Project Settings
 
-### DNS Setup (Hostinger DNS Zone)
-Add an **A record** in your Hostinger DNS zone for `innodify.in`:
+The repository uses `vercel.json` with two services:
 
-| Type | Name | Value | TTL |
-|------|------|-------|-----|
-| A | broadcast | [VPS IP ADDRESS] | 3600 |
+| Service | Root | Runtime | Route |
+|---------|------|---------|-------|
+| Frontend | `frontend` | Vite static build | `/` |
+| Backend | `backend` | `@vercel/node` | `/api/*` |
 
-To find VPS IP: run `curl ifconfig.me` on the VPS.
+The frontend intentionally uses relative API URLs, so production requests go to
+the same Vercel domain, for example `/api/v1/auth/login`.
 
-## Step-by-Step Deployment Commands
+## Required Environment Variables
 
-Run these on the VPS in order. Each step is numbered.
-
-### Step 1: Create MySQL Database
+Set these in Vercel Project Settings -> Environment Variables for Production,
+Preview, and Development as needed:
 
 ```bash
-mysql -u root -p
+MONGO_URI=<mongodb-connection-string>
+JWT_SECRET=<strong-random-jwt-secret>
+CORS_ORIGINS=https://narmada-broadcast-8vox.vercel.app
+APP_DOMAIN=narmada-broadcast-8vox.vercel.app
 ```
 
-Then in MySQL prompt:
-```sql
-CREATE DATABASE whatsapp_broadcast CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'wauser'@'localhost' IDENTIFIED BY '<strong-random-db-password>';
-GRANT ALL PRIVILEGES ON whatsapp_broadcast.* TO 'wauser'@'localhost';
-FLUSH PRIVILEGES;
-EXIT;
-```
+Optional integration variables are configured in the app UI where possible:
+WhatsApp access token, phone number ID, business account ID, catalog ID,
+Razorpay keys, Shopify credentials, and profile branding.
 
-### Step 2: Clone the Repository
+## MongoDB Atlas Setup
+
+1. Create a separate MongoDB Atlas project or cluster for this client.
+2. Create a database user for this app only.
+3. Use a strong password and give the user access only to this client database.
+4. In Network Access, allow Vercel to connect. For a quick Vercel deployment,
+   Atlas often needs `0.0.0.0/0`; if using a stricter setup, use a private
+   networking approach supported by the hosting plan.
+5. Copy the driver connection string and include a database name, for example:
 
 ```bash
-mkdir -p /opt/whatsapp-broadcast
-cd /opt/whatsapp-broadcast
-git clone https://github.com/shivanshu407/whatsapp-broadcast-saas.git .
+MONGO_URI=<mongodb-connection-string>
 ```
 
-Note: If the repo has a nested folder structure, adjust:
+Do not commit the MongoDB URI. It must live only in Vercel environment
+variables or local `.env` files that are ignored by git.
+
+## Critical MongoDB Credential Note
+
+Older fork code contained a hardcoded Atlas fallback URI. Treat those exposed
+credentials as compromised:
+
+1. Rotate or delete the exposed Atlas database user.
+2. Create a fresh client-only database user.
+3. Put the new URI in Vercel as `MONGO_URI`.
+4. Redeploy the Vercel project.
+
+The current code fails fast in production/Vercel if `MONGO_URI` is missing.
+
+## Deploy From GitHub
+
+Vercel should be connected to:
+
 ```bash
-# If cloned as /opt/whatsapp-broadcast/whatsapp-broadcast-saas/
-# Move contents up:
-mv whatsapp-broadcast-saas/* .
-mv whatsapp-broadcast-saas/.* . 2>/dev/null
-rmdir whatsapp-broadcast-saas
+https://github.com/MBKANERIYA/narmada_broadcast
 ```
 
-### Step 3: Install Backend Dependencies
+Normal deployment flow:
 
 ```bash
-cd /opt/whatsapp-broadcast/backend
-npm install --production
+git push origin main
 ```
 
-### Step 4: Build Frontend
+Vercel will install and build the frontend from `frontend/package-lock.json` and
+run the backend with the Node function entrypoint from `backend/src/app.js`.
+
+## Local Verification Before Push
+
+Run these from the repository root:
 
 ```bash
-cd /opt/whatsapp-broadcast/frontend
-npm install
+cd backend
+npm test
+
+cd ../frontend
+npm run lint
 npm run build
 ```
 
-The built files go to `frontend/dist/`.
+The frontend lint currently allows warnings, but build and backend tests must
+exit successfully before deployment handoff.
 
-### Step 5: Create Environment File
+## Production Smoke Checks
 
-```bash
-cat > /opt/whatsapp-broadcast/backend/.env << 'EOF'
-PORT=3001
-NODE_ENV=production
-
-DB_HOST=localhost
-DB_USER=wauser
-DB_PASSWORD=<strong-random-db-password>
-DB_NAME=whatsapp_broadcast
-
-JWT_SECRET=<strong-random-jwt-secret>
-WHATSAPP_WEBHOOK_VERIFY_TOKEN=<strong-random-whatsapp-webhook-token>
-
-SMTP_HOST=smtp.hostinger.com
-SMTP_PORT=465
-SMTP_USER=broadcast@innodify.in
-SMTP_PASSWORD=CHANGE_THIS
-SMTP_FROM_NAME=WhatsApp Broadcast
-SMTP_FROM_EMAIL=broadcast@innodify.in
-EOF
-```
-
-### Step 6: Configure Nginx
-
-Create the Nginx server block:
+After Vercel redeploys:
 
 ```bash
-cat > /etc/nginx/sites-available/whatsapp-broadcast << 'EOF'
-server {
-    listen 80;
-    server_name broadcast.innodify.in;
-
-    # Frontend (serve built files)
-    root /opt/whatsapp-broadcast/frontend/dist;
-    index index.html;
-
-    # API proxy
-    location /api/ {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        client_max_body_size 50M;
-    }
-
-    # Webhook proxy (no auth)
-    location /webhook/ {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # SPA fallback — all other routes serve index.html
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
-EOF
+curl https://narmada-broadcast-8vox.vercel.app/health
+curl https://narmada-broadcast-8vox.vercel.app/api/v1/tenant-settings
 ```
 
-Enable the site:
-```bash
-ln -sf /etc/nginx/sites-available/whatsapp-broadcast /etc/nginx/sites-enabled/
-nginx -t
-systemctl reload nginx
-```
+For authenticated checks, log in with the client admin credentials and verify:
 
-### Step 7: SSL with Let's Encrypt
-
-```bash
-certbot --nginx -d broadcast.innodify.in
-```
-
-If certbot is not installed:
-```bash
-apt update && apt install -y certbot python3-certbot-nginx
-certbot --nginx -d broadcast.innodify.in
-```
-
-### Step 8: Start with PM2
-
-```bash
-cd /opt/whatsapp-broadcast/backend
-pm2 start src/server.js --name "whatsapp-broadcast" --env production
-pm2 save
-```
-
-Verify both apps running:
-```bash
-pm2 list
-```
-
-You should see:
-```
-│ 0 │ procrm              │ online │ :3000 │
-│ 1 │ whatsapp-broadcast  │ online │ :3001 │
-```
-
-### Step 9: Configure Meta Webhook
-
-In Meta Developer Console:
-1. Go to your WhatsApp app → Configuration → Webhook
-2. Set callback URL: `https://broadcast.innodify.in/webhook/whatsapp`
-3. Set verify token to the same value as `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
-4. Subscribe to: `messages`, `message_deliveries`, `message_reads`
-
-## Updating the App
-
-When you push new code to GitHub:
-
-```bash
-cd /opt/whatsapp-broadcast
-git pull origin main
-
-# If backend changed:
-cd backend && npm install --production
-pm2 restart whatsapp-broadcast
-
-# If frontend changed:
-cd frontend && npm install && npm run build
-# No restart needed — Nginx serves static files
-```
+- Settings -> Automation & Hours loads without 404s.
+- Knowledge Base list loads and newly added FAQs persist.
+- Test Your Bot returns a match for a saved FAQ.
+- WhatsApp settings can be saved for this client.
 
 ## Troubleshooting
 
-```bash
-# Check app logs
-pm2 logs whatsapp-broadcast --lines 50
+| Symptom | Likely Cause | Fix |
+|---------|--------------|-----|
+| Backend logs say `MONGO_URI is required` | Vercel env var missing | Add `MONGO_URI=<mongodb-connection-string>` and redeploy |
+| Login works but Settings/KB 500 | Mongo user or network access wrong | Check Atlas user password, database permissions, and network access |
+| Bot test returns no match | No FAQs/products or no text overlap | Add FAQs/products and use Re-embed if local vectors are missing |
+| Embedding re-embed returns 400 | Unknown model key | Select one of the listed local models and retry |
+| Browser opens dashboard from old state | Stale local storage | Current app validates `/auth/me`; clear site data if testing old bundles |
 
-# Check if port is in use
-ss -tlnp | grep 3001
+## What Not To Do
 
-# Check nginx config
-nginx -t
-
-# Restart nginx
-systemctl restart nginx
-
-# Check MySQL connection
-mysql -u wauser -p'<strong-random-db-password>' whatsapp_broadcast -e "SHOW TABLES;"
-
-# Check disk space
-df -h
-
-# Check memory
-free -h
-```
-
-## Important Notes
-
-1. **The backend auto-creates tables** on first startup (database.js runs migrations)
-2. **Frontend API base URL**: The store.js uses relative URLs (`/api/v1/...`) — Nginx proxies them to port 3001
-3. **File uploads**: Multer stores CSV imports in `backend/uploads/` — ensure write permissions
-4. **PM2 startup**: Run `pm2 startup` to auto-start apps on VPS reboot
+- Do not point this client deployment at the original SaaS database.
+- Do not commit MongoDB, JWT, WhatsApp, Razorpay, Shopify, or SMTP secrets.
+- Do not reintroduce tenant-seat SaaS assumptions into this fork unless the
+  client requirement changes.
+- Do not set `VITE_API_URL` for production unless the backend is intentionally
+  moved to a different origin.

@@ -1,7 +1,21 @@
 import { Router } from 'express';
-import { generateToken } from '../middleware/auth.js';
+import { auth, generateToken } from '../middleware/auth.js';
 
 const router = Router();
+
+const adminUser = { id: 'admin-user-id', name: 'Admin User', email: 'admin', role: 'admin' };
+
+function buildTenant(settings = {}) {
+    return {
+        id: settings.id || settings._id?.toString?.() || 'single-tenant',
+        name: settings.name || 'Admin Account',
+        slug: 'admin',
+        subscription_status: 'active',
+        subscription_plan: 'commerce',
+        logo_url: settings.logo_url || '',
+        primary_color: settings.primary_color || '#6366f1',
+    };
+}
 
 /**
  * POST /api/v1/auth/login
@@ -20,8 +34,8 @@ router.post('/login', async (req, res) => {
             const token = generateToken('admin-user-id', 'admin', 'admin');
             return res.json({
                 token,
-                user: { id: 'admin-user-id', name: 'Admin User', email: 'admin', role: 'admin' },
-                tenant: { id: 'single-tenant', name: 'Admin Account', slug: 'admin', subscription_status: 'active', subscription_plan: 'commerce' }
+                user: adminUser,
+                tenant: buildTenant(req.tenant)
             });
         }
 
@@ -30,6 +44,17 @@ router.post('/login', async (req, res) => {
         console.error('[LOGIN ERROR]', error.message);
         res.status(500).json({ error: 'Server error' });
     }
+});
+
+/**
+ * GET /api/v1/auth/me
+ * Validates a persisted JWT and returns the single-client identity.
+ */
+router.get('/me', auth, async (req, res) => {
+    res.json({
+        user: adminUser,
+        tenant: buildTenant(req.tenant),
+    });
 });
 
 /**

@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import Product from '../models/Product.js';
 import { generateEmbedding } from '../services/smartResponder.js';
+import { embeddingForTenant } from '../config/embeddingConfig.js';
 import { getUploadsDir } from '../utils/uploads.js';
 import { syncProductToMeta, deleteProductFromMeta } from '../services/metaCatalogSync.js';
 import Setting from '../models/Setting.js';
@@ -167,16 +168,21 @@ router.post('/', async (req, res) => {
         }
 
         let vector = [];
+        let embeddingModel = null;
         try {
+            const model = embeddingForTenant(req.tenant?.bot_settings || {});
             const searchString = `Product: ${name}\nCategory: ${category || 'General'}\nDescription: ${description || ''}\nPrice: ${selling_price || mrp || ''}`;
-            vector = await generateEmbedding(searchString);
+            vector = await generateEmbedding(searchString, { modelId: model.modelId, prefix: model.passagePrefix });
+            embeddingModel = model.key;
         } catch (embErr) {
-            console.warn('[Products] Embedding generation skipped (AI_API_KEY missing?):', embErr.message);
+            console.warn('[Products] Local embedding generation skipped:', embErr.message);
         }
 
         const product = new Product({
             name, description: description || '', mrp: mrp || 0, selling_price: selling_price || 0,
-            category: category || '', sku: sku || '', image_url: image_url || '', images: images || [], product_vector: vector,
+            category: category || '', sku: sku || '', image_url: image_url || '', images: images || [],
+            product_vector: vector,
+            embedding_model: embeddingModel,
             inventory_available: available_for_sale !== false,
             inventory_quantity: quantity != null ? Number(quantity) : null,
             inventory_policy: allow_backorder ? 'continue' : 'deny',
@@ -207,11 +213,14 @@ router.put('/:id', async (req, res) => {
         }
 
         let vector = [];
+        let embeddingModel = null;
         try {
+            const model = embeddingForTenant(req.tenant?.bot_settings || {});
             const searchString = `Product: ${name}\nCategory: ${category || 'General'}\nDescription: ${description || ''}\nPrice: ${selling_price || mrp || ''}`;
-            vector = await generateEmbedding(searchString);
+            vector = await generateEmbedding(searchString, { modelId: model.modelId, prefix: model.passagePrefix });
+            embeddingModel = model.key;
         } catch (embErr) {
-            console.warn('[Products] Embedding generation skipped (AI_API_KEY missing?):', embErr.message);
+            console.warn('[Products] Local embedding generation skipped:', embErr.message);
         }
 
         const updateData = {
@@ -222,6 +231,7 @@ router.put('/:id', async (req, res) => {
             inventory_policy: allow_backorder ? 'continue' : 'deny',
         };
         if (vector.length > 0) updateData.product_vector = vector;
+        if (embeddingModel) updateData.embedding_model = embeddingModel;
 
         const product = await Product.findByIdAndUpdate(id, updateData, { new: true });
 

@@ -1,109 +1,77 @@
-# WhatsApp Broadcast SaaS
+# Narmada Broadcast
 
-A multi-tenant WhatsApp marketing and chat platform built with Node.js, Preact, and the Meta Cloud API.
+Single-client WhatsApp broadcast, catalogue, orders, chat inbox, and smart FAQ
+workspace deployed independently on Vercel.
 
-## Features
+## Stack
 
-- **📇 Contact Management** — Unified contacts with location, ticket size, tags, CSV import
-- **📢 WhatsApp Broadcast** — Send template messages to filtered contacts (by tag, location, budget)
-- **💬 Chat Inbox** — Two-way WhatsApp messaging with 24-hour window enforcement
-- **⚙️ Settings** — Firm profile, WhatsApp credential management, subscription plans
-- **🏢 Multi-Tenant** — Each customer gets isolated data, uses their own Meta API credentials
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
+| Layer | Technology |
+|-------|------------|
 | Frontend | Preact + Vite + Zustand |
-| Backend | Express.js (Node.js 20+) |
-| Database | MySQL 8.0 |
-| WhatsApp | Meta Cloud API v21.0 |
-| Hosting | Hostinger VPS (Nginx + PM2) |
+| Backend | Express.js on Vercel Node functions |
+| Database | MongoDB Atlas via Mongoose |
+| WhatsApp | Meta Cloud API |
+| Smart Automation | Local embeddings with lexical fallback; no external provider key |
+| Deployment | Vercel from `MBKANERIYA/narmada_broadcast` |
 
-## Architecture
-
-```
-Customer's Meta Account ──→ Our Platform ──→ Contacts / Broadcast / Chat
-         ↑                                              │
-         └──── Webhook (incoming messages) ─────────────┘
-```
-
-- **Customers provide their own Meta WhatsApp Business API credentials**
-- **Meta bills customers directly** for message usage
-- **We charge a platform subscription fee** (SaaS revenue)
-
-## Quick Start
-
-### Prerequisites
-- Node.js 18+
-- MySQL 8.0+
-
-### Setup
+## Local Setup
 
 ```bash
-# Clone
-git clone https://github.com/shivanshu407/whatsapp-broadcast-saas.git
-cd whatsapp-broadcast-saas
+cd backend
+npm install
 
-# Backend
-cd backend && npm install
-cp .env.example .env  # Edit with your DB credentials
-npm run dev
-
-# Frontend (new terminal)
-cd frontend && npm install
-npm run dev
+cd ../frontend
+npm install
 ```
 
-### Environment Variables
+Create `backend/.env` for local development:
 
 ```env
 PORT=3000
 NODE_ENV=development
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=whatsapp_broadcast
-JWT_SECRET=your_jwt_secret
-WEBHOOK_VERIFY_TOKEN=your_webhook_token
+MONGO_URI=<mongodb-connection-string>
+JWT_SECRET=<strong-random-jwt-secret>
 ```
 
-## Project Structure
+Run locally:
 
+```bash
+cd backend
+npm run dev
+
+cd ../frontend
+npm run dev
 ```
-├── backend/
-│   ├── src/
-│   │   ├── app.js              # Express app + webhook handler
-│   │   ├── database.js         # MySQL + auto-migrations
-│   │   ├── routes/
-│   │   │   ├── contacts.js     # Contact CRUD + import
-│   │   │   ├── whatsapp.js     # Broadcast + templates
-│   │   │   ├── whatsapp-chat.js # Chat inbox API
-│   │   │   └── settings.js     # Tenant settings
-│   │   └── services/
-│   │       └── whatsapp.js     # Meta API wrapper
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx             # 4 views: Contacts, Broadcast, Chat, Settings
-│   │   ├── stores/store.js     # Zustand state + API calls
-│   │   └── components/         # UI components
-│   └── package.json
-└── knowledge-base/             # Full project documentation
+
+The frontend dev server proxies `/api/*` to `http://localhost:3000` by default.
+
+## Verification
+
+```bash
+cd backend
+npm test
+npm audit --audit-level=high
+
+cd ../frontend
+npm run lint
+npm run build
+npm audit --audit-level=high
 ```
+
+## Vercel Environment
+
+Set these in Vercel before deploying:
+
+```env
+MONGO_URI=<mongodb-connection-string>
+JWT_SECRET=<strong-random-jwt-secret>
+CORS_ORIGINS=https://narmada-broadcast-8vox.vercel.app
+APP_DOMAIN=narmada-broadcast-8vox.vercel.app
+```
+
+Important: do not commit real MongoDB, JWT, Meta, Razorpay, or Shopify secrets.
 
 ## Documentation
 
-See the `knowledge-base/` folder for comprehensive documentation:
-- **PROJECT_OVERVIEW.md** — Business model, features, design decisions
-- **ARCHITECTURE.md** — Database schema, API endpoints, data flows
-- **DEPLOYMENT.md** — Step-by-step VPS deployment guide
-- **DEVELOPMENT_GUIDE.md** — Coding patterns and conventions
-
-## Deployment
-
-Hosted on Hostinger VPS at `broadcast.innodify.in`. See `knowledge-base/DEPLOYMENT.md` for full deployment instructions.
-
-## License
-
-Private — All rights reserved.
+Read `knowledge-base/README.md` first, then `knowledge-base/DEPLOYMENT.md` for
+the Vercel/MongoDB setup and `knowledge-base/chatbot.md` for Smart FAQ behavior.

@@ -1,46 +1,37 @@
+import { pipeline } from '@huggingface/transformers';
 import KnowledgeBase from '../models/KnowledgeBase.js';
 import Product from '../models/Product.js';
 import FaqPhrasing from '../models/FaqPhrasing.js';
 import { MATCH_THRESHOLD, flagEnabled } from '../config/botConfig.js';
 
-let isModelWarmed = false;
+const LEGACY_MODEL_ID = 'Xenova/all-MiniLM-L6-v2';
+const extractors = new Map();
 
-export async function getExtractor() {
-    if (!process.env.AI_API_KEY) {
-        console.warn('[SmartResponder] Warning: AI_API_KEY is missing. Smart replies will fail.');
+export async function getExtractor(modelId = LEGACY_MODEL_ID) {
+    if (!extractors.has(modelId)) {
+        console.log(`[SmartResponder] Loading local embedding model ${modelId}...`);
+        const extractor = await pipeline('feature-extraction', modelId);
+        extractors.set(modelId, extractor);
+        console.log(`[SmartResponder] Model ${modelId} loaded successfully.`);
     }
-    return true;
+    return extractors.get(modelId);
 }
 
 export async function initModel() {
-    if (!isModelWarmed) {
-        console.log('[SmartResponder] Initializing Google Gemini Embeddings API...');
-        isModelWarmed = true;
+    try {
+        await getExtractor();
+    } catch (err) {
+        console.error('[SmartResponder] Error pre-warming local model:', err);
     }
 }
 
 export async function generateEmbedding(text, opts = {}) {
-    if (!process.env.AI_API_KEY) throw new Error('AI_API_KEY missing');
-    
+    const modelId = opts.modelId || LEGACY_MODEL_ID;
     const prefix = opts.prefix || '';
+    const extractor = await getExtractor(modelId);
     const input = prefix ? `${prefix}${text}` : text;
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${process.env.AI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            model: "models/text-embedding-004",
-            content: { parts: [{ text: input }] }
-        })
-    });
-    
-    if (!response.ok) {
-        const err = await response.json();
-        throw new Error(`Gemini API Error: ${err.error?.message || response.statusText}`);
-    }
-    
-    const data = await response.json();
-    return data.embedding.values;
+    const output = await extractor(input, { pooling: 'mean', normalize: true });
+    return Array.from(output.data);
 }
 
 export function cosineSimilarity(vecA, vecB) {
@@ -70,6 +61,42 @@ export function normalizeText(text) {
         .replace(/[\u201C\u201D]/g, '"')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+const STOP_WORDS = new Set([
+    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'can', 'do', 'does', 'for',
+    'from', 'how', 'i', 'in', 'is', 'it', 'me', 'my', 'of', 'on', 'or',
+    'please', 'the', 'to', 'we', 'what', 'when', 'where', 'which', 'who',
+    'with', 'you', 'your'
+]);
+
+function tokenizeForMatch(text) {
+    return normalizeText(text)
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter((token) => token.length > 1 && !STOP_WORDS.has(token));
+}
+
+export function scoreTextMatch(query, candidate) {
+    const normalizedQuery = normalizeText(query);
+    const normalizedCandidate = normalizeText(candidate);
+    if (!normalizedQuery || !normalizedCandidate) return 0;
+
+    if (normalizedCandidate.includes(normalizedQuery) || normalizedQuery.includes(normalizedCandidate)) {
+        return 0.95;
+    }
+
+    const queryTokens = tokenizeForMatch(normalizedQuery);
+    const candidateTokens = tokenizeForMatch(normalizedCandidate);
+    if (!queryTokens.length || !candidateTokens.length) return 0;
+
+    const candidateSet = new Set(candidateTokens);
+    const overlapCount = queryTokens.filter((token) => candidateSet.has(token)).length;
+    if (overlapCount === 0) return 0;
+
+    const queryCoverage = overlapCount / queryTokens.length;
+    const candidateCoverage = overlapCount / candidateTokens.length;
+    return Math.min(0.9, 0.15 + (queryCoverage * 0.55) + (candidateCoverage * 0.2));
 }
 
 const TENANT_VECTOR_TTL_MS = 5 * 60 * 1000;
@@ -105,7 +132,7 @@ export async function getTenantKnowledge(tenantId, { force = false } = {}) {
     const phrasingsByFaq = new Map();
     for (const p of phrasingRows) {
         const vec = parseVector(p.phrasing_vector);
-        if (!vec) continue;
+        if (!p.faq_id) continue;
         const fid = p.faq_id.toString();
         if (!phrasingsByFaq.has(fid)) phrasingsByFaq.set(fid, []);
         phrasingsByFaq.get(fid).push({ text: p.phrasing, vec, model: p.embedding_model || null });
@@ -119,8 +146,7 @@ export async function getTenantKnowledge(tenantId, { force = false } = {}) {
             vec: parseVector(f.question_vector),
             model: f.embedding_model || null,
             phrasings: phrasingsByFaq.get(f._id.toString()) || [],
-        }))
-        .filter((f) => f.vec || (f.phrasings && f.phrasings.length));
+        }));
 
     const prodRows = await Product.find({ inventory_available: { $ne: false } });
     const products = prodRows
@@ -130,11 +156,11 @@ export async function getTenantKnowledge(tenantId, { force = false } = {}) {
             description: p.description,
             mrp: p.mrp,
             selling_price: p.selling_price,
+            category: p.category,
             image_url: p.image_url,
             vec: parseVector(p.product_vector),
             model: p.embedding_model || null,
-        }))
-        .filter((p) => p.vec);
+        }));
 
     const entry = { ts: Date.now(), faqs, products };
     tenantVectorCache.set(key, entry);
@@ -206,15 +232,31 @@ async function handleSmartReplyLegacy(tenantId, messageBody, chatHistory = []) {
             contextString = `Conversation Context:\n${historyText}\n\nCurrent Message: ${messageBody}`;
         }
 
-        const messageVector = await generateEmbedding(contextString);
+        let messageVector = null;
+        try {
+            messageVector = await generateEmbedding(contextString);
+        } catch (embeddingError) {
+            console.warn('[SmartResponder] Embedding unavailable, using text fallback:', embeddingError.message);
+        }
 
         let bestFaqMatch = null;
         let highestFaqScore = -1;
 
         if (faqs && faqs.length > 0) {
             for (const faq of faqs) {
-                if (!faq.vec) continue;
-                const score = cosineSimilarity(messageVector, faq.vec);
+                const scores = [
+                    scoreTextMatch(messageBody, faq.question),
+                    ...(faq.phrasings || []).map((phrasing) => scoreTextMatch(messageBody, phrasing.text)),
+                ];
+                if (messageVector && faq.vec) {
+                    scores.push(cosineSimilarity(messageVector, faq.vec));
+                }
+                if (messageVector && faq.phrasings?.length) {
+                    for (const phrasing of faq.phrasings) {
+                        if (phrasing.vec) scores.push(cosineSimilarity(messageVector, phrasing.vec));
+                    }
+                }
+                const score = Math.max(0, ...scores);
                 if (score > highestFaqScore) {
                     highestFaqScore = score;
                     bestFaqMatch = faq;
@@ -227,8 +269,12 @@ async function handleSmartReplyLegacy(tenantId, messageBody, chatHistory = []) {
 
         if (products && products.length > 0) {
             for (const product of products) {
-                if (!product.vec) continue;
-                const score = cosineSimilarity(messageVector, product.vec);
+                const productText = [product.name, product.description, product.category].filter(Boolean).join(' ');
+                const scores = [scoreTextMatch(messageBody, productText)];
+                if (messageVector && product.vec) {
+                    scores.push(cosineSimilarity(messageVector, product.vec));
+                }
+                const score = Math.max(0, ...scores);
                 if (score > highestProductScore) {
                     highestProductScore = score;
                     bestProductMatch = product;
@@ -243,9 +289,9 @@ async function handleSmartReplyLegacy(tenantId, messageBody, chatHistory = []) {
         console.log(`  - Best Product: ${bestProductMatch?.name || 'None'} (Score: ${highestProductScore.toFixed(2)})`);
 
         if (highestProductScore >= THRESHOLD && highestProductScore > highestFaqScore) {
-            return { type: 'product', data: bestProductMatch };
+            return { type: 'product', data: bestProductMatch, score: highestProductScore };
         } else if (highestFaqScore >= THRESHOLD) {
-            return { type: 'faq', text: bestFaqMatch.answer, faqId: bestFaqMatch.id };
+            return { type: 'faq', text: bestFaqMatch.answer, faqId: bestFaqMatch.id, score: highestFaqScore };
         }
 
         return null;
