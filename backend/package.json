@@ -8,7 +8,7 @@
         "start": "node src/server.js",
         "dev": "node --watch src/server.js",
         "test": "node --test test/*.test.js",
-        "postinstall": "node -e \"const fs = require('fs'); const p = 'node_modules/onnxruntime-node/bin/napi/v3'; if (fs.existsSync(p)) { ['darwin', 'win32', 'darwin-arm64'].forEach(d => fs.rmSync(`${p}/${d}`, {recursive: true, force: true})); }\""
+        "postinstall": "node -e \"const fs = require('fs'); const p = 'node_modules/onnxruntime-node/bin/napi/v3'; if (fs.existsSync(p)) { ['darwin', 'win32', 'darwin-arm64'].forEach(d => fs.rmSync(p + '/' + d, {recursive: true, force: true})); }\""
     },
     "engines": {
         "node": ">=18.0.0"

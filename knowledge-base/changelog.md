@@ -2,6 +2,12 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Fix: Postinstall Shell Interpolation Error
+**What**: Modified the `postinstall` script in `backend/package.json` to use string concatenation (`+`) instead of ES6 template literals (`${}`).
+**Why**: Vercel executes `npm` scripts in a POSIX shell. The shell interpreted `${p}` and `${d}` as empty shell variables, causing a syntax error in the Node.js script during the Vercel build. This fix ensures the optimization script runs correctly.
+**Files Changed**: `backend/package.json`
+**Commit**: Pending
+
 ## 2026-07-02 — Fix: Vercel Function Size Optimization (Hobby Plan)
 **What**: Added a `postinstall` script to `backend/package.json` that automatically prunes macOS and Windows binaries from `onnxruntime-node` (`@huggingface/transformers` dependency) during deployment.
 **Why**: Vercel Hobby plan has a strict 250MB limit on uncompressed Serverless Functions, which caused the deployment to fail despite the `VERCEL_SUPPORT_LARGE_FUNCTIONS` flag. Pruning unused OS binaries drops the function size significantly and allows the backend to deploy successfully within Hobby limits.
