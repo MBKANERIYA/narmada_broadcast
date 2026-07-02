@@ -214,6 +214,11 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Interactive Cancel Order Button
+**What**: Modified the address collection workflow to send the Razorpay link as an Interactive Button message, featuring a "Cancel Order" button.
+**Why**: Customers needed a quick, native way to cancel an order directly from WhatsApp if they changed their mind, rather than leaving it in an unpaid pending state forever.
+**Files Changed**: `backend/src/routes/webhook.js`
+
 ## 2026-07-02 — WhatsApp Broadcast Consent Filter Fix
 **What**: Removed the strict backend `whatsapp_consent = true` filter from the broadcast endpoint.
 **Why**: The frontend UI was showing the total number of contacts with valid phone numbers (e.g. 3 contacts), but the backend was quietly dropping them because they didn't have explicit consent toggled in the DB. This caused a confusing "0 valid recipients found" error. It now allows broadcasting to all valid numbers.

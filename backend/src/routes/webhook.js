@@ -90,6 +90,38 @@ router.post('/', async (req, res) => {
                         } else if (msg.type === 'interactive') {
                             if (msg.interactive?.type === 'button_reply') {
                                 bodyText = msg.interactive?.button_reply?.title || '[Button Reply]';
+                                const payloadId = msg.interactive?.button_reply?.id || '';
+                                
+                                // --- Handle Cancel Order Button ---
+                                if (payloadId.startsWith('cancel_order_')) {
+                                    const orderId = payloadId.split('cancel_order_')[1];
+                                    try {
+                                        const { default: Order } = await import('../models/Order.js');
+                                        await Order.findByIdAndUpdate(orderId, {
+                                            $set: { checkout_status: 'cancelled', fulfillment_status: 'cancelled', payment_status: 'failed' }
+                                        });
+                                        const cancelReply = "Your order has been cancelled successfully. 🛑\nIf you'd like to order again, simply send us a new cart.";
+                                        const result = await sendTextMessage(fromPhone, cancelReply, setting);
+                                        if (result && result.messageId) {
+                                            await WhatsAppChatMessage.create({
+                                                tenant_id: tenantId,
+                                                conversation_id: conversation._id,
+                                                direction: 'outbound',
+                                                message_type: 'text',
+                                                body: cancelReply,
+                                                provider_message_id: result.messageId,
+                                                status: 'sent'
+                                            });
+                                        }
+                                        conversation.last_message_text = cancelReply.substring(0, 100);
+                                        conversation.last_message_at = new Date();
+                                        await conversation.save();
+                                        emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+                                    } catch (err) {
+                                        console.error('[Webhook] Failed to cancel order:', err);
+                                    }
+                                    continue; // Stop further bot processing for this message
+                                }
                             } else if (msg.interactive?.type === 'list_reply') {
                                 bodyText = msg.interactive?.list_reply?.title || '[List Reply]';
                             }
@@ -322,14 +354,31 @@ router.post('/', async (req, res) => {
                                         paymentText += `Our team will process it and send you a payment link shortly.`;
                                     }
                                     
-                                    const result = await sendTextMessage(fromPhone, paymentText, setting);
+                                    const { sendInteractiveMessage } = await import('../services/whatsapp.js');
+                                    const interactivePayload = {
+                                        type: "button",
+                                        body: { text: paymentText },
+                                        action: {
+                                            buttons: [
+                                                {
+                                                    type: "reply",
+                                                    reply: {
+                                                        id: `cancel_order_${order._id}`,
+                                                        title: "Cancel Order 🛑"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    };
+                                    
+                                    const result = await sendInteractiveMessage(fromPhone, interactivePayload, setting);
                                     
                                     if (result && result.messageId) {
                                         await WhatsAppChatMessage.create({
                                             tenant_id: tenantId,
                                             conversation_id: conversation._id,
                                             direction: 'outbound',
-                                            message_type: 'text',
+                                            message_type: 'interactive',
                                             body: paymentText,
                                             provider_message_id: result.messageId,
                                             status: 'sent'
