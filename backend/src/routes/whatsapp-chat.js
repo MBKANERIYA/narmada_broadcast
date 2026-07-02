@@ -16,7 +16,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 
 const router = Router();
 
-async function resolveTemplateBody(templateName, templateParams = [], tenant) {
+export async function resolveTemplateBody(templateName, templateParams = [], tenant) {
     try {
         const tpl = await getTemplateDefinition(templateName, tenant);
         if (!tpl) return `[Template: ${templateName}]`;
@@ -66,7 +66,7 @@ async function resolveTemplateBody(templateName, templateParams = [], tenant) {
     }
 }
 
-function getTemplatePlainText(resolvedBody) {
+export function getTemplatePlainText(resolvedBody) {
     try {
         const data = JSON.parse(resolvedBody);
         if (data._type === 'template_rich') {

@@ -205,6 +205,10 @@ async function processBroadcast(campaignId, recipients, campaignName, templatePa
 
         // Update message statuses and sync with Chat Inbox
         const tenantId = tenant?._id ? tenant._id.toString() : '6a3a72a84065eb9ea35938db';
+        const { resolveTemplateBody, getTemplatePlainText } = await import('./whatsapp-chat.js');
+        const resolvedBody = await resolveTemplateBody(campaignName, templateParams, tenant);
+        const plainTextBody = getTemplatePlainText(resolvedBody).substring(0, 100);
+
         for (const msg of results.messageIds) {
             await WhatsAppMessage.updateOne(
                 { campaign_id: campaignId, phone: msg.phone },
@@ -220,13 +224,13 @@ async function processBroadcast(campaignId, recipients, campaignName, templatePa
                         phone: msg.phone,
                         contact_name: msg.name || contact?.name || msg.phone,
                         contact_id: contact?._id || null,
-                        last_message_text: `[Broadcast Template: ${campaignName}]`.substring(0, 100),
+                        last_message_text: plainTextBody,
                         last_message_at: new Date(),
                         window_expires_at: null
                     });
                 } else {
                     if (msg.name && !conversation.contact_name) conversation.contact_name = msg.name;
-                    conversation.last_message_text = `[Broadcast Template: ${campaignName}]`.substring(0, 100);
+                    conversation.last_message_text = plainTextBody;
                     conversation.last_message_at = new Date();
                     await conversation.save();
                 }
@@ -236,7 +240,7 @@ async function processBroadcast(campaignId, recipients, campaignName, templatePa
                     conversation_id: conversation._id,
                     direction: 'outbound',
                     message_type: 'template',
-                    body: `[Broadcast Template: ${campaignName}]`,
+                    body: resolvedBody,
                     provider_message_id: msg.messageId,
                     status: 'sent',
                     sent_by: 'admin-user-id'
