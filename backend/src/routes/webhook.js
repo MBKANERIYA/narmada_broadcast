@@ -341,7 +341,8 @@ router.post('/', async (req, res) => {
                                             currency: 'INR',
                                             description: `Order #${order._id} from WhatsApp`,
                                             customer: { contact: fromPhone, name: conversation.contact_name || 'Customer' },
-                                            notify: { sms: true }
+                                            notify: { sms: true },
+                                            notes: { order_id: order._id.toString() }
                                         });
                                         directPaymentLink = rzpLink.short_url;
                                         order.payment_link = directPaymentLink;

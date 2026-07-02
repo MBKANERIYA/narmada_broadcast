@@ -14,6 +14,19 @@
 - Added a dedicated Catalogue KB topic documenting dashboard visibility versus WhatsApp customer visibility.
 - Live Vercel verification after deploy: `Publish to WhatsApp` queued 27 products with 0 failures; `Sync from Meta` imported 25 products and queued 25 with 0 failures.
 
+## 2026-07-02 — WhatsApp Chat Performance & Payment Reminders
+**What**: Optimized Chat Inbox performance by eliminating full-collection memory scans in the backend and added a `/remind` endpoint for 30-minute automated payment reminders.
+**Why**: The Chat Inbox was extremely slow because the backend loaded tens of thousands of conversations into memory to calculate filter counts. Customers were also leaving orders unpaid indefinitely; they need automated payment reminders. Furthermore, the Razorpay webhook missed order attribution for `payment.captured` events.
+**Impact**: Chat Inbox loads instantly (milliseconds instead of seconds). A new `/remind` cron job automatically sends a new Razorpay link to unpaid orders every 30 minutes, and the `notes` payload in Razorpay now correctly binds `order_id` for accurate webhook processing.
+**Files Changed**: `backend/src/routes/whatsapp-chat.js`, `backend/src/routes/webhook.js`, `backend/src/routes/orders.js`, `vercel.json`, `knowledge-base/changelog.md`
+**Tests**: Verified backend API performance locally.
+
+- Optimized `loadCommercePhoneSets` to use Mongoose `distinct('phone')` instead of `lean()` for faster filtering.
+- Replaced in-memory `.filter()` counting in `/conversations` with optimized `countDocuments` queries.
+- Created `POST /api/v1/orders/remind` to generate and send new Razorpay payment links for pending orders.
+- Added `notes: { order_id }` to Razorpay link creation in `webhook.js` and `orders.js`.
+- Configured a Vercel cron job to trigger `/remind` every 30 minutes.
+
 ## 2026-07-02 — Switch Deployment Remote To naramadaessence/broadcast
 **What**: Changed local deployment remote and docs from `MBKANERIYA/narmada_broadcast` to `naramadaessence/broadcast`.
 **Why**: The new Vercel deployment repo is `naramadaessence/broadcast`, it contains the current product files, and this account has direct write access there.

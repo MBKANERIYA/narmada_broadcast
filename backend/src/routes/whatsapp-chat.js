@@ -56,52 +56,40 @@ function toPhoneSet(orders) {
     return new Set((orders || []).map(order => order.phone).filter(Boolean));
 }
 
-async function loadCommercePhoneSets(tenantId, phones, now = new Date()) {
-    const uniquePhones = [...new Set((phones || []).filter(Boolean))];
-    const empty = {
-        paid: new Set(),
-        unpaid_orders: new Set(),
-        abandoned_carts: new Set(),
-    };
-    if (uniquePhones.length === 0) return empty;
-
-    const phoneFilter = { phone: { $in: uniquePhones } };
+async function loadCommercePhoneSets(tenantId, now = new Date()) {
     const abandonedCutoff = new Date(now.getTime() - getAbandonedDelayMinutes() * 60 * 1000);
 
-    const [paidOrders, unpaidOrders, abandonedOrders] = await Promise.all([
-        Order.find(orderQuery(tenantId, {
-            ...phoneFilter,
+    const [paidPhones, unpaidPhones, abandonedPhones] = await Promise.all([
+        Order.distinct('phone', orderQuery(tenantId, {
             payment_status: 'paid',
-        })).select('phone').lean(),
-        Order.find(orderQuery(tenantId, {
-            ...phoneFilter,
+        })),
+        Order.distinct('phone', orderQuery(tenantId, {
             source_channel: 'hosted_checkout',
             checkout_status: 'ordered',
             payment_status: 'pending',
             payment_link: { $exists: true, $nin: [null, ''] },
             fulfillment_status: { $ne: 'cancelled' },
-        })).select('phone').lean(),
-        Order.find(orderQuery(tenantId, {
-            ...phoneFilter,
+        })),
+        Order.distinct('phone', orderQuery(tenantId, {
             source_channel: 'hosted_checkout',
             checkout_status: 'open',
             payment_status: 'pending',
             payment_link: { $in: [null, ''] },
             checkout_expires_at: { $gt: now },
             created_at: { $lte: abandonedCutoff },
-        })).select('phone').lean(),
+        })),
     ]);
 
     return {
-        paid: toPhoneSet(paidOrders),
-        unpaid_orders: toPhoneSet(unpaidOrders),
-        abandoned_carts: toPhoneSet(abandonedOrders),
+        paid: paidPhones || [],
+        unpaid_orders: unpaidPhones || [],
+        abandoned_carts: abandonedPhones || [],
     };
 }
 
 function countPhones(conversations, phoneSet) {
     return conversations.reduce((count, conversation) => (
-        phoneSet.has(conversation.phone) ? count + 1 : count
+        phoneSet.includes(conversation.phone) ? count + 1 : count
     ), 0);
 }
 
@@ -294,14 +282,7 @@ router.get('/conversations', async (req, res) => {
         }
 
         const now = new Date();
-        const baseConversations = await WhatsAppConversation.find(baseFilter)
-            .select('phone unread_count window_expires_at needs_human')
-            .lean();
-        const commercePhoneSets = await loadCommercePhoneSets(
-            req.tenantId,
-            baseConversations.map(conversation => conversation.phone),
-            now
-        );
+        const commercePhoneSets = await loadCommercePhoneSets(req.tenantId, now);
         const filter = { ...baseFilter };
 
         if (activeFilter === 'unread') {
@@ -311,7 +292,7 @@ router.get('/conversations', async (req, res) => {
             filter.needs_human = true;
         }
         if (['paid', 'unpaid_orders', 'abandoned_carts'].includes(activeFilter)) {
-            filter.phone = { $in: [...commercePhoneSets[activeFilter]] };
+            filter.phone = { $in: commercePhoneSets[activeFilter] };
         }
         
         const conversations = await WhatsAppConversation.find(filter)
@@ -321,32 +302,45 @@ router.get('/conversations', async (req, res) => {
             .limit(safeLimit)
             .lean();
 
+        // Calculate filter counts using countDocuments instead of in-memory array scans
+        const [
+            allCount,
+            unreadCount,
+            openWindowsCount,
+            needsHumanCount,
+            paidCount,
+            unpaidCount,
+            abandonedCount
+        ] = await Promise.all([
+            WhatsAppConversation.countDocuments(baseFilter),
+            WhatsAppConversation.countDocuments({ ...baseFilter, unread_count: { $gt: 0 } }),
+            WhatsAppConversation.countDocuments({ ...baseFilter, window_expires_at: { $gt: now } }),
+            WhatsAppConversation.countDocuments({ ...baseFilter, needs_human: true }),
+            commercePhoneSets.paid.length > 0 ? WhatsAppConversation.countDocuments({ ...baseFilter, phone: { $in: commercePhoneSets.paid } }) : 0,
+            commercePhoneSets.unpaid_orders.length > 0 ? WhatsAppConversation.countDocuments({ ...baseFilter, phone: { $in: commercePhoneSets.unpaid_orders } }) : 0,
+            commercePhoneSets.abandoned_carts.length > 0 ? WhatsAppConversation.countDocuments({ ...baseFilter, phone: { $in: commercePhoneSets.abandoned_carts } }) : 0
+        ]);
+
         const filterCounts = {
             ...defaultConversationFilterCounts,
-            all: baseConversations.length,
-            unread: baseConversations.filter(conversation => Number(conversation.unread_count || 0) > 0).length,
-            open_windows: baseConversations.filter(conversation => (
-                conversation.window_expires_at && new Date(conversation.window_expires_at) > now
-            )).length,
-            paid: countPhones(baseConversations, commercePhoneSets.paid),
-            unpaid_orders: countPhones(baseConversations, commercePhoneSets.unpaid_orders),
-            abandoned_carts: countPhones(baseConversations, commercePhoneSets.abandoned_carts),
-            needs_human: baseConversations.filter(conversation => conversation.needs_human).length,
+            all: allCount,
+            unread: unreadCount,
+            open_windows: openWindowsCount,
+            paid: paidCount,
+            unpaid_orders: unpaidCount,
+            abandoned_carts: abandonedCount,
+            needs_human: needsHumanCount,
         };
 
-        const unreadResult = await WhatsAppConversation.aggregate([
-            { $match: { tenant_id: req.tenantId, is_archived: false } },
-            { $group: { _id: null, total_unread: { $sum: "$unread_count" } } }
-        ]);
-        const totalUnread = unreadResult.length > 0 ? unreadResult[0].total_unread : 0;
+        const totalUnread = unreadCount;
 
         res.json({
             conversations: conversations.map(conv => ({
                 ...conv,
                 id: conv._id.toString(),
-                has_paid_order: commercePhoneSets.paid.has(conv.phone),
-                has_unpaid_order: commercePhoneSets.unpaid_orders.has(conv.phone),
-                has_abandoned_cart: commercePhoneSets.abandoned_carts.has(conv.phone),
+                has_paid_order: commercePhoneSets.paid.includes(conv.phone),
+                has_unpaid_order: commercePhoneSets.unpaid_orders.includes(conv.phone),
+                has_abandoned_cart: commercePhoneSets.abandoned_carts.includes(conv.phone),
                 display_name: conv.contact_id?.name || conv.contact_name || conv.phone,
                 matched_contact_name: conv.contact_id?.name,
                 matched_contact_email: conv.contact_id?.email,

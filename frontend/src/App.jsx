@@ -79,7 +79,14 @@ export default function App() {
     }, [isAuthenticated, tenant?.subscription_plan, currentView, user?.role, user?.is_super_admin]);
 
     if (!isAuthReady) {
-        return <div className="auth-loading" />;
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-primary)' }}>
+                <Icon name="loader" size={32} color="var(--accent-primary)" />
+                <p style={{ marginTop: '16px', color: 'var(--text-muted)', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}>
+                    Loading your workspace...
+                </p>
+            </div>
+        );
     }
 
     // If authenticated, show dashboard

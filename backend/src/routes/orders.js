@@ -197,4 +197,106 @@ router.patch('/:id/status', async (req, res) => {
     }
 });
 
+router.post('/remind', async (req, res) => {
+    try {
+        const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+        
+        // Find orders needing reminder
+        const orders = await Order.find({
+            checkout_status: 'ordered',
+            payment_status: 'pending',
+            fulfillment_status: { $ne: 'cancelled' },
+            $or: [
+                { last_reminder_at: { $lte: thirtyMinsAgo } },
+                { last_reminder_at: null, updated_at: { $lte: thirtyMinsAgo } }
+            ]
+        });
+
+        if (!orders.length) return res.json({ success: true, message: 'No orders need reminding' });
+
+        const { default: Setting } = await import('../models/Setting.js');
+        const { default: WhatsAppConversation } = await import('../models/WhatsAppConversation.js');
+        const { default: WhatsAppChatMessage } = await import('../models/WhatsAppChatMessage.js');
+        const { sendInteractiveMessage } = await import('../services/whatsapp.js');
+        const Razorpay = (await import('razorpay')).default;
+
+        let setting = await Setting.findOne({ singletonId: 'admin_settings' });
+        if (!setting) setting = await Setting.findOne();
+        if (!setting) return res.status(500).json({ error: 'Settings not found' });
+
+        const keyId = setting.razorpay_key_id || process.env.RAZORPAY_KEY_ID;
+        const keySecret = setting.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET;
+        
+        if (!keyId || !keySecret) {
+            return res.status(500).json({ error: 'Razorpay keys not configured' });
+        }
+
+        const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+
+        let remindedCount = 0;
+
+        for (const order of orders) {
+            try {
+                // Generate a new link
+                const rzpLink = await razorpay.paymentLink.create({
+                    amount: Math.round(order.total_amount * 100),
+                    currency: 'INR',
+                    description: `Order #${order._id} (Reminder)`,
+                    customer: { contact: order.phone, name: order.customer_name || 'Customer' },
+                    notify: { sms: true },
+                    notes: { order_id: order._id.toString() }
+                });
+
+                order.payment_link = rzpLink.short_url;
+                order.payment_link_id = rzpLink.id;
+                order.last_reminder_at = new Date();
+                await order.save();
+
+                const paymentText = `🔔 *Payment Reminder*\n\nYour order #${order._id.toString().slice(-6)} is pending payment.\nPlease complete your payment securely using this new Razorpay link:\n${rzpLink.short_url}`;
+
+                const interactivePayload = {
+                    type: "button",
+                    body: { text: paymentText },
+                    action: {
+                        buttons: [
+                            {
+                                type: "reply",
+                                reply: { id: `cancel_order_${order._id}`, title: "Cancel Order 🛑" }
+                            }
+                        ]
+                    }
+                };
+
+                const result = await sendInteractiveMessage(order.phone, interactivePayload, setting);
+                
+                if (result && result.messageId) {
+                    const conversation = await WhatsAppConversation.findOne({ phone: order.phone, tenant_id: order.tenant_id });
+                    if (conversation) {
+                        await WhatsAppChatMessage.create({
+                            tenant_id: order.tenant_id,
+                            conversation_id: conversation._id,
+                            direction: 'outbound',
+                            message_type: 'interactive',
+                            body: paymentText,
+                            provider_message_id: result.messageId,
+                            status: 'sent'
+                        });
+                        conversation.last_message_text = paymentText.substring(0, 100);
+                        conversation.last_message_at = new Date();
+                        await conversation.save();
+                    }
+                }
+                remindedCount++;
+            } catch (err) {
+                console.error(`Failed to send reminder for order ${order._id}:`, err);
+            }
+        }
+
+        res.json({ success: true, message: `Reminded ${remindedCount} orders` });
+    } catch (error) {
+        console.error('Reminder error:', error);
+        res.status(500).json({ error: 'Failed to process reminders' });
+    }
+});
+
 export default router;
