@@ -175,6 +175,13 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Native WhatsApp Catalog Product Messages
+**What**: Updated the bot webhook to send an interactive Single Product Message instead of a plain text image when a product is retrieved.
+**Why**: The bot was sending basic plain-text images with prices. By leveraging the Meta interactive product message type, the bot now displays native WhatsApp storefront cards, which look much more professional and allow direct catalog viewing.
+**Files Changed**: `backend/src/routes/webhook.js`
+- Modified the `botReply.type === 'product'` block to construct an interactive payload using `whatsapp_catalog_id` and `product.sku`.
+- Falls back to the previous image text message if the catalog ID is missing.
+
 ## 2026-07-02 — WhatsApp Template Rendering in Chat Inbox
 **What**: Updated broadcast processing to render the actual template body instead of placeholder text in the Chat Inbox.
 **Why**: Users were seeing `[Broadcast Template: ...]` instead of the actual content of the broadcasted template in the chat view.
