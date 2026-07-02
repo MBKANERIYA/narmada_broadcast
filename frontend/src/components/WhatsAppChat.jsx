@@ -1023,13 +1023,18 @@ export default function WhatsAppChat() {
                                                     )}
                                                 </>
                                             )}
-                                            {msg.message_type === 'order' && msg.media_id && (
-                                                <img
-                                                    src={msg.media_id}
-                                                    alt="Product Thumbnail"
-                                                    style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '6px', marginBottom: '8px', border: '1px solid rgba(0,0,0,0.1)' }}
-                                                    onError={e => { e.target.style.display = 'none'; }}
-                                                />
+                                            {msg.message_type === 'order' && (
+                                                <div style={{ padding: '8px', background: 'rgba(37, 211, 102, 0.1)', borderRadius: '8px', marginBottom: '8px', border: '1px solid rgba(37, 211, 102, 0.2)' }}>
+                                                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#166534', marginBottom: '4px' }}>🛒 Shopping Cart</div>
+                                                    {msg.media_id && (
+                                                        <img
+                                                            src={msg.media_id}
+                                                            alt="Product Thumbnail"
+                                                            style={{ width: '100%', maxHeight: '150px', objectFit: 'cover', borderRadius: '4px', marginBottom: '4px' }}
+                                                            onError={e => { e.target.style.display = 'none'; }}
+                                                        />
+                                                    )}
+                                                </div>
                                             )}
                                             <div
                                                 style={{ fontSize: '14px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
