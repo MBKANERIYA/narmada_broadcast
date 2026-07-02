@@ -156,7 +156,13 @@ export default function WhatsAppBroadcast() {
                     templateParams: templateParams.filter(Boolean),
                     recipientType: recipientType === 'custom' ? 'custom' : recipientType === 'labeled' ? 'labeled' : 'all',
                     recipientIds: recipientType === 'custom' ? selectedIds : undefined,
-                    recipientFilter: recipientType === 'labeled' ? { label: filterLabel } : {},
+                    recipientFilter: {
+                        label: recipientType === 'labeled' ? filterLabel : '',
+                        location: filterLocation,
+                        min_ticket: filterMinTicket,
+                        max_ticket: filterMaxTicket,
+                        search: searchQuery
+                    }
                 };
                 const result = await sendWhatsAppBroadcast(broadcastData);
                 showToast(`Broadcasting to ${result.totalRecipients} contacts`);

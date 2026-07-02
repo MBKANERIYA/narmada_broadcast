@@ -129,27 +129,46 @@ router.post('/broadcast', async (req, res) => {
         if (!campaignName) return res.status(400).json({ error: 'Campaign name is required' });
 
         let recipients = [];
+        
+        let baseFilter = {
+            phone: { $ne: null, $exists: true }
+        };
+        
+        if (recipientType !== 'custom') {
+            baseFilter.whatsapp_consent = true;
+            if (recipientFilter) {
+                if (recipientFilter.location) baseFilter.location = { $regex: new RegExp(recipientFilter.location, 'i') };
+                if (recipientFilter.min_ticket) baseFilter.ticket_size = { ...(baseFilter.ticket_size || {}), $gte: parseFloat(recipientFilter.min_ticket) };
+                if (recipientFilter.max_ticket) baseFilter.ticket_size = { ...(baseFilter.ticket_size || {}), $lte: parseFloat(recipientFilter.max_ticket) };
+                if (recipientFilter.search) {
+                    const keywords = recipientFilter.search.split(',').map(k => k.trim()).filter(k => k.length > 0);
+                    if (keywords.length > 0) {
+                        const searchConditions = keywords.map(keyword => ({
+                            $or: [
+                                { name: { $regex: new RegExp(keyword, 'i') } },
+                                { email: { $regex: new RegExp(keyword, 'i') } },
+                                { phone: { $regex: new RegExp(keyword, 'i') } },
+                                { location: { $regex: new RegExp(keyword, 'i') } },
+                            ]
+                        }));
+                        baseFilter.$and = searchConditions;
+                    }
+                }
+            }
+        }
 
         if (recipientType === 'custom' && recipientIds && recipientIds.length > 0) {
-            const contacts = await Contact.find({
-                _id: { $in: recipientIds },
-                phone: { $ne: null, $exists: true },
-            }).lean();
+            baseFilter._id = { $in: recipientIds };
+            const contacts = await Contact.find(baseFilter).lean();
             recipients = contacts.map(c => ({ id: c._id, name: c.name, phone: c.phone }));
 
         } else if (recipientType === 'labeled' && recipientFilter?.label) {
-            const contacts = await Contact.find({
-                phone: { $ne: null, $exists: true },
-                whatsapp_consent: true,
-                labels: { $regex: new RegExp(recipientFilter.label, 'i') },
-            }).lean();
+            baseFilter.labels = { $regex: new RegExp(recipientFilter.label, 'i') };
+            const contacts = await Contact.find(baseFilter).lean();
             recipients = contacts.map(c => ({ id: c._id, name: c.name, phone: c.phone }));
 
         } else {
-            const contacts = await Contact.find({
-                phone: { $ne: null, $exists: true },
-                whatsapp_consent: true,
-            }).lean();
+            const contacts = await Contact.find(baseFilter).lean();
             recipients = contacts.map(c => ({ id: c._id, name: c.name, phone: c.phone }));
         }
 

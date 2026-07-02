@@ -201,6 +201,13 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Fixed Broadcast UI Filter Mismatch
+**What**: Ensured that the "Send Broadcast" functionality respects the frontend UI filters (Location, Ticket Size, Search) instead of ignoring them and broadcasting to the entire contact list.
+**Why**: When sending a broadcast (with "All Contacts" or "Labeled" options), the frontend correctly displayed a filtered count (e.g., "Sending to 2 contacts"), but the backend ignored those extra filters and sent the broadcast to everyone in the database, causing a mismatch and unintended messages.
+**Files Changed**: `frontend/src/components/WhatsAppBroadcast.jsx`, `backend/src/routes/whatsapp.js`
+- `WhatsAppBroadcast.jsx`: Updated `confirmSend` to pass all active UI filters (`location`, `min_ticket`, `max_ticket`, `search`) in the `recipientFilter` payload.
+- `whatsapp.js`: Updated the `POST /broadcast` endpoint to construct a comprehensive MongoDB query using those filters for all non-custom broadcasts.
+
 ## 2026-07-02 — Fixed Meta Image Fetch Failures (Vercel Storage Issue)
 **What**: Migrated local product image uploads to store directly in MongoDB instead of Vercel's temporary disk.
 **Why**: Because Vercel uses ephemeral serverless functions, images saved to disk (`/tmp`) were deleted immediately. When Meta Commerce Manager tried to fetch the image URLs, it received 404 Not Found errors, causing Meta to reject the products due to "broken image links". 
