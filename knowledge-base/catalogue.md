@@ -50,6 +50,13 @@ same retailer/content ID that WhatsApp product messages use.
 - If a Meta import was previously saved with the Graph product `id` as `sku`,
   the next import should match by old SKU or `meta_product_id`, then update
   `sku` to `retailer_id` when Meta returns it.
+- Meta price strings can include comma grouping, for example `3,499.00 INR`.
+  Always normalize with `parseMetaCataloguePrice()` before saving to
+  `Product.mrp` or `Product.selling_price`; using the first numeric regex
+  fragment will save `3` instead of `3499`.
+- If bad prices were already imported before the parser fix, deploy the fix and
+  run `Sync from Meta` again so local Mongo product prices are overwritten from
+  Meta's current values.
 - Products can still fail Meta review or catalogue diagnostics outside this
   app. The API now surfaces first failure messages so operators are not left
   with a false success toast.
@@ -58,8 +65,8 @@ same retailer/content ID that WhatsApp product messages use.
 
 - `backend/test/regression.test.js` covers that Meta imports request
   `retailer_id`, preserve `meta_product_id`, queue imported products for
-  WhatsApp publishing, report push failures, and show the frontend action as
-  `Publish to WhatsApp`.
+  WhatsApp publishing, parse comma-grouped price strings correctly, report push
+  failures, and show the frontend action as `Publish to WhatsApp`.
 - Full local verification for this subsystem should include:
   - `cd backend && npm test`
   - backend `node --check` sweep

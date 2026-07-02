@@ -38,6 +38,23 @@ function summarizeMetaPublishResults(results) {
     };
 }
 
+export function parseMetaCataloguePrice(value) {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+
+    const priceText = String(value).trim();
+    if (!priceText) return 0;
+
+    const matches = priceText.match(/\d[\d,]*(?:\.\d+)?/g);
+    if (!matches) return 0;
+
+    for (const match of matches) {
+        const amount = Number(match.replace(/,/g, ''));
+        if (Number.isFinite(amount)) return amount;
+    }
+    return 0;
+}
+
 function runUpload(uploadMiddleware) {
     return (req, res, next) => {
         uploadMiddleware(req, res, (error) => {
@@ -155,12 +172,7 @@ router.post('/sync-meta', async (req, res) => {
                 ]
             });
             
-            // Try to extract price as number from string (e.g., "449.00 INR" -> 449)
-            let price = 0;
-            if (item.price) {
-                const priceMatch = item.price.match(/[\d.]+/);
-                if (priceMatch) price = Number(priceMatch[0]);
-            }
+            const price = parseMetaCataloguePrice(item.price);
 
             if (!product) {
                 product = new Product({

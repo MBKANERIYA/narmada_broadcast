@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-02 — Fix Meta Price Parsing For Product Replies
+**What**: Fixed Meta catalogue price parsing so comma-grouped amounts import as full rupee values instead of truncated fragments.
+**Why**: Product bot replies were showing wrong prices such as `INR 3`, `INR 23`, or `INR 52` because Meta price strings with commas were parsed by taking only the first numeric fragment.
+**Impact**: New `Sync from Meta` runs preserve prices like `3,499.00 INR` as `3499`, and product replies/product-list Smart Flow replies will use the corrected local product price. Existing corrupted rows need a fresh Meta sync after deploy.
+**Files Changed**: `backend/src/routes/products.js`, `backend/test/regression.test.js`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/catalogue.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - watched new backend regression fail before implementation; PASS - `cd backend && npm test` (30 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (10 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Commit**: Pending
+
+- Added `parseMetaCataloguePrice()` for Meta price strings such as `3,499.00 INR`, `INR 2,399.50`, and `₹699`.
+- Replaced the old first-fragment regex parser in `/products/sync-meta`.
+- Documented that a post-deploy `Sync from Meta` is required to repair already-imported corrupted local price rows.
+
 ## 2026-07-02 — Fix Meta Catalogue WhatsApp Visibility
 **What**: Made Meta catalogue import queue imported products for WhatsApp customer visibility and report Meta publish failures honestly.
 **Why**: Products added in Meta were syncing into the dashboard but were not necessarily visible to WhatsApp customers; the old bulk push route could also show success even if Meta rejected a product.

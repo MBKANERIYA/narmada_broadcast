@@ -482,6 +482,19 @@ test('Meta catalogue sync publishes imported products for WhatsApp visibility an
   assert.match(catalogueSource, /data\.failed\s*>\s*0/);
 });
 
+test('Meta catalogue import preserves comma-grouped product prices', async () => {
+  const productsRouteSource = readRepoFile('backend/src/routes/products.js');
+  const { parseMetaCataloguePrice } = await importFromBackend('src/routes/products.js');
+
+  assert.equal(parseMetaCataloguePrice('3,499.00 INR'), 3499);
+  assert.equal(parseMetaCataloguePrice('INR 2,399.50'), 2399.5);
+  assert.equal(parseMetaCataloguePrice('₹699'), 699);
+  assert.equal(parseMetaCataloguePrice('52.00 INR'), 52);
+  assert.equal(parseMetaCataloguePrice(''), 0);
+  assert.match(productsRouteSource, /parseMetaCataloguePrice\(item\.price\)/);
+  assert.doesNotMatch(productsRouteSource, /item\.price\.match\(\/\\\[\\d\.\]\\+\/\)/);
+});
+
 test('mobile app shell exposes an openable drawer and avoids misleading admin nav', () => {
   const sidebarSource = readRepoFile('frontend/src/components/Sidebar.jsx');
   const mainCss = readRepoFile('frontend/src/styles/main.css');

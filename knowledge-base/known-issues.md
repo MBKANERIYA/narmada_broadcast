@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-031: Meta Price Strings With Commas Imported As Tiny Amounts
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: Product bot replies and product-list Smart Flow replies could show prices like `INR 3`, `INR 23`, or `INR 52` for products imported from Meta.
+**Root Cause**: `POST /api/v1/products/sync-meta` extracted the first `/[\d.]+/` fragment from Meta's `price` string. For comma-grouped amounts like `3,499.00 INR`, the first fragment was only `3`, so the local `Product.selling_price` and `Product.mrp` were saved incorrectly.
+**Workaround**: Deploy this fix, then run `Sync from Meta` again so existing corrupted local product prices are overwritten from Meta's current price strings.
+**Fix**: Added `parseMetaCataloguePrice()` to preserve comma-grouped rupee amounts by normalizing commas before numeric conversion, and used it in the Meta import path.
+**Regression Test**: `backend/test/regression.test.js` test `Meta catalogue import preserves comma-grouped product prices`.
+
 ## ISSUE-030: Meta-Imported Products Were Visible In Dashboard But Not WhatsApp Customer Catalogue
 **Status**: Resolved
 **Severity**: High
