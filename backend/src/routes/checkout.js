@@ -265,4 +265,48 @@ router.get('/mock-payment/:orderId', async (req, res) => {
     }
 });
 
+router.post('/razorpay-webhook', async (req, res) => {
+    try {
+        const signature = req.headers['x-razorpay-signature'];
+        const tenant = await Setting.findOne() || {};
+        const webhookSecret = tenant.razorpay_webhook_secret || process.env.RAZORPAY_WEBHOOK_SECRET || 'narmada_broadcast_secret_token';
+
+        if (signature && webhookSecret) {
+            const expectedSignature = crypto.createHmac('sha256', webhookSecret)
+                .update(req.rawBody || JSON.stringify(req.body))
+                .digest('hex');
+            
+            if (expectedSignature !== signature) {
+                console.warn('[Razorpay Webhook] Invalid signature');
+                return res.status(400).send('Invalid signature');
+            }
+        }
+        
+        const event = req.body.event;
+        console.log(`[Razorpay Webhook] Received event: ${event}`);
+        
+        if (event === 'payment_link.paid') {
+            const plinkId = req.body.payload?.payment_link?.entity?.id;
+            if (plinkId) {
+                const order = await Order.findOneAndUpdate(
+                    { payment_link_id: plinkId },
+                    { $set: { payment_status: 'paid', checkout_status: 'ordered' } },
+                    { new: true }
+                );
+                if (order) console.log(`[Razorpay Webhook] Marked order ${order._id} as paid.`);
+            }
+        } else if (event === 'order.paid' || event === 'payment.captured') {
+             const orderId = req.body.payload?.payment?.entity?.notes?.order_id;
+             if (orderId) {
+                  await Order.findByIdAndUpdate(orderId, { $set: { payment_status: 'paid', checkout_status: 'ordered' } });
+             }
+        }
+
+        res.status(200).send('OK');
+    } catch (error) {
+        console.error('[Razorpay Webhook] Error processing:', error);
+        res.status(500).send('Error');
+    }
+});
+
 export default router;
