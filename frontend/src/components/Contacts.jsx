@@ -207,17 +207,53 @@ export default function Contacts() {
         setFormData({ name: '', phone: '', email: '', location: '', ticket_size: '', tags: '', notes: '', source: '' });
     };
 
-    // ── Import ──
     const parseCSV = (text) => {
         const lines = text.trim().split('\n').filter(Boolean);
         if (lines.length === 0) return [];
+        
+        const parseLine = (line) => {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"' && line[i+1] === '"') {
+                    current += '"';
+                    i++;
+                } else if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        };
+
         const startIdx = lines[0].toLowerCase().includes('name') && lines[0].toLowerCase().includes('phone') ? 1 : 0;
+        
         return lines.slice(startIdx).map(line => {
-            const parts = line.split(',').map(p => p.trim());
+            const parts = parseLine(line);
+            
+            // Safety measure in case of lingering outer quotes
+            const clean = (val) => {
+                if (!val) return '';
+                let v = val;
+                if (v.startsWith('"') && v.endsWith('"')) v = v.substring(1, v.length - 1);
+                return v;
+            };
+            
             return {
-                name: parts[0] || '', phone: parts[1] || '', email: parts[2] || '',
-                location: parts[3] || '', ticket_size: parts[4] ? parseFloat(parts[4]) : null,
-                tags: parts[5] ? parts[5].split(';').map(t => t.trim()).filter(Boolean) : [],
+                name: clean(parts[0]),
+                phone: clean(parts[1]),
+                email: clean(parts[2]),
+                location: clean(parts[3]),
+                ticket_size: parts[4] ? parseFloat(clean(parts[4])) : null,
+                tags: parts[5] ? clean(parts[5]).split(';').map(t => t.trim()).filter(Boolean) : [],
+                notes: clean(parts[7])
             };
         }).filter(c => c.name && c.phone);
     };
