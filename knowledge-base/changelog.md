@@ -2,6 +2,18 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Smart Automation No-Order FAQ Fallback
+**What**: Ported the main platform chatbot fix from `4943beeb6977d2d77c8565e4ad9eb97b87c021fc` so no-order Smart Flow handoffs are deferred behind FAQ/product retrieval.
+**Why**: Order/delivery/payment-style questions can trigger the order-status flow. If the customer has no order, the app should still try the client's Smart FAQs/products before telling the customer a human will follow up.
+**Impact**: High-confidence FAQ retrieval still wins before Smart Flows. Other Smart Flow replies still return immediately. Only `reason: 'order_not_found'` handoffs are stored as a fallback and returned when retrieval/legacy matching cannot answer.
+**Files Changed**: `backend/src/services/smartResponder.js`, `backend/test/regression.test.js`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/decisions.md`, `knowledge-base/chatbot.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - `cd backend && npm test` (21 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (9 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Commit**: Pending
+
+- Added `isDeferredFlowReply()` for `order_not_found` handoff replies.
+- Added regression coverage that fails if no-order customers are handed off before FAQ/product retrieval can answer.
+- Kept the single-client local Smart Automation contract; no external provider key or SaaS tenant behavior was introduced.
+
 ## 2026-07-02 — Use Writable Transformer Cache On Vercel
 **What**: Configured the local Smart Automation embedding runtime to cache HuggingFace model files under a writable temp directory instead of the deployed package bundle.
 **Why**: The live Vercel deployment failed when switching to the multilingual E5 model because Transformers.js tried to create its default cache under `/var/task/backend/node_modules/...`, which is read-only in Vercel functions.

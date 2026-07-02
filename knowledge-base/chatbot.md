@@ -26,6 +26,7 @@ available and deterministic lexical matching as the fallback.
 - Do not add any external provider key requirement for Smart Automation.
 - Configure local model cache paths before loading `@huggingface/transformers` pipelines; Vercel must use a writable temp cache, not `node_modules`.
 - FAQ and product saves must remain usable even if vector generation fails.
+- Do not let a no-order status flow block FAQ/product answers. `order_not_found` handoff is a fallback after retrieval cannot answer.
 - Keep `invalidateTenantVectorCache()` calls when FAQ, phrasing, product, or bot-setting changes affect retrieval.
 - The Knowledge Base list API returns `{ faqs: [...] }` because the frontend consumes `data.faqs`.
 - The Knowledge Base test console route is `POST /api/v1/knowledge-base/test`.
@@ -36,6 +37,7 @@ available and deterministic lexical matching as the fallback.
 
 - Vercel functions are stateless; local model warmup can happen again after cold starts.
 - Vercel's `/var/task` bundle is read-only. `smartResponder.js` points Transformers.js at `os.tmpdir()/narmada-transformers-cache`; only override it with `TRANSFORMERS_CACHE_DIR` when the target path is writable.
+- Order-status intent can match broad delivery/payment/order wording. When no order exists for that phone, the handoff must be deferred so FAQ/product retrieval can answer policy questions first.
 - If vectors are empty because a previous deployment skipped embedding, use the Settings re-embed action.
 - Do not rename the persisted `bot_settings` field without a migration; it is internal state even though the UI says Smart Automation.
 
@@ -47,6 +49,7 @@ available and deterministic lexical matching as the fallback.
 - Knowledge Base list/test/phrasings contracts used by the frontend.
 - `scoreTextMatch()` behavior for text-only FAQ/product matching.
 - Serverless-safe Transformers.js cache configuration for local model downloads.
+- No-order Smart Flow fallback behavior before human handoff.
 - Absence of external provider key requirements in active source and product docs.
 
 Run:

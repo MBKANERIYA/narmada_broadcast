@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-021: No-Order Smart Flow Could Bypass FAQ Answers
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: A customer asking an order/delivery/payment-style question could receive the human-handoff text when their WhatsApp number had no order, even if the client had a matching Smart FAQ.
+**Root Cause**: `handleSmartReply()` returned any Smart Flow reply immediately. The `order_status` Smart Flow emits a `handoff` with `reason: 'order_not_found'`, so FAQ/product retrieval did not get a chance to answer.
+**Workaround**: None needed after this fix. Before this fix, broad delivery/payment FAQs could be shadowed by the no-order status flow.
+**Fix**: `smartResponder.js` now defers only `order_not_found` handoffs, tries retrieval v2 and legacy FAQ/product matching, and returns the deferred handoff only if retrieval cannot answer.
+**Regression Test**: `backend/test/regression.test.js` test `Smart Automation tries FAQ retrieval before no-order human handoff`.
+
 ## ISSUE-020: Vercel Transformer Cache Tried To Write Under Read-Only Bundle
 **Status**: Resolved
 **Severity**: High
