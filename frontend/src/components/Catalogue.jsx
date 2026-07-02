@@ -94,7 +94,7 @@ export default function Catalogue() {
         try {
             setSyncingMeta(true);
             const data = await api('/products/sync-meta', { method: 'POST' });
-            showToast(data.message, 'success');
+            showToast(data.message, data.failed > 0 ? 'error' : 'success');
             await fetchProducts();
         } catch (err) {
             showToast(err.message, 'error');
@@ -107,7 +107,7 @@ export default function Catalogue() {
         try {
             setPushingMeta(true);
             const data = await api('/products/push-to-meta', { method: 'POST' });
-            showToast(data.message, 'success');
+            showToast(data.message, data.failed > 0 ? 'error' : 'success');
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
@@ -338,9 +338,9 @@ export default function Catalogue() {
                         {syncingMeta ? <Icon name="loader" size={16} /> : <Icon name="download" size={16} />}
                         {syncingMeta ? 'Syncing...' : 'Sync from Meta'}
                     </button>
-                    <button className="btn btn-secondary" onClick={handlePushToMeta} disabled={syncingMeta || pushingMeta} style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
+                    <button className="btn btn-secondary" onClick={handlePushToMeta} disabled={syncingMeta || pushingMeta} title="Queue all local products for WhatsApp customer catalogue visibility" style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
                         {pushingMeta ? <Icon name="loader" size={16} /> : <Icon name="upload" size={16} />}
-                        {pushingMeta ? 'Pushing...' : 'Push to Meta'}
+                        {pushingMeta ? 'Publishing...' : 'Publish to WhatsApp'}
                     </button>
                     <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ gap: '6px', display: 'flex', alignItems: 'center' }}>
                         <Icon name="plus" size={16} /> Add Product

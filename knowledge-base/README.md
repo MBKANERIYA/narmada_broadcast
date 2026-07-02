@@ -49,8 +49,8 @@ narmada_broadcast/
 
 | Key | Value |
 |-----|-------|
-| Repo | `https://github.com/MBKANERIYA/narmada_broadcast` |
-| Vercel URL | `https://narmada-broadcast-8vox.vercel.app/` |
+| Repo | `https://github.com/naramadaessence/broadcast` |
+| Vercel URL | `https://broadcast-gilt.vercel.app/` |
 | DB | Client-owned MongoDB Atlas database via `MONGO_URI` |
 | CI/CD | Vercel GitHub deployment from `main` |
 | Backend Test Command | `cd backend && npm test` |
@@ -70,6 +70,7 @@ narmada_broadcast/
 | `testing.md` | Before writing or changing tests |
 | `whatsapp-webhook.md` | Before touching inbound WhatsApp callbacks, auto-replies, cart messages, or handoff confirmation |
 | `chat-inbox.md` | Before touching Chat Inbox, handoff, bot pause, media, or teach-from-chat |
+| `catalogue.md` | Before touching product import, product images, Meta catalogue sync, or WhatsApp product visibility |
 | `hosted-checkout.md` | Before touching checkout sessions, checkout order status, payment links, or commerce chat filters |
 | `chatbot.md` | Before touching Smart FAQs, Smart Automation, embeddings, or bot replies |
 | `frontend.md` | Before touching the app shell or UI components |

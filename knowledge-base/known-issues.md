@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-030: Meta-Imported Products Were Visible In Dashboard But Not WhatsApp Customer Catalogue
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: Products added in Meta appeared in the platform Catalogue after sync, but WhatsApp customers still only saw the test product that was created from the platform.
+**Root Cause**: `POST /api/v1/products/sync-meta` imported products into MongoDB but did not queue the imported rows through the WhatsApp-visible Meta `items_batch` publishing path. The bulk push route also counted every product as successful even when Meta returned an error, and imports used Meta's Graph product `id` as `sku` instead of preferring the WhatsApp retailer/content ID from `retailer_id`.
+**Workaround**: None needed after this fix. Before the fix, operators had to manually use the old Push to Meta action and still might receive a false success toast.
+**Fix**: Meta import now requests `retailer_id`, stores Graph IDs separately as `meta_product_id`, updates local SKU to the WhatsApp retailer/content ID, queues imported products for WhatsApp publishing, and reports publish failures. The frontend action is now labeled `Publish to WhatsApp`.
+**Regression Test**: `backend/test/regression.test.js` test `Meta catalogue sync publishes imported products for WhatsApp visibility and surfaces failures`.
+
 ## ISSUE-029: Labeled Broadcast Regression Test Was Too Specific
 **Status**: Resolved
 **Severity**: Low

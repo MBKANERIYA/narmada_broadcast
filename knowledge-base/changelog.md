@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-07-02 — Fix Meta Catalogue WhatsApp Visibility
+**What**: Made Meta catalogue import queue imported products for WhatsApp customer visibility and report Meta publish failures honestly.
+**Why**: Products added in Meta were syncing into the dashboard but were not necessarily visible to WhatsApp customers; the old bulk push route could also show success even if Meta rejected a product.
+**Impact**: `Sync from Meta` now imports products, preserves Meta Graph IDs separately, prefers `retailer_id` as the WhatsApp product SKU/content ID, and queues each imported product through the Meta `items_batch` publishing path. The old `Push to Meta` UI is now labeled `Publish to WhatsApp`.
+**Files Changed**: `backend/src/routes/products.js`, `backend/src/services/metaCatalogSync.js`, `frontend/src/components/Catalogue.jsx`, `backend/test/regression.test.js`, `knowledge-base/README.md`, `knowledge-base/catalogue.md`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/decisions.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - `cd backend && npm test` (29 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (10 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`.
+**Commit**: `0814658`
+
+- Added publish result reporting to `syncProductToMeta()` so API routes can distinguish queued products from Meta failures.
+- Updated `POST /api/v1/products/sync-meta` to request `retailer_id`, update `sku` correctly, store `meta_product_id`, and queue imported products for WhatsApp publishing.
+- Updated `POST /api/v1/products/push-to-meta` to return queued/failed counts instead of counting every loop iteration as a success.
+- Added a dedicated Catalogue KB topic documenting dashboard visibility versus WhatsApp customer visibility.
+- Live Vercel verification after deploy: `Publish to WhatsApp` queued 27 products with 0 failures; `Sync from Meta` imported 25 products and queued 25 with 0 failures.
+
+## 2026-07-02 — Switch Deployment Remote To naramadaessence/broadcast
+**What**: Changed local deployment remote and docs from `MBKANERIYA/narmada_broadcast` to `naramadaessence/broadcast`.
+**Why**: The new Vercel deployment repo is `naramadaessence/broadcast`, it contains the current product files, and this account has direct write access there.
+**Impact**: Future pulls and pushes should use `origin=https://github.com/naramadaessence/broadcast`; the old repo is retained locally as `old-mbk` for reference only. Vercel/live QA references now point to `https://broadcast-gilt.vercel.app/`.
+**Files Changed**: `README.md`, `knowledge-base/README.md`, `knowledge-base/DEPLOYMENT.md`, `knowledge-base/DEVELOPMENT_GUIDE.md`, `knowledge-base/testing.md`, `knowledge-base/frontend.md`, `knowledge-base/active-context.md`, `knowledge-base/decisions.md`, `knowledge-base/changelog.md`
+**Tests**: Docs/remote-only change; no automated test added. Verification: `git pull --ff-only origin main`, `rg` remote/URL scan, and `git diff --check`.
+**Commit**: Pending
+
+- Renamed the old deployment remote to `old-mbk` and added `naramadaessence/broadcast` as `origin`.
+- Fast-forwarded local `main` from the new deployment repo to commit `58bce08`.
+- Removed stale fork/PR blocker wording from active context because direct push is now available.
+
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
 ## 2026-07-02 — Fix Chat Feedback And Vercel Inbox Refresh

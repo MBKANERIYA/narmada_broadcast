@@ -2,6 +2,24 @@
 
 This document logs the architectural choices made during the development of the WhatsApp Broadcast SaaS.
 
+## Decision: Meta Catalogue Import Queues WhatsApp Publishing
+**Date**: 2026-07-02
+**Status**: Accepted
+**Context**: The client can add products directly in Meta and then sync them into the dashboard. Operators naturally expect products visible in the dashboard to become visible in the WhatsApp customer catalogue too, but dashboard import and WhatsApp publication are separate steps.
+**Decision**: Treat Meta import as an import-plus-publish workflow for this single-client product. `Sync from Meta` imports products into MongoDB, preserves Meta's Graph object ID as `meta_product_id`, uses `retailer_id` as local `sku` when available, and queues the imported products through the same Meta `items_batch` publishing path used by `Publish to WhatsApp`.
+**Alternatives Considered**: Keep import and publish fully separate, or rely on manual Meta Commerce Manager configuration. Separate steps caused the observed confusion and left products invisible to customers. Manual Commerce Manager configuration is too easy to miss for this self-use deployment.
+**Consequences**: Syncing from Meta may publish all imported products to the WhatsApp-visible catalogue, which matches this client's requirement. If a future client wants staging/draft products, add an explicit draft flag instead of silently reverting to import-only behavior.
+**Superseded By**:
+
+## Decision: Deployment Remote Uses naramadaessence/broadcast
+**Date**: 2026-07-02
+**Status**: Accepted
+**Context**: The previous deployment repo `MBKANERIYA/narmada_broadcast` was replaced by `naramadaessence/broadcast` for the Vercel deployment. The new repo contains the current product files plus newer deployment work, and the authenticated maintainer has direct write access there.
+**Decision**: Treat `https://github.com/naramadaessence/broadcast` as the canonical deployment repo and local `origin`. Preserve the old repo as `old-mbk` only for historical comparison. Push deployment changes directly to `origin/main` unless a future review process requires a branch or PR.
+**Alternatives Considered**: Continue using the old `MBKANERIYA/narmada_broadcast` repo with fork PRs. That was rejected because deployment now follows the new org repo and direct write permission removes the old read-only fork handoff.
+**Consequences**: Future pulls, pushes, Vercel deploys, docs, and smoke-test handoffs should reference `naramadaessence/broadcast` and `https://broadcast-gilt.vercel.app/`. Old fork branches may remain locally, but they are no longer the deployment path.
+**Superseded By**:
+
 ## Decision: Support Feedback Replies Are Terminal Webhook Events
 **Date**: 2026-07-02
 **Status**: Accepted
@@ -60,10 +78,10 @@ This document logs the architectural choices made during the development of the 
 **Date**: 2026-07-01
 **Status**: Accepted
 **Context**: The Narmada fork is sold and deployed as a dedicated product for one client, not as a tenant seat on the original SaaS. The Vercel deployment must not depend on the original app database or any hardcoded fallback credentials.
-**Decision**: Keep the fork single-client, deploy it on Vercel from `MBKANERIYA/narmada_broadcast`, require `MONGO_URI` from Vercel environment variables in production, and fail fast if it is missing.
+**Decision**: Keep the fork single-client, deploy it on Vercel, require `MONGO_URI` from Vercel environment variables in production, and fail fast if it is missing.
 **Alternatives Considered**: Reuse the original SaaS database or leave a fallback Atlas URI in code. Both were rejected because they break client isolation and expose secrets.
 **Consequences**: Each client deployment must provision its own MongoDB Atlas database and set `MONGO_URI`; local development can still use `mongodb://127.0.0.1:27017/narmada_broadcast_dev`.
-**Superseded By**:
+**Superseded By**: [Deployment Remote Uses naramadaessence/broadcast](#decision-deployment-remote-uses-naramadaessencebroadcast)
 
 ## Decision: Smart Bot Uses Gemini Embeddings With Lexical Fallback
 **Date**: 2026-07-01
