@@ -212,7 +212,7 @@ router.post('/conversations/new', async (req, res) => {
         let conversation = await WhatsAppConversation.findOne({ phone: normalized, tenant_id: req.tenantId });
 
         if (!conversation) {
-            const contact = await Contact.findOne({ phone: { $regex: new RegExp(`${normalized.slice(-10)}$`) }, tenant_id: req.tenantId });
+            const contact = await Contact.findOne({ phone: { $regex: new RegExp(`${normalized.slice(-10)}$`) } });
             
             const initialBody = await resolveTemplateBody(templateName, templateParams, req.tenant);
 
@@ -718,10 +718,18 @@ router.patch('/conversations/:id/labels', async (req, res) => {
         if (!conv) return res.status(404).json({ error: 'Conversation not found' });
 
         conv.labels = labels;
+
+        if (!conv.contact_id) {
+            const contact = await Contact.findOne({ phone: { $regex: new RegExp(`${conv.phone.slice(-10)}$`) } });
+            if (contact) {
+                conv.contact_id = contact._id;
+            }
+        }
+
         await conv.save();
 
         if (conv.contact_id) {
-            await Contact.updateOne({ _id: conv.contact_id, tenant_id: req.tenantId }, { $set: { labels } });
+            await Contact.updateOne({ _id: conv.contact_id }, { $set: { labels } });
         }
 
         res.json({ success: true, labels });

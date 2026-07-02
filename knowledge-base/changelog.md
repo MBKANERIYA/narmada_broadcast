@@ -26,6 +26,18 @@
 - Added a dedicated Catalogue KB topic documenting dashboard visibility versus WhatsApp customer visibility.
 - Live Vercel verification after deploy: `Publish to WhatsApp` queued 27 products with 0 failures; `Sync from Meta` imported 25 products and queued 25 with 0 failures.
 
+## 2026-07-02 — Bugfix: Labels Not Syncing to Contacts
+**What**: Fixed an issue where labels added in the Chat Inbox (like "VIP") were not syncing to the Contacts page, and incoming webhooks were failing to link conversations to existing manual contacts.
+**Why**: The backend was querying the `Contact` model with `{ tenant_id }`, but the `Contact` schema is strictly tenant-agnostic and does not contain a `tenant_id` field. Mongoose dropped the non-schema field during `.create()` (creating duplicates) and failed to match during `.findOne()` or `.updateOne()`.
+**Impact**: When you tag a user as "VIP" in the Chat Inbox, the label will now correctly save to the Contact and appear in the Contacts table. Future incoming messages will successfully auto-link to existing manually-created contacts.
+**Files Changed**: `backend/src/routes/whatsapp-chat.js`, `backend/src/routes/webhook.js`
+
+## 2026-07-02 — Vercel Deployment Cron Fix
+**What**: Removed the 30-minute automated payment reminder Vercel Cron Job from `vercel.json` because Vercel Hobby accounts restrict cron schedules to a maximum frequency of 1 per day.
+**Why**: The addition of `*/30 * * * *` caused the entire Vercel deployment build process to fail with an error because it exceeded the free tier limitations.
+**Impact**: Deployment to Vercel succeeds again. Users must now use an external free cron service (like cron-job.org) to ping `/api/v1/orders/remind` every 30 minutes instead of relying on Vercel Cron.
+**Files Changed**: `vercel.json`, `knowledge-base/changelog.md`
+
 ## 2026-07-02 — WhatsApp Chat Performance & Payment Reminders
 **What**: Optimized Chat Inbox performance by eliminating full-collection memory scans in the backend and added a `/remind` endpoint for 30-minute automated payment reminders.
 **Why**: The Chat Inbox was extremely slow because the backend loaded tens of thousands of conversations into memory to calculate filter counts. Customers were also leaving orders unpaid indefinitely; they need automated payment reminders. Furthermore, the Razorpay webhook missed order attribution for `payment.captured` events.

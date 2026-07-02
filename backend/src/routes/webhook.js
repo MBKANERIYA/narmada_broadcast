@@ -139,10 +139,9 @@ router.post('/', async (req, res) => {
                         let conversation = await WhatsAppConversation.findOne({ tenant_id: tenantId, phone: fromPhone });
                         
                         if (!conversation) {
-                            let contact = await Contact.findOne({ tenant_id: tenantId, phone: { $regex: new RegExp(`${fromPhone.slice(-10)}$`) } });
+                            let contact = await Contact.findOne({ phone: { $regex: new RegExp(`${fromPhone.slice(-10)}$`) } });
                             if (!contact) {
                                 contact = await Contact.create({
-                                    tenant_id: tenantId,
                                     name: contactName,
                                     phone: `+${fromPhone}`,
                                     source: 'whatsapp',
@@ -159,7 +158,7 @@ router.post('/', async (req, res) => {
                         } else {
                             if (!conversation.contact_name) conversation.contact_name = contactName;
                             if (!conversation.contact_id) {
-                                const contact = await Contact.findOne({ tenant_id: tenantId, phone: { $regex: new RegExp(`${fromPhone.slice(-10)}$`) } });
+                                const contact = await Contact.findOne({ phone: { $regex: new RegExp(`${fromPhone.slice(-10)}$`) } });
                                 if (contact) conversation.contact_id = contact._id;
                             }
                         }
