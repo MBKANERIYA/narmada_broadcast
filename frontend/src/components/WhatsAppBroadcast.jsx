@@ -124,9 +124,9 @@ export default function WhatsAppBroadcast() {
     const deselectAll = () => setSelectedIds([]);
 
     // Templates for dropdown
-    const approvedTemplates = (whatsappTemplates || []).filter(t => t.status === 'APPROVED');
+    const approvedTemplates = (whatsappTemplates || []).filter(t => t.status?.toUpperCase() === 'APPROVED');
 
-    const selectedTemplate = approvedTemplates.find(t => t.name === campaignName);
+    const selectedTemplate = (whatsappTemplates || []).find(t => t.name === campaignName);
     const templateVariables = selectedTemplate?.components?.find(c => c.type === 'BODY')?.text?.match(/\{\{\d+\}\}/g) || [];
 
     const handleSend = async () => {
@@ -781,10 +781,15 @@ export default function WhatsAppBroadcast() {
                 <div className="form-group">
                     <label className="form-label">Template</label>
                     <select className="form-input" value={campaignName} onChange={e => setCampaignName(e.target.value)}>
-                        <option value="">Select an approved template</option>
-                        {approvedTemplates.map(t => (
-                            <option key={t.name} value={t.name}>{t.name} ({t.language})</option>
-                        ))}
+                        <option value="">Select a template</option>
+                        {(whatsappTemplates || []).map(t => {
+                            const isApproved = t.status?.toUpperCase() === 'APPROVED';
+                            return (
+                                <option key={t.name} value={t.name} disabled={!isApproved}>
+                                    {t.name} ({t.language}) {isApproved ? '' : `- ${t.status}`}
+                                </option>
+                            );
+                        })}
                     </select>
                 </div>
 

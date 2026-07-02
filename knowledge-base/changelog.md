@@ -26,6 +26,12 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - Added a regression test that fails if Smart Automation falls back to a package-local cache path on serverless deploys.
 - Documented the Vercel `/var/task` read-only cache failure and the optional `TRANSFORMERS_CACHE_DIR` override.
 
+## 2026-07-02 — Fix: WhatsApp Template Dropdown Visibility
+**What**: Modified the `SendBroadcast` template dropdown in the frontend to display all fetched templates regardless of approval status, while keeping unapproved templates (PENDING/REJECTED) visually disabled.
+**Why**: Users were confused when freshly created templates did not appear in the dropdown. The frontend was previously filtering out any template that didn't strictly have an `APPROVED` status, leading users to believe the Meta API fetch was failing.
+**Files Changed**: `frontend/src/components/WhatsAppBroadcast.jsx`
+**Commit**: Pending
+
 ## 2026-07-02 — Fix: Postinstall Shell Interpolation Error
 **What**: Modified the `postinstall` script in `backend/package.json` to use string concatenation (`+`) instead of ES6 template literals (`${}`).
 **Why**: Vercel executes `npm` scripts in a POSIX shell. The shell interpreted `${p}` and `${d}` as empty shell variables, causing a syntax error in the Node.js script during the Vercel build. This fix ensures the optimization script runs correctly.
