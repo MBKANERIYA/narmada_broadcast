@@ -611,10 +611,16 @@ router.patch('/conversations/:id/bot-pause', async (req, res) => {
         const conv = await WhatsAppConversation.findOne({ _id: req.params.id, tenant_id: req.tenantId });
         if (!conv) return res.status(404).json({ error: 'Conversation not found' });
 
+        if (send_feedback && !paused && conv.needs_human) {
+            return res.status(409).json({ error: 'Use Resolve Handoff for conversations that need human help.' });
+        }
+
+        const wasBotPaused = Boolean(conv.bot_paused);
         conv.bot_paused = paused;
         await conv.save();
 
-        if (send_feedback && !paused) {
+        let feedbackSent = false;
+        if (send_feedback && !paused && wasBotPaused) {
             const { sendInteractiveMessage } = await import('../services/whatsapp.js');
             const interactiveOptions = {
                 type: "button",
@@ -645,10 +651,11 @@ router.patch('/conversations/:id/bot-pause', async (req, res) => {
                 await conv.save();
 
                 emitToTenant(req.tenantId, 'chat_updated', { type: 'new_message', conversationId: conv._id.toString() });
+                feedbackSent = true;
             }
         }
 
-        res.json({ success: true, bot_paused: paused });
+        res.json({ success: true, bot_paused: paused, feedback_sent: feedbackSent });
     } catch (error) {
         console.error('[Bot Pause] Update error:', error);
         res.status(500).json({ error: 'Failed to update bot pause' });

@@ -25,10 +25,14 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
   handlers live in `backend/src/routes/whatsapp-chat.js`.
 - `PATCH /conversations/:id/bot-pause` toggles only the per-conversation
   `bot_paused` flag. Passing `send_feedback: true` while resuming sends the
-  customer feedback buttons.
+  customer feedback buttons only for non-handoff support chats that were paused
+  before the request.
 - `PATCH /conversations/:id/handoff/resolve` is the Resolve Handoff contract.
   It must clear `needs_human`, clear `bot_paused`, clear `handoff_reason`, and
   optionally send the same feedback request.
+- When `needs_human` is active, the UI must expose Resolve Handoff as the only
+  feedback-sending close action. Do not show the generic Resolve Chat button in
+  that state.
 - `GET /conversations?needs_human=1` must filter the handoff queue
   server-side; the Needs Human tab depends on this.
 - `GET /conversations?filter=<value>` is the current filter contract. Supported
@@ -65,6 +69,9 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
 - Sending feedback has an external Meta API side effect. Browser QA should not
   click resolve/send actions on live customer conversations unless the user
   authorizes it.
+- A conversation can be both `needs_human` and `bot_paused`. Resolve Handoff owns
+  that state. The generic bot-pause support resolve must not send feedback for
+  handoff conversations or already-resumed conversations.
 - Uploaded local media is serverless-temp backed; persistent media storage is
   not yet implemented for Vercel.
 - Older checkout orders may not have `tenant_id`; the commerce filter keeps a
@@ -77,6 +84,8 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
 - Chat Inbox frontend route paths matching backend route handlers.
 - Server-side `needs_human=1` filtering.
 - Handoff resolution clearing `needs_human`, `bot_paused`, and `handoff_reason`.
+- Single feedback-sending resolve action for handoffs, including the backend
+  guard against duplicate support-feedback sends.
 - Teach-from-chat route coverage.
 - Persisted `bot_paused` behavior and webhook pause checks.
 - Compact-header UI class contracts and Mongo-safe chat date formatting.

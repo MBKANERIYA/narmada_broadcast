@@ -244,6 +244,23 @@ test('Chat Inbox handoff resolution and teach actions have backend routes matchi
   assert.match(chatRouteSource, /source_message_id/);
 });
 
+test('Chat Inbox exposes one feedback-sending resolve action for handoffs', () => {
+  const chatRouteSource = readRepoFile('backend/src/routes/whatsapp-chat.js');
+  const chatComponentSource = readRepoFile('frontend/src/components/WhatsAppChat.jsx');
+
+  assert.match(chatComponentSource, /isBotPaused && !isNeedsHuman &&/);
+  assert.match(chatComponentSource, /title="Resolve Chat & Send Feedback"/);
+  assert.match(chatComponentSource, /title="Resolve Needs Human"/);
+  assert.match(chatComponentSource, /setShowResolveHandoffModal\(true\)/);
+  assert.match(chatComponentSource, /setShowResolveChatModal\(true\)/);
+
+  assert.match(chatRouteSource, /const wasBotPaused = Boolean\(conv\.bot_paused\)/);
+  assert.match(chatRouteSource, /send_feedback && !paused && conv\.needs_human/);
+  assert.match(chatRouteSource, /Use Resolve Handoff/);
+  assert.match(chatRouteSource, /if \(send_feedback && !paused && wasBotPaused\)/);
+  assert.doesNotMatch(chatRouteSource, /if \(send_feedback && !paused\)\s*\{/);
+});
+
 test('Chat Inbox keeps the compact header polish and formats Mongo ISO dates safely', async () => {
   const chatComponentSource = readRepoFile('frontend/src/components/WhatsAppChat.jsx');
   const mainCss = readRepoFile('frontend/src/styles/main.css');
