@@ -26,7 +26,7 @@ The frontend is a Preact + Vite single-page app for tenant staff. It presents th
 - Chat Inbox must keep the Vercel-safe polling fallback in `WhatsAppChat.jsx`.
   The fallback refreshes every 5 seconds while mounted, skips hidden tabs, and
   refreshes immediately when the tab regains focus/visibility.
-- Local browser QA against production data can run through Vite with `VITE_DEV_API_PROXY_TARGET=https://broadcast.innodify.in`.
+- Local browser QA against production data can run through Vite with `VITE_DEV_API_PROXY_TARGET=https://broadcast-gilt.vercel.app`.
 
 ## Known Gotchas
 - The app is view-state driven, not URL-route driven. Navigation buttons update Zustand `currentView`.

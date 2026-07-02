@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-02 — Switch Deployment Remote To naramadaessence/broadcast
+**What**: Changed local deployment remote and docs from `MBKANERIYA/narmada_broadcast` to `naramadaessence/broadcast`.
+**Why**: The new Vercel deployment repo is `naramadaessence/broadcast`, it contains the current product files, and this account has direct write access there.
+**Impact**: Future pulls and pushes should use `origin=https://github.com/naramadaessence/broadcast`; the old repo is retained locally as `old-mbk` for reference only. Vercel/live QA references now point to `https://broadcast-gilt.vercel.app/`.
+**Files Changed**: `README.md`, `knowledge-base/README.md`, `knowledge-base/DEPLOYMENT.md`, `knowledge-base/DEVELOPMENT_GUIDE.md`, `knowledge-base/testing.md`, `knowledge-base/frontend.md`, `knowledge-base/active-context.md`, `knowledge-base/decisions.md`, `knowledge-base/changelog.md`
+**Tests**: Docs/remote-only change; no automated test added. Verification: `git pull --ff-only origin main`, `rg` remote/URL scan, and `git diff --check`.
+**Commit**: Pending
+
+- Renamed the old deployment remote to `old-mbk` and added `naramadaessence/broadcast` as `origin`.
+- Fast-forwarded local `main` from the new deployment repo to commit `58bce08`.
+- Removed stale fork/PR blocker wording from active context because direct push is now available.
+
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
 ## 2026-07-02 — Fix Chat Feedback And Vercel Inbox Refresh
