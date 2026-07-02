@@ -2,6 +2,12 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Fix: Vercel Function Size Optimization (Hobby Plan)
+**What**: Added a `postinstall` script to `backend/package.json` that automatically prunes macOS and Windows binaries from `onnxruntime-node` (`@huggingface/transformers` dependency) during deployment.
+**Why**: Vercel Hobby plan has a strict 250MB limit on uncompressed Serverless Functions, which caused the deployment to fail despite the `VERCEL_SUPPORT_LARGE_FUNCTIONS` flag. Pruning unused OS binaries drops the function size significantly and allows the backend to deploy successfully within Hobby limits.
+**Files Changed**: `backend/package.json`
+**Commit**: Pending
+
 ## 2026-07-02 — Fix: High-Confidence FAQs Override Smart Flows
 **What**: Modified the `handleSmartReply` routing logic in `smartResponder.js` to evaluate `retrieval_v2` (Semantic FAQs) before `smart_flows`. If a high-confidence FAQ match is found, it now returns immediately and bypasses the built-in smart flows.
 **Why**: Customers were unable to receive replies from manually added FAQs like "where is my order?" because the generic `order_status` smart flow intercepted the phrase, attempted to look up a real database order, and returned a fallback "handoff to human" message instead of the configured FAQ answer. High-confidence specific FAQs should always win.
