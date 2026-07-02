@@ -206,24 +206,20 @@ router.post('/', async (req, res) => {
                                 // Generate direct Razorpay Payment Link
                                 let directPaymentLink = '';
                                 try {
-                                    // Use DB setting, then process.env, then fallback to hardcoded test keys for Vercel testing
-                                    const keyId = setting.razorpay_key_id || process.env.RAZORPAY_KEY_ID || 'rzp_test_Sp8ow2u4uVKQIl';
-                                    const keySecret = setting.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET || 'HZ0Pp5Jblm8gys1HjRkIqCK4';
+                                    // Force using the provided test keys, ignoring anything else
+                                    const keyId = 'rzp_test_Sp8ow2u4uVKQIl';
+                                    const keySecret = 'HZ0Pp5Jblm8gys1HjRkIqCK4';
                                     
-                                    if (keyId && keyId.includes('demo_key')) {
-                                        directPaymentLink = `${baseUrl}/api/v1/checkout/mock-payment/${newOrder._id}`;
-                                    } else if (keyId && keySecret) {
-                                        const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
-                                        const rzpLink = await razorpay.paymentLink.create({
-                                            amount: Math.round(orderTotalAmount * 100),
-                                            currency: 'INR',
-                                            description: `Order #${newOrder._id} from WhatsApp`,
-                                            customer: { contact: fromPhone, name: conversation.contact_name || 'Customer' },
-                                            notify: { sms: true }
-                                        });
-                                        directPaymentLink = rzpLink.short_url;
-                                        await Order.findByIdAndUpdate(newOrder._id, { $set: { payment_link: directPaymentLink, payment_link_id: rzpLink.id } });
-                                    }
+                                    const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+                                    const rzpLink = await razorpay.paymentLink.create({
+                                        amount: Math.round(orderTotalAmount * 100),
+                                        currency: 'INR',
+                                        description: `Order #${newOrder._id} from WhatsApp`,
+                                        customer: { contact: fromPhone, name: conversation.contact_name || 'Customer' },
+                                        notify: { sms: true }
+                                    });
+                                    directPaymentLink = rzpLink.short_url;
+                                    await Order.findByIdAndUpdate(newOrder._id, { $set: { payment_link: directPaymentLink, payment_link_id: rzpLink.id } });
                                 } catch (rzpErr) {
                                     console.error('[Webhook] Razorpay Link Gen Error:', rzpErr.message);
                                 }
