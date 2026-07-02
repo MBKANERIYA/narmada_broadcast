@@ -240,6 +240,11 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Contact CSV Export Endpoint
+**What**: Added `GET /api/v1/contacts/export` to support downloading the contacts list as a CSV file.
+**Why**: The frontend had a button to export contacts, but the backend endpoint was missing. When requested, it fell back to the `/:id` route, resulting in a 404 error ("Export failed"). The new endpoint dynamically builds a CSV respecting current search/tag filters.
+**Files Changed**: `backend/src/routes/contacts.js`
+
 ## 2026-07-02 — Fix Chat Inbox missing Cancel Order messages
 **What**: Fixed a bug where the "Cancel Order 🛑" button press and its automated response were not showing up in the Chat Inbox.
 **Why**: The webhook was processing the cancellation and immediately exiting the loop *before* it had a chance to fetch the conversation and save the inbound message to the database. It now properly saves the inbound click, executes the cancel logic, and logs the outbound response.

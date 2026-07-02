@@ -111,6 +111,63 @@ router.post('/', async (req, res) => {
 });
 
 /**
+ * GET /api/v1/contacts/export
+ * Export contacts to CSV
+ */
+router.get('/export', async (req, res) => {
+    try {
+        const search = req.query.search || '';
+        const tag = req.query.tag || '';
+        const location = req.query.location || '';
+        
+        let query = {};
+        
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { phone: { $regex: search, $options: 'i' } }
+            ];
+        }
+        
+        if (tag) {
+            query.tags = tag;
+        }
+        
+        if (location) {
+            query.location = location;
+        }
+
+        const contacts = await Contact.find(query).sort({ created_at: -1 });
+        
+        const headers = ['Name', 'Phone', 'Email', 'Location', 'Ticket Size', 'Tags', 'Labels', 'Notes', 'Source', 'Created At'];
+        const csvRows = [headers.join(',')];
+        
+        for (const c of contacts) {
+            const row = [
+                `"${c.name || ''}"`,
+                `"${c.phone || ''}"`,
+                `"${c.email || ''}"`,
+                `"${c.location || ''}"`,
+                c.ticket_size || '',
+                `"${(c.tags || []).join(';')}"`,
+                `"${(c.labels || []).join(';')}"`,
+                `"${(c.notes || '').replace(/"/g, '""')}"`,
+                `"${c.source || ''}"`,
+                `"${c.created_at ? new Date(c.created_at).toISOString() : ''}"`
+            ];
+            csvRows.push(row.join(','));
+        }
+        
+        res.header('Content-Type', 'text/csv');
+        res.attachment('contacts.csv');
+        res.send(csvRows.join('\n'));
+    } catch (error) {
+        console.error('Export contacts error:', error);
+        res.status(500).json({ error: 'Failed to export contacts' });
+    }
+});
+
+/**
  * POST /api/v1/contacts/import
  */
 router.post('/import', async (req, res) => {
