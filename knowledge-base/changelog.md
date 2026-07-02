@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-02 — Update Vercel Live URL
+**What**: Updated deployment documentation and QA handoff references to the new live Vercel URL `https://broadcast-gilt.vercel.app/`.
+**Why**: The previous Vercel account hit deployment limits, so the live project moved accounts while the GitHub repository stayed `MBKANERIYA/narmada_broadcast`.
+**Impact**: Future env setup, smoke tests, Vite live-proxy QA, and deployment handoffs should use `broadcast-gilt.vercel.app`; code still uses same-origin relative API calls in production.
+**Files Changed**: `README.md`, `knowledge-base/README.md`, `knowledge-base/DEPLOYMENT.md`, `knowledge-base/DEVELOPMENT_GUIDE.md`, `knowledge-base/testing.md`, `knowledge-base/frontend.md`, `knowledge-base/active-context.md`, `knowledge-base/changelog.md`
+**Tests**: Docs-only change; no automated test added. Verification: URL references scanned with `rg`, and `git diff --check` run after edits.
+**Commit**: Pending
+
+- Replaced active docs and QA commands that pointed to `https://narmada-broadcast-8vox.vercel.app/`.
+- Added a deployment note that the previous Vercel URL was retired due to account deployment limits.
+- Kept the GitHub remote/repo references unchanged.
+
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
 ## 2026-07-02 — Fix Chat Feedback And Vercel Inbox Refresh

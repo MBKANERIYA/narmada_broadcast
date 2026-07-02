@@ -18,7 +18,7 @@
 | `npm run build` from `frontend/` | Vite production build for the Preact SPA |
 | `npm audit --audit-level=high` from `frontend/` | Frontend dependency vulnerability gate |
 | `npm audit --audit-level=high` from `backend/` | Backend dependency vulnerability gate |
-| `$env:VITE_DEV_API_PROXY_TARGET='https://narmada-broadcast-8vox.vercel.app'; npm run dev -- --host 127.0.0.1` from `frontend/` | Local Vite app pointed at the live Vercel API for browser QA without CORS issues |
+| `$env:VITE_DEV_API_PROXY_TARGET='https://broadcast-gilt.vercel.app'; npm run dev -- --host 127.0.0.1` from `frontend/` | Local Vite app pointed at the live Vercel API for browser QA without CORS issues |
 
 ## Current Session Status
 
