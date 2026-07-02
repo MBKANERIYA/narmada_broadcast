@@ -206,8 +206,9 @@ router.post('/', async (req, res) => {
                                 // Generate direct Razorpay Payment Link
                                 let directPaymentLink = '';
                                 try {
-                                    const keyId = setting.razorpay_key_id || process.env.RAZORPAY_KEY_ID;
-                                    const keySecret = setting.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET;
+                                    // Use DB setting, then process.env, then fallback to hardcoded test keys for Vercel testing
+                                    const keyId = setting.razorpay_key_id || process.env.RAZORPAY_KEY_ID || 'rzp_test_Sp8ow2u4uVKQIl';
+                                    const keySecret = setting.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET || 'HZ0Pp5Jblm8gys1HjRkIqCK4';
                                     
                                     if (keyId && keyId.includes('demo_key')) {
                                         directPaymentLink = `${baseUrl}/api/v1/checkout/mock-payment/${newOrder._id}`;
