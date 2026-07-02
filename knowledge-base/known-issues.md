@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-025: Duplicate Resolve Actions Sent Two Feedback Requests
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: A handoff chat could show both the Needs Human resolve action and the green Resolve Chat action. Clicking both sent duplicate "support chat resolved" feedback requests to the customer on WhatsApp.
+**Root Cause**: `WhatsAppChat.jsx` rendered the generic bot-paused Resolve Chat button whenever `bot_paused` was true, even if `needs_human` was also true. The backend bot-pause route also sent feedback on any `send_feedback && !paused` request, so stale UI or repeated requests could send another feedback message.
+**Workaround**: None needed after this fix. Before the fix, operators had to avoid the green Resolve Chat button when Needs Human was active.
+**Fix**: Hide Resolve Chat while `needs_human` is active, require handoff conversations to use Resolve Handoff, and only send support feedback from bot-pause if the conversation was actually paused before the request.
+**Regression Test**: `backend/test/regression.test.js` test `Chat Inbox exposes one feedback-sending resolve action for handoffs`.
+
 ## ISSUE-024: Chat Inbox Commerce Filters Missing From Mongo Fork
 **Status**: Resolved
 **Severity**: Medium

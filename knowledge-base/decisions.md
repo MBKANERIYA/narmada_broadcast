@@ -2,6 +2,15 @@
 
 This document logs the architectural choices made during the development of the WhatsApp Broadcast SaaS.
 
+## Decision: Handoff Resolve Owns Handoff Feedback
+**Date**: 2026-07-02
+**Status**: Accepted
+**Context**: A Chat Inbox conversation can be both `needs_human` and `bot_paused`. Showing both Resolve Handoff and generic Resolve Chat created two feedback-sending paths for the same support interaction.
+**Decision**: Treat `PATCH /conversations/:id/handoff/resolve` as the only feedback-sending resolve path for handoff conversations. Keep generic Resolve Chat only for bot-paused conversations that are not handoffs, and make the bot-pause feedback path idempotent by sending feedback only when the conversation was paused before the request.
+**Alternatives Considered**: Leave both buttons visible and rely on operators, or make both routes clear all state. Operator discipline was rejected because it already caused duplicate messages. Making both routes equivalent was rejected because handoff resolution owns `needs_human` and `handoff_reason` state.
+**Consequences**: Operators see one clear close action in handoff state, stale clients cannot send a second support-feedback request, and handoff state remains owned by the handoff route.
+**Superseded By**:
+
 ## Decision: Chat Inbox Commerce Filters Use Mongo Order State
 **Date**: 2026-07-02
 **Status**: Accepted

@@ -2,6 +2,19 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Fix Duplicate Chat Resolve Feedback
+**What**: Removed the duplicate feedback-sending resolve path from Chat Inbox handoff conversations.
+**Why**: Conversations that were both `needs_human` and `bot_paused` showed the Needs Human handoff resolve action and the generic Resolve Chat action, allowing two feedback requests to be sent to the same customer.
+**Impact**: Handoff conversations now expose only the handoff resolve path for feedback. The generic Resolve Chat button remains available for bot-paused conversations that are not human handoffs. The backend also blocks stale/double support-resolve requests from sending duplicate feedback.
+**Files Changed**: `frontend/src/components/WhatsAppChat.jsx`, `backend/src/routes/whatsapp-chat.js`, `backend/test/regression.test.js`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/decisions.md`, `knowledge-base/chat-inbox.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - `cd backend && npm test` (25 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (10 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Commit**: Pending
+
+- Hid the generic Resolve Chat support action while `needs_human` is active.
+- Added a bot-pause route guard that tells stale clients to use Resolve Handoff for handoff conversations.
+- Made feedback sending idempotent for support resolve by requiring the conversation to have been paused before the request.
+- Added regression coverage for the single feedback-sending resolve action.
+
 ## 2026-07-02 — Port Chat Inbox Commerce Filters
 **What**: Ported main-platform commit `3f088251462d3ae1210bfcfe3d13f0bb612cab7d` into the Mongo/Vercel Narmada fork.
 **Why**: The main platform added Chat Inbox filters for paid orders, unpaid hosted-checkout orders, and abandoned carts; Narmada still had the older tab UI and only a legacy paid-order filter.

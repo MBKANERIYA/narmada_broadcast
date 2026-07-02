@@ -875,7 +875,7 @@ export default function WhatsAppChat() {
                                     >
                                         <Icon name="target" size={18} />
                                     </button>
-                                    {isBotPaused && (
+                                    {isBotPaused && !isNeedsHuman && (
                                         <>
                                             <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '10px', background: '#FEF2F2', color: '#EF4444', fontWeight: 600, whiteSpace: 'nowrap' }}>
                                                 Bot Paused
