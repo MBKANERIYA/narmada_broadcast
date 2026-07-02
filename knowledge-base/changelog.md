@@ -201,6 +201,11 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Razorpay DB Credentials Support
+**What**: Added `razorpay_key_id` and `razorpay_key_secret` to the `Setting` Mongoose schema.
+**Why**: Previously, Razorpay keys were only readable from `process.env`. If injected into the database directly, Mongoose would strip them due to strict schema validation. Adding them to the schema allows the webhook and checkout routes to dynamically read the tenant's Razorpay credentials from the database.
+**Files Changed**: `backend/src/models/Setting.js`
+
 ## 2026-07-02 — Direct Razorpay Link in WhatsApp Cart
 **What**: Bypassed the non-existent frontend checkout page and updated the webhook to generate and send Razorpay Payment Links directly to the customer in the chat.
 **Why**: The `frontend/src/` did not contain a `/checkout` route, leading to broken links when customers tried to pay. Generating the Razorpay link via `razorpay.paymentLink.create()` directly in the webhook provides a seamless, one-click payment experience.

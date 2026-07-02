@@ -12,6 +12,8 @@ const SettingSchema = new mongoose.Schema({
     whatsapp_business_account_id: { type: String, default: '' },
     whatsapp_catalog_id: { type: String, default: '' },
     whatsapp_configured: { type: Boolean, default: false },
+    razorpay_key_id: { type: String, default: '' },
+    razorpay_key_secret: { type: String, default: '' },
     bot_settings: { type: Object, default: {} },
     updated_at: { type: Date, default: Date.now }
 });
