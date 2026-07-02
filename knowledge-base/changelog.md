@@ -2,6 +2,19 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Port Chat Inbox Commerce Filters
+**What**: Ported main-platform commit `3f088251462d3ae1210bfcfe3d13f0bb612cab7d` into the Mongo/Vercel Narmada fork.
+**Why**: The main platform added Chat Inbox filters for paid orders, unpaid hosted-checkout orders, and abandoned carts; Narmada still had the older tab UI and only a legacy paid-order filter.
+**Impact**: Chat Inbox now uses a compact filter dropdown, shows server-provided counts, marks conversations with Paid/Unpaid/Abandoned cart chips, and filters against Mongo `Order` state while staying compatible with older single-client order documents.
+**Files Changed**: `backend/src/models/Order.js`, `backend/src/routes/whatsapp-chat.js`, `backend/test/regression.test.js`, `frontend/src/components/WhatsAppChat.jsx`, `frontend/src/stores/store.js`, `frontend/src/styles/main.css`, `knowledge-base/README.md`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/decisions.md`, `knowledge-base/chat-inbox.md`, `knowledge-base/frontend.md`, `knowledge-base/hosted-checkout.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - `cd backend && npm test` (24 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (10 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Commit**: Pending
+
+- Added Mongo order phone-set filters for `paid`, `unpaid_orders`, and `abandoned_carts`.
+- Added `filter_counts` and per-conversation commerce flags to the Chat Inbox conversations API.
+- Replaced the Chat Inbox tab grid with the compact dropdown used by the main platform.
+- Added regression coverage for the Mongo commerce-filter route, store, UI, and CSS contracts.
+
 ## 2026-07-02 — Port Chat Inbox Compact UI And Date Formatting
 **What**: Ported the main-platform compact Chat Inbox header treatment and added Mongo-safe chat date formatting for Narmada.
 **Why**: The Narmada Chat Inbox still showed the older taller header layout, and Mongo ISO timestamps rendered as `Invalid Date` because the UI parser was built for legacy SQL timestamp strings.

@@ -83,7 +83,7 @@ const formatWhatsAppText = (text) => {
 
 export default function WhatsAppChat() {
     const {
-        conversations, totalUnread, activeConversation, chatMessages, chatHasMore,
+        conversations, conversationFilterCounts, totalUnread, activeConversation, chatMessages, chatHasMore,
         fetchConversations, fetchChatMessages, fetchOlderMessages, sendChatReply, sendChatTemplate, sendChatMedia,
         markConversationRead, archiveConversation, startNewConversation, updateConversationLabels, updateConversationBotPause,
         resolveHumanHandoff, teachBotFromConversation,
@@ -118,7 +118,7 @@ export default function WhatsAppChat() {
     };
 
     const [search, setSearch] = useState('');
-    const [activeTab, setActiveTab] = useState('all'); // 'all', 'unread', 'paid', 'needs_human'
+    const [activeFilter, setActiveFilter] = useState('all');
     const [selectedConvId, setSelectedConvId] = useState(null);
     const [messageText, setMessageText] = useState('');
     const [sending, setSending] = useState(false);
@@ -267,9 +267,9 @@ export default function WhatsAppChat() {
     // Polling removed in favor of WebSockets managed in store.js
 
     useEffect(() => {
-        const timer = setTimeout(() => fetchConversations(search, activeTab), 300);
+        const timer = setTimeout(() => fetchConversations(search, activeFilter), 300);
         return () => clearTimeout(timer);
-    }, [search, activeTab]);
+    }, [search, activeFilter]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -636,16 +636,26 @@ export default function WhatsAppChat() {
         }
     };
 
-    const visibleConversations = conversations.filter(c => activeTab === 'unread' ? c.unread_count > 0 : true);
-    const unreadConversations = conversations.filter(c => c.unread_count > 0).length;
-    const needsHumanConversations = conversations.filter(c => c.needs_human).length;
-    const openWindowConversations = conversations.filter(c => c.is_window_open).length;
-    const filterTabs = [
-        { value: 'all', label: 'All', count: conversations.length },
-        { value: 'unread', label: 'Unread', count: unreadConversations },
-        { value: 'paid', label: 'Paid Orders' },
-        { value: 'needs_human', label: 'Needs Human', count: needsHumanConversations, tone: 'danger' },
+    const visibleConversations = conversations;
+    const filterCounts = {
+        all: 0,
+        unread: 0,
+        open_windows: 0,
+        paid: 0,
+        unpaid_orders: 0,
+        abandoned_carts: 0,
+        needs_human: 0,
+        ...(conversationFilterCounts || {}),
+    };
+    const filterOptions = [
+        { value: 'all', label: 'All conversations', count: filterCounts.all },
+        { value: 'unread', label: 'Unread', count: filterCounts.unread },
+        { value: 'paid', label: 'Paid orders', count: filterCounts.paid },
+        { value: 'unpaid_orders', label: 'Unpaid orders', count: filterCounts.unpaid_orders },
+        { value: 'abandoned_carts', label: 'Abandoned carts', count: filterCounts.abandoned_carts },
+        { value: 'needs_human', label: 'Needs human', count: filterCounts.needs_human },
     ];
+    const activeFilterOption = filterOptions.find(option => option.value === activeFilter) || filterOptions[0];
     const conversationName = (conversation) => conversation?.display_name || conversation?.contact_name || conversation?.phone || 'Customer';
     const conversationInitial = (conversation) => conversationName(conversation).trim().charAt(0).toUpperCase() || 'C';
 
@@ -663,9 +673,9 @@ export default function WhatsAppChat() {
                     </span>
                 </div>
                 <div className="chat-inbox-header-actions" aria-label="Inbox summary">
-                    <span><strong>{conversations.length}</strong> conversations</span>
-                    <span><strong>{openWindowConversations}</strong> open windows</span>
-                    <span><strong>{needsHumanConversations}</strong> need help</span>
+                    <span><strong>{filterCounts.all}</strong> conversations</span>
+                    <span><strong>{filterCounts.open_windows}</strong> open windows</span>
+                    <span><strong>{filterCounts.needs_human}</strong> need help</span>
                 </div>
             </div>
 
@@ -689,18 +699,23 @@ export default function WhatsAppChat() {
                         </button>
                     </div>
 
-                    {/* Tabs */}
-                    <div className="chat-filter-tabs">
-                        {filterTabs.map(tab => (
-                            <button
-                                key={tab.value}
-                                className={`${activeTab === tab.value ? 'is-active' : ''}${tab.tone === 'danger' ? ' is-danger' : ''}`}
-                                onClick={() => setActiveTab(tab.value)}
+                    <div className="chat-filter-control">
+                        <label htmlFor="chat-filter-select">Filter</label>
+                        <div className="chat-filter-select-wrap">
+                            <Icon name="filter" size={15} />
+                            <select
+                                id="chat-filter-select"
+                                className="chat-filter-select"
+                                value={activeFilter}
+                                onInput={(event) => setActiveFilter(event.currentTarget.value)}
                             >
-                                <span>{tab.label}</span>
-                                {typeof tab.count === 'number' && <strong>{tab.count}</strong>}
-                            </button>
-                        ))}
+                                {filterOptions.map(option => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label} ({option.count || 0})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
                     {/* Conversation List */}
@@ -711,7 +726,7 @@ export default function WhatsAppChat() {
                                     <Icon name="message-circle" size={34} />
                                 </div>
                                 <strong>No conversations found</strong>
-                                <span>No matching customer threads right now.</span>
+                                <span>No {activeFilterOption.label.toLowerCase()} right now.</span>
                                 <button className="btn btn--success" onClick={openNewChatModal}>
                                     Start new chat
                                 </button>
@@ -736,8 +751,14 @@ export default function WhatsAppChat() {
                                         <span className="conversation-card__time">{formatTime(c.last_message_at)}</span>
                                     </div>
                                     <div className="conversation-card__chips">
-                                        {activeTab === 'paid' && (
+                                        {c.has_paid_order && (
                                             <span className="conversation-chip is-paid">Paid</span>
+                                        )}
+                                        {c.has_unpaid_order && (
+                                            <span className="conversation-chip is-unpaid">Unpaid</span>
+                                        )}
+                                        {c.has_abandoned_cart && (
+                                            <span className="conversation-chip is-abandoned">Abandoned cart</span>
                                         )}
                                         {c.needs_human && (
                                             <span className="conversation-chip is-human">Needs Human</span>
@@ -776,7 +797,7 @@ export default function WhatsAppChat() {
                                 <button className="btn btn--success" onClick={openNewChatModal}>
                                     Start new chat
                                 </button>
-                                <button className="btn btn--outline" onClick={() => setActiveTab('needs_human')}>
+                                <button className="btn btn--outline" onClick={() => setActiveFilter('needs_human')}>
                                     Review handoffs
                                 </button>
                             </div>

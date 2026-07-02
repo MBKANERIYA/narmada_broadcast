@@ -1,27 +1,27 @@
 ## Current Status
 **Last Updated**: 2026-07-02
-**Last Agent Session**: Ported the main-platform compact Chat Inbox header polish and fixed Narmada Mongo ISO timestamps rendering as `Invalid Date` on branch `codex/chat-inbox-compact-ui`.
-**Test Suite Status**: PASS - `cd backend && npm test` (23 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (10 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Last Agent Session**: Ported main-platform commit `3f088251462d3ae1210bfcfe3d13f0bb612cab7d` ("Add chat inbox commerce filters") into the Narmada Mongo/Vercel fork on branch `codex/chat-inbox-commerce-filters` and opened PR https://github.com/MBKANERIYA/narmada_broadcast/pull/5.
+**Test Suite Status**: PASS - `cd backend && npm test` (24 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (10 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
 
 ## In Progress
-- [ ] Have `MBKANERIYA/narmada_broadcast` accept the Chat Inbox compact UI PR from `shivanshu407:codex/chat-inbox-compact-ui`, or grant direct write access and push the branch to `main`.
-- [ ] Set/verify Vercel production env vars after merge, especially `MONGO_URI` and `JWT_SECRET`.
-- [ ] Redeploy or let Vercel auto-deploy from `main`, then smoke-test Settings -> Automation & Hours multilingual re-embed, no-order FAQ fallback, Chat Inbox compact header, timestamps, Needs Human filtering, Resolve Handoff, and teach-from-chat on the live URL.
+- [ ] Have the upstream owner merge PR https://github.com/MBKANERIYA/narmada_broadcast/pull/5, then let Vercel redeploy from `main`.
+- [ ] Smoke-test Chat Inbox filters on the live Vercel URL: All, Unread, Paid orders, Unpaid orders, Abandoned carts, Needs human, filter counts, and conversation chips.
+- [ ] Confirm Vercel production env vars still include `MONGO_URI` and `JWT_SECRET`.
 
 ## Blocked On
-- GitHub push permission - `shivanshu407` has read-only access to `MBKANERIYA/narmada_broadcast`, so updates are pushed to fork branch `codex/chat-inbox-compact-ui` and opened through a PR.
+- GitHub push permission - `shivanshu407` has read-only access to `MBKANERIYA/narmada_broadcast`, so updates are pushed to the fork and opened through a PR.
 - Vercel/MongoDB setup is manual: the code cannot create the client's Atlas database or set Vercel env vars from this local checkout.
 
 ## Decisions Needed
-- None for Smart Automation provider setup; this fork should not require an external provider key.
+- None for this change; SQL commerce filters were ported to Mongo order state for the single-client fork.
 
 ## Next Steps (for the next agent session)
-1. Have the upstream owner review and merge the Chat Inbox compact UI PR from `shivanshu407:codex/chat-inbox-compact-ui`.
-2. Check the Vercel deployment status after `main` is updated.
-3. Confirm `MONGO_URI=<mongodb-connection-string>` and `JWT_SECRET=<strong-random-jwt-secret>` are set in Vercel.
-4. Rotate/delete the previously exposed Atlas user from the old hardcoded URI.
-5. Log in on `https://narmada-broadcast-8vox.vercel.app/` and verify Settings -> Automation & Hours multilingual re-embed, Knowledge Base, Test Your Bot, compact Chat Inbox header, valid timestamps, Needs Human filtering, Resolve Handoff, and teach-from-chat.
+1. Check whether PR https://github.com/MBKANERIYA/narmada_broadcast/pull/5 is merged into `MBKANERIYA/narmada_broadcast:main`.
+2. Check the Vercel deployment status after `main` updates.
+3. Log in on `https://narmada-broadcast-8vox.vercel.app/` and verify Settings -> Automation & Hours, Knowledge Base, Test Your Bot, Chat Inbox timestamps, Resolve Handoff, teach-from-chat, and the new commerce filters.
+4. Rotate/delete the previously exposed Atlas user from the old hardcoded URI if that manual cleanup has not already been completed.
 
 ## Do Not Touch
 - Do not reintroduce hardcoded MongoDB credentials or point this fork at the original SaaS database.
-- Do not restore the unused `backend/src/routes/leads.js` mailer route without adding a mounted route, a real requirement, and a safe current mailer dependency.
+- Do not restore external AI provider requirements; Smart Automation is local with lexical fallback.
+- Do not convert this into a tenant-seat SaaS deployment unless the client requirement changes.

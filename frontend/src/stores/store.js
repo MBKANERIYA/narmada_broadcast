@@ -504,6 +504,15 @@ export const useStore = create(
             // WHATSAPP CHAT INBOX
             // ============================================================
             conversations: [],
+            conversationFilterCounts: {
+                all: 0,
+                unread: 0,
+                open_windows: 0,
+                paid: 0,
+                unpaid_orders: 0,
+                abandoned_carts: 0,
+                needs_human: 0,
+            },
             totalUnread: 0,
             activeConversation: null,
             chatMessages: [],
@@ -511,14 +520,14 @@ export const useStore = create(
 
             fetchConversations: async (search = '', filter = 'all') => {
                 try {
-                    let url = '/whatsapp/chat/conversations?';
-                    if (search) url += `search=${encodeURIComponent(search)}&`;
-                    if (filter === 'paid') url += `paid=1&`;
-                    if (filter === 'needs_human') url += `needs_human=1&`;
+                    const url = new URL('/whatsapp/chat/conversations', window.location.origin);
+                    if (search) url.searchParams.set('search', search);
+                    if (filter && filter !== 'all') url.searchParams.set('filter', filter);
 
-                    const data = await api(url);
+                    const data = await api(`${url.pathname}${url.search}`);
                     set({
                         conversations: data.conversations || [],
+                        conversationFilterCounts: data.filter_counts || get().conversationFilterCounts,
                         totalUnread: data.total_unread || 0,
                     });
                 } catch (error) {

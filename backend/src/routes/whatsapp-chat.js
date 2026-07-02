@@ -10,11 +10,100 @@ import WhatsAppChatMessage from '../models/WhatsAppChatMessage.js';
 import Contact from '../models/Contact.js';
 import User from '../models/User.js';
 import Setting from '../models/Setting.js';
+import Order from '../models/Order.js';
 import { getUploadsDir } from '../utils/uploads.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = Router();
+const allowedConversationFilters = new Set(['all', 'unread', 'paid', 'unpaid_orders', 'abandoned_carts', 'needs_human']);
+const defaultConversationFilterCounts = Object.freeze({
+    all: 0,
+    unread: 0,
+    open_windows: 0,
+    paid: 0,
+    unpaid_orders: 0,
+    abandoned_carts: 0,
+    needs_human: 0,
+});
+
+function getAbandonedDelayMinutes(env = process.env) {
+    const parsed = Number.parseInt(env.CHECKOUT_ABANDONED_AFTER_MINUTES || '30', 10);
+    if (!Number.isFinite(parsed) || parsed < 5) return 30;
+    return Math.min(parsed, 1440);
+}
+
+function escapeRegex(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function orderTenantCompatibilityFilter(tenantId) {
+    const tenantIds = [...new Set([tenantId, 'single-tenant'].filter(Boolean).map(String))];
+    return {
+        $or: [
+            { tenant_id: { $in: tenantIds } },
+            { tenant_id: { $exists: false } },
+            { tenant_id: null },
+        ],
+    };
+}
+
+function orderQuery(tenantId, criteria) {
+    return { $and: [orderTenantCompatibilityFilter(tenantId), criteria] };
+}
+
+function toPhoneSet(orders) {
+    return new Set((orders || []).map(order => order.phone).filter(Boolean));
+}
+
+async function loadCommercePhoneSets(tenantId, phones, now = new Date()) {
+    const uniquePhones = [...new Set((phones || []).filter(Boolean))];
+    const empty = {
+        paid: new Set(),
+        unpaid_orders: new Set(),
+        abandoned_carts: new Set(),
+    };
+    if (uniquePhones.length === 0) return empty;
+
+    const phoneFilter = { phone: { $in: uniquePhones } };
+    const abandonedCutoff = new Date(now.getTime() - getAbandonedDelayMinutes() * 60 * 1000);
+
+    const [paidOrders, unpaidOrders, abandonedOrders] = await Promise.all([
+        Order.find(orderQuery(tenantId, {
+            ...phoneFilter,
+            payment_status: 'paid',
+        })).select('phone').lean(),
+        Order.find(orderQuery(tenantId, {
+            ...phoneFilter,
+            source_channel: 'hosted_checkout',
+            checkout_status: 'ordered',
+            payment_status: 'pending',
+            payment_link: { $exists: true, $nin: [null, ''] },
+            fulfillment_status: { $ne: 'cancelled' },
+        })).select('phone').lean(),
+        Order.find(orderQuery(tenantId, {
+            ...phoneFilter,
+            source_channel: 'hosted_checkout',
+            checkout_status: 'open',
+            payment_status: 'pending',
+            payment_link: { $in: [null, ''] },
+            checkout_expires_at: { $gt: now },
+            created_at: { $lte: abandonedCutoff },
+        })).select('phone').lean(),
+    ]);
+
+    return {
+        paid: toPhoneSet(paidOrders),
+        unpaid_orders: toPhoneSet(unpaidOrders),
+        abandoned_carts: toPhoneSet(abandonedOrders),
+    };
+}
+
+function countPhones(conversations, phoneSet) {
+    return conversations.reduce((count, conversation) => (
+        phoneSet.has(conversation.phone) ? count + 1 : count
+    ), 0);
+}
 
 async function resolveTemplateBody(templateName, templateParams = [], tenant) {
     try {
@@ -185,33 +274,45 @@ router.post('/conversations/new', async (req, res) => {
 router.get('/conversations', async (req, res) => {
     try {
         const { search, archived = '0', page = 1, limit = 30, paid, needs_human } = req.query;
-        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 30, 1), 100);
+        const safePage = Math.max(parseInt(page, 10) || 1, 1);
+        const offset = (safePage - 1) * safeLimit;
 
-        const filter = { tenant_id: req.tenantId, is_archived: archived === '1' };
+        const requestedFilter = String(req.query.filter || '').trim();
+        let activeFilter = allowedConversationFilters.has(requestedFilter) ? requestedFilter : 'all';
+        if (paid === '1') activeFilter = 'paid';
+        if (needs_human === '1') activeFilter = 'needs_human';
 
-        if (needs_human === '1') {
-            filter.needs_human = true;
-        }
-
-        // For paid, we would ideally need a relationship to Order or check the phone in orders.
-        // Assuming we omit `paid` filtering for simplicity or we should look it up first.
-        // If we strictly need it, we'd do a complex aggregation.
-        // Let's keep it simple for now, as it's a UI filter and `paid` requires orders check.
-        if (paid === '1') {
-            const { default: Order } = await import('../models/Order.js');
-            const paidOrders = await Order.find({ tenant_id: req.tenantId, payment_status: 'paid' }).select('phone').lean();
-            const paidPhones = paidOrders.map(o => o.phone).filter(Boolean);
-            filter.phone = { $in: paidPhones };
-        }
+        const baseFilter = { tenant_id: req.tenantId, is_archived: archived === '1' };
 
         if (search) {
-            filter.$or = [
-                { contact_name: { $regex: new RegExp(search, 'i') } },
-                { phone: { $regex: new RegExp(search, 'i') } }
+            const searchPattern = new RegExp(escapeRegex(search), 'i');
+            baseFilter.$or = [
+                { contact_name: { $regex: searchPattern } },
+                { phone: { $regex: searchPattern } }
             ];
         }
 
-        const safeLimit = parseInt(limit) || 30;
+        const now = new Date();
+        const baseConversations = await WhatsAppConversation.find(baseFilter)
+            .select('phone unread_count window_expires_at needs_human')
+            .lean();
+        const commercePhoneSets = await loadCommercePhoneSets(
+            req.tenantId,
+            baseConversations.map(conversation => conversation.phone),
+            now
+        );
+        const filter = { ...baseFilter };
+
+        if (activeFilter === 'unread') {
+            filter.unread_count = { $gt: 0 };
+        }
+        if (activeFilter === 'needs_human') {
+            filter.needs_human = true;
+        }
+        if (['paid', 'unpaid_orders', 'abandoned_carts'].includes(activeFilter)) {
+            filter.phone = { $in: [...commercePhoneSets[activeFilter]] };
+        }
         
         const conversations = await WhatsAppConversation.find(filter)
             .populate('contact_id', 'name email')
@@ -219,6 +320,19 @@ router.get('/conversations', async (req, res) => {
             .skip(offset)
             .limit(safeLimit)
             .lean();
+
+        const filterCounts = {
+            ...defaultConversationFilterCounts,
+            all: baseConversations.length,
+            unread: baseConversations.filter(conversation => Number(conversation.unread_count || 0) > 0).length,
+            open_windows: baseConversations.filter(conversation => (
+                conversation.window_expires_at && new Date(conversation.window_expires_at) > now
+            )).length,
+            paid: countPhones(baseConversations, commercePhoneSets.paid),
+            unpaid_orders: countPhones(baseConversations, commercePhoneSets.unpaid_orders),
+            abandoned_carts: countPhones(baseConversations, commercePhoneSets.abandoned_carts),
+            needs_human: baseConversations.filter(conversation => conversation.needs_human).length,
+        };
 
         const unreadResult = await WhatsAppConversation.aggregate([
             { $match: { tenant_id: req.tenantId, is_archived: false } },
@@ -230,6 +344,9 @@ router.get('/conversations', async (req, res) => {
             conversations: conversations.map(conv => ({
                 ...conv,
                 id: conv._id.toString(),
+                has_paid_order: commercePhoneSets.paid.has(conv.phone),
+                has_unpaid_order: commercePhoneSets.unpaid_orders.has(conv.phone),
+                has_abandoned_cart: commercePhoneSets.abandoned_carts.has(conv.phone),
                 display_name: conv.contact_id?.name || conv.contact_name || conv.phone,
                 matched_contact_name: conv.contact_id?.name,
                 matched_contact_email: conv.contact_id?.email,
@@ -239,6 +356,7 @@ router.get('/conversations', async (req, res) => {
                     : 0,
             })),
             total_unread: totalUnread,
+            filter_counts: filterCounts,
         });
     } catch (error) {
         console.error('Fetch conversations error:', error);

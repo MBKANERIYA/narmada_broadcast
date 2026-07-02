@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-024: Chat Inbox Commerce Filters Missing From Mongo Fork
+**Status**: Resolved
+**Severity**: Medium
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: Narmada Chat Inbox still used the older All/Unread/Paid/Needs Human tab layout and could not filter unpaid hosted-checkout orders or abandoned carts from the server.
+**Root Cause**: Main-platform commit `3f088251462d3ae1210bfcfe3d13f0bb612cab7d` implemented the feature against SQL tables, while the Narmada fork uses Mongo models. The Narmada `Order` schema also lacked an explicit `tenant_id` field even though checkout code wrote one.
+**Workaround**: None needed after this fix.
+**Fix**: Added Mongo order-status phone-set filters, server-side filter counts, per-conversation commerce flags, compact dropdown UI, unpaid/abandoned chips, and `Order.tenant_id` with single-client defaults plus compatibility for older order documents.
+**Regression Test**: `backend/test/regression.test.js` test `Chat Inbox filters commerce-status conversations through Mongo order state`.
+
 ## ISSUE-023: Chat Inbox Rendered Mongo Timestamps As Invalid Date
 **Status**: Resolved
 **Severity**: Medium

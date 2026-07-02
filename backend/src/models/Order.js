@@ -9,6 +9,7 @@ const OrderItemSchema = new mongoose.Schema({
 });
 
 const OrderSchema = new mongoose.Schema({
+    tenant_id: { type: String, default: 'single-tenant', index: true },
     contact_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
     phone: { type: String, required: true },
     customer_name: { type: String },

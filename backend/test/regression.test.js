@@ -269,6 +269,42 @@ test('Chat Inbox keeps the compact header polish and formats Mongo ISO dates saf
   assert.equal(formatChatTime('not-a-date', now), '');
 });
 
+test('Chat Inbox filters commerce-status conversations through Mongo order state', () => {
+  const chatRouteSource = readRepoFile('backend/src/routes/whatsapp-chat.js');
+  const orderModelSource = readRepoFile('backend/src/models/Order.js');
+  const storeSource = readRepoFile('frontend/src/stores/store.js');
+  const chatComponentSource = readRepoFile('frontend/src/components/WhatsAppChat.jsx');
+  const mainCss = readRepoFile('frontend/src/styles/main.css');
+
+  assert.match(orderModelSource, /tenant_id:\s*\{\s*type:\s*String/);
+  assert.match(chatRouteSource, /const allowedConversationFilters = new Set\(\[/);
+  assert.match(chatRouteSource, /unpaid_orders/);
+  assert.match(chatRouteSource, /abandoned_carts/);
+  assert.match(chatRouteSource, /CHECKOUT_ABANDONED_AFTER_MINUTES/);
+  assert.match(chatRouteSource, /checkout_status:\s*'ordered'[\s\S]*payment_status:\s*'pending'[\s\S]*payment_link:\s*\{[\s\S]*\$exists:\s*true[\s\S]*\$nin:\s*\[null,\s*''\][\s\S]*\}/);
+  assert.match(chatRouteSource, /checkout_status:\s*'open'[\s\S]*payment_status:\s*'pending'[\s\S]*payment_link:\s*\{\s*\$in:\s*\[null,\s*''\]\s*\}/);
+  assert.match(chatRouteSource, /has_unpaid_order/);
+  assert.match(chatRouteSource, /has_abandoned_cart/);
+  assert.match(chatRouteSource, /filter_counts/);
+
+  assert.match(storeSource, /conversationFilterCounts/);
+  assert.match(storeSource, /url\.searchParams\.set\('filter', filter\)/);
+  assert.match(storeSource, /conversationFilterCounts:\s*data\.filter_counts/);
+
+  assert.match(chatComponentSource, /const \[activeFilter, setActiveFilter\] = useState\('all'\)/);
+  assert.match(chatComponentSource, /<select[\s\S]*className="chat-filter-select"/);
+  assert.match(chatComponentSource, /Unpaid orders/);
+  assert.match(chatComponentSource, /Abandoned carts/);
+  assert.match(chatComponentSource, /conversation-chip is-unpaid/);
+  assert.match(chatComponentSource, /conversation-chip is-abandoned/);
+  assert.doesNotMatch(chatComponentSource, /chat-filter-tabs/);
+
+  assert.match(mainCss, /\.chat-filter-control/);
+  assert.match(mainCss, /\.chat-filter-select/);
+  assert.match(mainCss, /\.conversation-chip\.is-unpaid/);
+  assert.match(mainCss, /\.conversation-chip\.is-abandoned/);
+});
+
 test('tenant settings mask payment secrets before returning to the browser', async () => {
   const { sanitizeBotSettingsForClient, mergeSecretSettings } = await importFromBackend('src/utils/settings-security.js');
   const storedSettings = {

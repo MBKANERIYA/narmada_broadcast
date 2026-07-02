@@ -69,6 +69,7 @@ narmada_broadcast/
 | `known-issues.md` | Before debugging anything |
 | `testing.md` | Before writing or changing tests |
 | `chat-inbox.md` | Before touching Chat Inbox, handoff, bot pause, media, or teach-from-chat |
+| `hosted-checkout.md` | Before touching checkout sessions, checkout order status, payment links, or commerce chat filters |
 | `chatbot.md` | Before touching Smart FAQs, Smart Automation, embeddings, or bot replies |
 | `frontend.md` | Before touching the app shell or UI components |
 | `security.md` | Before touching auth, secrets, webhooks, uploads, or payment flows |
