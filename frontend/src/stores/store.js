@@ -481,6 +481,7 @@ export const useStore = create(
                     return templates;
                 } catch (error) {
                     console.error('Failed to fetch templates:', error);
+                    get().showToast('Meta API Error: ' + error.message, 'error', 5000);
                     return [];
                 }
             },
