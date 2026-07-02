@@ -201,6 +201,13 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Direct Razorpay Link in WhatsApp Cart
+**What**: Bypassed the non-existent frontend checkout page and updated the webhook to generate and send Razorpay Payment Links directly to the customer in the chat.
+**Why**: The `frontend/src/` did not contain a `/checkout` route, leading to broken links when customers tried to pay. Generating the Razorpay link via `razorpay.paymentLink.create()` directly in the webhook provides a seamless, one-click payment experience.
+**Files Changed**: `backend/src/routes/webhook.js`, `backend/src/routes/checkout.js`
+- Replaced the frontend `/checkout/:token` URL in the WhatsApp reply with a direct Razorpay `short_url`.
+- Added a fallback `/api/v1/checkout/mock-payment/:orderId` route to simulate Razorpay payment success pages when using `.env` test credentials.
+
 ## 2026-07-02 — Razorpay Test Credentials & Mocking Support
 **What**: Added support for `.env` fallback for Razorpay credentials and implemented a mock payment link generator for test credentials.
 **Why**: To allow for seamless end-to-end testing of the checkout flow without requiring immediate valid Razorpay API keys.

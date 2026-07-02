@@ -182,6 +182,7 @@ router.post('/', async (req, res) => {
                             try {
                                 const { default: Order } = await import('../models/Order.js');
                                 const crypto = await import('crypto');
+                                const Razorpay = (await import('razorpay')).default;
                                 const checkoutToken = crypto.randomBytes(24).toString('hex');
                                 
                                 const newOrder = await Order.create({
@@ -194,16 +195,44 @@ router.post('/', async (req, res) => {
                                     items: parsedOrderItems,
                                     source_channel: 'whatsapp_cart',
                                     checkout_token: checkoutToken,
-                                    checkout_status: 'open',
+                                    checkout_status: 'ordered',
                                     checkout_expires_at: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
                                 });
                                 
                                 const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
                                 const host = req.headers['x-forwarded-host'] || req.headers.host || req.get('host');
                                 const baseUrl = `${protocol}://${host}`;
-                                const checkoutLink = `${baseUrl}/checkout/${checkoutToken}`;
                                 
-                                const confirmText = `Thank you for your order! 🎉\n\nYour cart has been received. Your total is ₹${orderTotalAmount.toFixed(2)}.\n\nTo confirm your order and provide delivery details, please complete your payment securely here:\n${checkoutLink}`;
+                                // Generate direct Razorpay Payment Link
+                                let directPaymentLink = '';
+                                try {
+                                    const keyId = setting.razorpay_key_id || process.env.RAZORPAY_KEY_ID;
+                                    const keySecret = setting.razorpay_key_secret || process.env.RAZORPAY_KEY_SECRET;
+                                    
+                                    if (keyId && keyId.includes('demo_key')) {
+                                        directPaymentLink = `${baseUrl}/api/v1/checkout/mock-payment/${newOrder._id}`;
+                                    } else if (keyId && keySecret) {
+                                        const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+                                        const rzpLink = await razorpay.paymentLink.create({
+                                            amount: Math.round(orderTotalAmount * 100),
+                                            currency: 'INR',
+                                            description: `Order #${newOrder._id} from WhatsApp`,
+                                            customer: { contact: fromPhone, name: conversation.contact_name || 'Customer' },
+                                            notify: { sms: true }
+                                        });
+                                        directPaymentLink = rzpLink.short_url;
+                                        await Order.findByIdAndUpdate(newOrder._id, { $set: { payment_link: directPaymentLink, payment_link_id: rzpLink.id } });
+                                    }
+                                } catch (rzpErr) {
+                                    console.error('[Webhook] Razorpay Link Gen Error:', rzpErr.message);
+                                }
+                                
+                                let confirmText = `Thank you for your order! 🎉\n\nYour cart has been received. Your total is ₹${orderTotalAmount.toFixed(2)}.`;
+                                if (directPaymentLink) {
+                                    confirmText += `\n\nPlease complete your payment securely using this Razorpay link:\n${directPaymentLink}`;
+                                } else {
+                                    confirmText += `\n\nOur team will process it and send you a payment link shortly.`;
+                                }
                                 const result = await sendTextMessage(fromPhone, confirmText, setting);
                                 
                                 if (result && result.messageId) {

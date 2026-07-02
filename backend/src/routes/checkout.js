@@ -239,4 +239,30 @@ router.post('/:token/place', async (req, res) => {
     }
 });
 
+router.get('/mock-payment/:orderId', async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.orderId);
+        if (!order) return res.status(404).send('Order not found');
+
+        // Simulate Razorpay payment success and redirect
+        await Order.findByIdAndUpdate(order._id, {
+            $set: { payment_status: 'paid', checkout_status: 'ordered' }
+        });
+
+        res.send(`
+            <html>
+                <head><title>Mock Razorpay Payment</title></head>
+                <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                    <h1 style="color: #10B981;">✅ Payment Successful (Test Mode)</h1>
+                    <p>Your mock Razorpay payment for Order #${order._id} was processed successfully.</p>
+                    <p>Total Paid: ${order.currency} ${order.total_amount}</p>
+                    <p style="color: #6B7280; margin-top: 30px;">You can now close this window and return to WhatsApp.</p>
+                </body>
+            </html>
+        `);
+    } catch (error) {
+        res.status(500).send('Mock payment processing failed');
+    }
+});
+
 export default router;
