@@ -175,6 +175,16 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — WhatsApp Native Cart Processing
+**What**: Added webhook handling for `msg.type === 'order'` to automatically parse and store incoming WhatsApp carts as native backend Orders.
+**Why**: When customers submitted a shopping cart via the new WhatsApp Catalog feature, the webhook had no handler for `msg.type === 'order'`, meaning orders were silently ignored by the platform and the AI bot didn't know what to do.
+**Files Changed**: `backend/src/routes/webhook.js`
+- Added parsing for `msg.order.product_items`.
+- Dynamically imports `Order` and `Product` models to map cart SKUs to local prices.
+- Creates a new `Order` record in the database.
+- Automatically sends a confirmation chat message containing the order total to the customer.
+- Bypasses the AI bot so it doesn't accidentally send FAQ responses to cart submissions.
+
 ## 2026-07-02 — Native WhatsApp Catalog Product Messages
 **What**: Updated the bot webhook to send an interactive Single Product Message instead of a plain text image when a product is retrieved.
 **Why**: The bot was sending basic plain-text images with prices. By leveraging the Meta interactive product message type, the bot now displays native WhatsApp storefront cards, which look much more professional and allow direct catalog viewing.

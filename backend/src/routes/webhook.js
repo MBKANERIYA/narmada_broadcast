@@ -81,6 +81,10 @@ router.post('/', async (req, res) => {
                             } else if (msg.interactive?.type === 'list_reply') {
                                 bodyText = msg.interactive?.list_reply?.title || '[List Reply]';
                             }
+                        } else if (msg.type === 'order') {
+                            const orderItems = msg.order?.product_items || [];
+                            const itemCount = orderItems.reduce((acc, item) => acc + parseInt(item.quantity || 1), 0);
+                            bodyText = `🛒 Cart Received: ${itemCount} items`;
                         }
 
                         // Check if message already exists
@@ -139,6 +143,74 @@ router.post('/', async (req, res) => {
                         await conversation.save();
 
                         emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+
+                        // --- NEW: Handle Order Creation ---
+                        if (msg.type === 'order') {
+                            try {
+                                const { default: Order } = await import('../models/Order.js');
+                                const { default: Product } = await import('../models/Product.js');
+                                
+                                const productItems = msg.order?.product_items || [];
+                                let totalAmount = 0;
+                                const parsedItems = [];
+                                
+                                for (const item of productItems) {
+                                    const sku = item.product_retailer_id;
+                                    const qty = parseInt(item.quantity || 1);
+                                    let itemPrice = parseFloat(item.item_price || 0);
+                                    
+                                    const product = await Product.findOne({ sku });
+                                    const name = product ? product.name : `Product (${sku})`;
+                                    if (product) {
+                                        itemPrice = product.selling_price || product.mrp || itemPrice;
+                                    }
+                                    
+                                    totalAmount += itemPrice * qty;
+                                    parsedItems.push({
+                                        product_id: product?._id,
+                                        sku,
+                                        item_name: name,
+                                        quantity: qty,
+                                        price: itemPrice
+                                    });
+                                }
+                                
+                                const newOrder = await Order.create({
+                                    tenant_id: tenantId,
+                                    contact_id: conversation.contact_id,
+                                    phone: fromPhone,
+                                    customer_name: conversation.contact_name,
+                                    total_amount: totalAmount,
+                                    currency: 'INR',
+                                    items: parsedItems,
+                                    source_channel: 'whatsapp_cart'
+                                });
+                                
+                                const confirmText = `Thank you for your order! 🎉\n\nYour cart has been received. Your total is ₹${totalAmount.toFixed(2)}.\n\nOur team will process it shortly.`;
+                                const result = await sendTextMessage(fromPhone, confirmText, setting);
+                                
+                                if (result && result.messageId) {
+                                    await WhatsAppChatMessage.create({
+                                        tenant_id: tenantId,
+                                        conversation_id: conversation._id,
+                                        direction: 'outbound',
+                                        message_type: 'text',
+                                        body: confirmText,
+                                        provider_message_id: result.messageId,
+                                        status: 'sent'
+                                    });
+                                    conversation.last_message_text = confirmText.substring(0, 100);
+                                    conversation.last_message_at = new Date();
+                                    await conversation.save();
+                                    emitToTenant(tenantId, 'chat_updated', { type: 'new_message', conversationId: conversation._id.toString() });
+                                }
+                            } catch (err) {
+                                console.error('[Webhook] Failed to process incoming order:', err);
+                            }
+                            
+                            // Skip automated bot reply since we handled the cart
+                            continue;
+                        }
 
                         // --- AI Bot Smart Responder Logic ---
                         if (conversation.bot_paused) {
