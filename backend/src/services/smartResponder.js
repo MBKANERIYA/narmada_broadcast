@@ -189,6 +189,20 @@ async function applySmartFlowSlots(reply, context, botSettings) {
 export async function handleSmartReply(tenantId, messageBody, chatHistory = [], botSettings = {}, context = {}) {
     if (!messageBody || messageBody.trim() === '') return null;
 
+    let retrievalReply = null;
+    if (flagEnabled(botSettings, 'retrieval_v2')) {
+        try {
+            const { retrieveAnswer } = await import('./retrievalEngine.js');
+            retrievalReply = await applySmartFlowSlots(await retrieveAnswer(tenantId, messageBody, botSettings), context, botSettings);
+        } catch (err) {
+            console.error('[SmartResponder] retrieval_v2 failed, falling back to legacy:', err.message);
+        }
+    }
+
+    if (retrievalReply && retrievalReply.band === 'high') {
+        return retrievalReply;
+    }
+
     if (flagEnabled(botSettings, 'smart_flows')) {
         try {
             const { handleSmartFlow } = await import('./smartFlows.js');
@@ -207,14 +221,7 @@ export async function handleSmartReply(tenantId, messageBody, chatHistory = [], 
         }
     }
 
-    if (flagEnabled(botSettings, 'retrieval_v2')) {
-        try {
-            const { retrieveAnswer } = await import('./retrievalEngine.js');
-            return await applySmartFlowSlots(await retrieveAnswer(tenantId, messageBody, botSettings), context, botSettings);
-        } catch (err) {
-            console.error('[SmartResponder] retrieval_v2 failed, falling back to legacy:', err.message);
-        }
-    }
+    if (retrievalReply) return retrievalReply;
 
     return applySmartFlowSlots(await handleSmartReplyLegacy(tenantId, messageBody, chatHistory), context, botSettings);
 }

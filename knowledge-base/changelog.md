@@ -2,6 +2,12 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Fix: High-Confidence FAQs Override Smart Flows
+**What**: Modified the `handleSmartReply` routing logic in `smartResponder.js` to evaluate `retrieval_v2` (Semantic FAQs) before `smart_flows`. If a high-confidence FAQ match is found, it now returns immediately and bypasses the built-in smart flows.
+**Why**: Customers were unable to receive replies from manually added FAQs like "where is my order?" because the generic `order_status` smart flow intercepted the phrase, attempted to look up a real database order, and returned a fallback "handoff to human" message instead of the configured FAQ answer. High-confidence specific FAQs should always win.
+**Files Changed**: `backend/src/services/smartResponder.js`
+**Commit**: Pending
+
 ## 2026-07-02 — Fix: Vercel Large Functions Support
 **What**: Added `VERCEL_SUPPORT_LARGE_FUNCTIONS: 1` to `vercel.json` environment configurations.
 **Why**: The addition of `@huggingface/transformers` to the backend increased the Serverless Function size to ~397MB, exceeding Vercel's default 250MB limit. This setting opts the deployment into Vercel's large functions beta, allowing the deployment to succeed.
