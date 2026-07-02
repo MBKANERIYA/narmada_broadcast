@@ -9,6 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..', '..');
 
 const readRepoFile = (relativePath) => readFileSync(resolve(repoRoot, relativePath), 'utf8');
+const importFromRepo = (relativePath) => import(pathToFileURL(resolve(repoRoot, relativePath)).href);
 const importFromBackend = (relativePath) => import(pathToFileURL(resolve(repoRoot, 'backend', relativePath)).href);
 
 test('MongoDB connection is environment-owned and has no hardcoded Atlas fallback', async () => {
@@ -241,6 +242,31 @@ test('Chat Inbox handoff resolution and teach actions have backend routes matchi
   assert.match(chatRouteSource, /\/conversations\/:id\/teach/);
   assert.match(chatRouteSource, /teachFromConversation/);
   assert.match(chatRouteSource, /source_message_id/);
+});
+
+test('Chat Inbox keeps the compact header polish and formats Mongo ISO dates safely', async () => {
+  const chatComponentSource = readRepoFile('frontend/src/components/WhatsAppChat.jsx');
+  const mainCss = readRepoFile('frontend/src/styles/main.css');
+  const {
+    formatChatTime,
+    formatChatFullTime,
+    formatChatDateSeparator,
+  } = await importFromRepo('frontend/src/utils/chatDates.js');
+
+  const now = new Date('2026-07-02T12:00:00.000Z');
+
+  assert.match(chatComponentSource, /chat-inbox-compact-header/);
+  assert.match(chatComponentSource, /chat-inbox-heading/);
+  assert.match(chatComponentSource, /chat-inbox-compact-subtitle/);
+  assert.match(chatComponentSource, /formatChatTime/);
+  assert.match(mainCss, /\.chat-inbox-compact-header/);
+  assert.match(mainCss, /\.chat-inbox-heading/);
+  assert.match(mainCss, /\.chat-inbox-compact-subtitle/);
+  assert.doesNotMatch(formatChatTime('2026-07-02T06:30:00.000Z', now), /Invalid Date/);
+  assert.doesNotMatch(formatChatFullTime('2026-07-02T06:30:00.000Z'), /Invalid Date/);
+  assert.doesNotMatch(formatChatDateSeparator('2026-07-02T06:30:00.000Z', now), /Invalid Date/);
+  assert.doesNotMatch(formatChatTime('2026-07-02 06:30:00', now), /Invalid Date/);
+  assert.equal(formatChatTime('not-a-date', now), '');
 });
 
 test('tenant settings mask payment secrets before returning to the browser', async () => {

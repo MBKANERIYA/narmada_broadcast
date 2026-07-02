@@ -10,6 +10,7 @@ The frontend is a Preact + Vite single-page app for tenant staff. It presents th
 | `frontend/src/components/Sidebar.jsx` | Primary navigation, tenant branding, unread badge, mobile drawer controls. |
 | `frontend/src/stores/store.js` | Zustand auth/session state, current view, socket setup, API helper methods. |
 | `frontend/src/styles/main.css` | Main design system, dashboard layout, responsive app shell, tables, cards, forms, chat, orders, auth. |
+| `frontend/src/utils/chatDates.js` | Chat Inbox timestamp parsing and display helpers for Mongo ISO and legacy SQL-style UTC strings. |
 | `frontend/src/styles/landing.css` | Public landing page styling. |
 | `frontend/vite.config.js` | Vite build setup and dev proxy configuration. |
 
@@ -26,6 +27,7 @@ The frontend is a Preact + Vite single-page app for tenant staff. It presents th
 - The app is view-state driven, not URL-route driven. Navigation buttons update Zustand `currentView`.
 - Browser QA must avoid sending WhatsApp messages, saving settings, deleting contacts/products, or uploading files unless the user explicitly asks for those side effects.
 - Some chat and order controls are icon-only or plain clickable rows, so QA may need visible-DOM or coordinate clicks rather than role-only locators.
+- Mongo ISO timestamps must not be formatted through the old inline append-`Z` parser. Use `frontend/src/utils/chatDates.js` for Chat Inbox dates.
 - `main.css` contains older baseline sections plus the newer polish layer; when changing layout, search for duplicate selectors before assuming one rule is authoritative.
 
 ## How It Is Tested

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { useStore } from '../stores/store';
+import { formatChatDateSeparator, formatChatFullTime, formatChatTime } from '../utils/chatDates';
 import Icon from './Icons';
 
 const MediaMessage = ({ mediaId, type }) => {
@@ -343,36 +344,9 @@ export default function WhatsAppChat() {
         }
     };
 
-    // Backend stores timestamps in UTC — append 'Z' so JS Date parses as UTC
-    // toLocaleTimeString then auto-converts to user's local timezone
-    const parseUTC = (dateStr) => new Date(dateStr?.replace(' ', 'T') + 'Z');
-
-    const formatTime = (dateStr) => {
-        if (!dateStr) return '';
-        const d = parseUTC(dateStr);
-        const now = new Date();
-        const isToday = d.toDateString() === now.toDateString();
-        if (isToday) return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-        const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-        if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-        return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-    };
-
-    const formatFullTime = (dateStr) => {
-        if (!dateStr) return '';
-        return parseUTC(dateStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-    };
-
-    const formatDateSeparator = (dateStr) => {
-        if (!dateStr) return '';
-        const d = parseUTC(dateStr);
-        const now = new Date();
-        const isToday = d.toDateString() === now.toDateString();
-        if (isToday) return 'Today';
-        const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-        if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-        return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-    };
+    const formatTime = formatChatTime;
+    const formatFullTime = formatChatFullTime;
+    const formatDateSeparator = formatChatDateSeparator;
 
     const statusIcon = (status) => {
         if (status === 'sent') return '\u2713';
@@ -677,16 +651,16 @@ export default function WhatsAppChat() {
 
     return (
         <div className="page-container chat-inbox-page" style={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
-            <div className="page-header chat-inbox-header" style={{ flexShrink: 0 }}>
-                <div>
-                    <span className="chat-inbox-kicker">WhatsApp support desk</span>
+            <div className="page-header chat-inbox-header chat-inbox-compact-header" style={{ flexShrink: 0 }}>
+                <div className="chat-inbox-heading">
+                    <span className="chat-inbox-kicker">Support desk</span>
                     <div className="chat-inbox-title-row">
                         <h1 className="page-title">Chat Inbox</h1>
                         {totalUnread > 0 && <span className="chat-inbox-unread-pill">{totalUnread} unread</span>}
                     </div>
-                    <p className="page-subtitle">
+                    <span className="chat-inbox-compact-subtitle">
                         {totalUnread > 0 ? `${totalUnread} unread conversation${totalUnread !== 1 ? 's' : ''}` : 'Reply to WhatsApp conversations'}
-                    </p>
+                    </span>
                 </div>
                 <div className="chat-inbox-header-actions" aria-label="Inbox summary">
                     <span><strong>{conversations.length}</strong> conversations</span>

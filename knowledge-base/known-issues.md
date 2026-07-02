@@ -2,6 +2,17 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-023: Chat Inbox Rendered Mongo Timestamps As Invalid Date
+**Status**: Resolved
+**Severity**: Medium
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: The live Chat Inbox showed `Invalid Date` in conversation rows, message bubbles, and date separators.
+**Root Cause**: `WhatsAppChat.jsx` appended `Z` to every timestamp after replacing spaces with `T`. That worked for legacy SQL-style UTC strings, but Mongo/Mongoose sends ISO strings that already include `T` and `Z`, producing invalid `...ZZ` date strings.
+**Workaround**: None needed after this fix.
+**Fix**: Added `frontend/src/utils/chatDates.js` to parse Mongo ISO strings, legacy SQL-style UTC strings, Date objects, and invalid values safely. `WhatsAppChat.jsx` now uses the shared helpers and the main-platform compact header styling.
+**Regression Test**: `backend/test/regression.test.js` test `Chat Inbox keeps the compact header polish and formats Mongo ISO dates safely`.
+
 ## ISSUE-022: Resolve Handoff PATCH Route Missing On Vercel
 **Status**: Resolved
 **Severity**: High
