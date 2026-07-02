@@ -26,6 +26,12 @@
 - Added a dedicated Catalogue KB topic documenting dashboard visibility versus WhatsApp customer visibility.
 - Live Vercel verification after deploy: `Publish to WhatsApp` queued 27 products with 0 failures; `Sync from Meta` imported 25 products and queued 25 with 0 failures.
 
+## 2026-07-02 — Bugfix: Contacts Page Tag Filter Missing Labels
+**What**: Updated the Contacts page "Tag" filter dropdown and backend API to include Chat Inbox labels (like "VIP", "Follow Up") alongside regular tags. Also formatted label display names properly in the dropdown.
+**Why**: The backend `GET /api/v1/contacts/tags/list` endpoint was previously only querying the `tags` array, completely ignoring the `labels` array. Furthermore, the `GET /api/v1/contacts` search API only filtered on `tags`. This meant Chat Inbox labels were completely unfilterable on the Contacts page.
+**Impact**: Users can now select labels (e.g. "VIP") from the Tag dropdown on the Contacts page, and the table will successfully filter to show contacts with those labels.
+**Files Changed**: `backend/src/routes/contacts.js`, `frontend/src/components/Contacts.jsx`
+
 ## 2026-07-02 — Bugfix: Labels Not Syncing to Contacts
 **What**: Fixed an issue where labels added in the Chat Inbox (like "VIP") were not syncing to the Contacts page, and incoming webhooks were failing to link conversations to existing manual contacts.
 **Why**: The backend was querying the `Contact` model with `{ tenant_id }`, but the `Contact` schema is strictly tenant-agnostic and does not contain a `tenant_id` field. Mongoose dropped the non-schema field during `.create()` (creating duplicates) and failed to match during `.findOne()` or `.updateOne()`.

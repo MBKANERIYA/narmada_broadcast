@@ -23,20 +23,32 @@ router.get('/', async (req, res) => {
         const skip = (page - 1) * limit;
         
         let query = {};
+        let andConditions = [];
         
         if (search) {
-            query.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { phone: { $regex: search, $options: 'i' } }
-            ];
+            andConditions.push({
+                $or: [
+                    { name: { $regex: search, $options: 'i' } },
+                    { phone: { $regex: search, $options: 'i' } }
+                ]
+            });
         }
         
         if (tag) {
-            query.tags = tag;
+            andConditions.push({
+                $or: [
+                    { tags: tag },
+                    { labels: tag }
+                ]
+            });
         }
         
         if (location) {
             query.location = location;
+        }
+
+        if (andConditions.length > 0) {
+            query.$and = andConditions;
         }
 
         const sortObj = {};
@@ -70,7 +82,9 @@ router.get('/', async (req, res) => {
 router.get('/tags/list', async (req, res) => {
     try {
         const tags = await Contact.distinct('tags');
-        res.json(tags.filter(t => t));
+        const labels = await Contact.distinct('labels');
+        const allTags = [...new Set([...tags, ...labels])].filter(t => t);
+        res.json(allTags);
     } catch (error) {
         res.status(500).json({ error: 'Server error' });
     }

@@ -383,7 +383,10 @@ export default function Contacts() {
                         <label className="form-label" style={{ fontSize: '11px', fontWeight: 600 }}>Tag</label>
                         <select className="form-select" value={tagFilter} onChange={e => { setTagFilter(e.target.value); setPage(1); }}>
                             <option value="">All Tags</option>
-                            {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+                            {allTags.map(t => {
+                                const lc = LABEL_COLORS[t];
+                                return <option key={t} value={t}>{lc ? lc.label : t}</option>;
+                            })}
                         </select>
                     </div>
 
