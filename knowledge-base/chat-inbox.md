@@ -11,6 +11,7 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
 | Path | Responsibility |
 |------|----------------|
 | `frontend/src/components/WhatsAppChat.jsx` | Chat list/detail UI, modals for resolving handoffs, resolving paused support chats, and teaching Smart FAQs. |
+| `frontend/src/utils/chatDates.js` | Shared timestamp parsing/formatting for Mongo ISO strings, legacy SQL-style UTC strings, and invalid values. |
 | `frontend/src/stores/store.js` | Zustand actions for `/api/v1/whatsapp/chat/*` API calls and realtime refresh handling. |
 | `backend/src/routes/whatsapp-chat.js` | Express routes for conversations, messages, send/reply actions, bot pause, handoff resolution, teach-from-chat, labels, and media proxying. |
 | `backend/src/models/WhatsAppConversation.js` | Conversation state including `bot_paused`, `needs_human`, `handoff_reason`, `bot_state`, labels, unread counts, and service-window timestamps. |
@@ -33,6 +34,11 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
   a Smart FAQ through `teachFromConversation()`.
 - Handoff state belongs in MongoDB, not localStorage, because webhook
   auto-reply behavior depends on it.
+- Keep the compact header classes (`chat-inbox-compact-header`,
+  `chat-inbox-heading`, `chat-inbox-compact-subtitle`) aligned with the main
+  broadcast platform unless the client asks for a separate visual treatment.
+- Format dates through `chatDates.js`; do not reintroduce the old append-`Z`
+  inline parser because Mongo ISO strings already include timezone markers.
 
 ## Known Gotchas
 
@@ -41,6 +47,9 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
   those mounts without making Chat Inbox explicitly authenticated.
 - Vercel returns an HTML `Cannot PATCH ...` page when a route is missing; the
   frontend toast will display that HTML if the backend route contract drifts.
+- Mongo/Mongoose serializes dates as ISO strings. Legacy MySQL-style
+  `YYYY-MM-DD HH:mm:ss` and Mongo ISO strings both appear in project history,
+  so Chat Inbox date formatting must support both.
 - Sending feedback has an external Meta API side effect. Browser QA should not
   click resolve/send actions on live customer conversations unless the user
   authorizes it.
@@ -56,6 +65,7 @@ handoffs, teach missed answers into Smart FAQs, and inspect WhatsApp media.
 - Handoff resolution clearing `needs_human`, `bot_paused`, and `handoff_reason`.
 - Teach-from-chat route coverage.
 - Persisted `bot_paused` behavior and webhook pause checks.
+- Compact-header UI class contracts and Mongo-safe chat date formatting.
 
 Run:
 

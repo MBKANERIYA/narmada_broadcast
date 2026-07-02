@@ -2,6 +2,18 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Port Chat Inbox Compact UI And Date Formatting
+**What**: Ported the main-platform compact Chat Inbox header treatment and added Mongo-safe chat date formatting for Narmada.
+**Why**: The Narmada Chat Inbox still showed the older taller header layout, and Mongo ISO timestamps rendered as `Invalid Date` because the UI parser was built for legacy SQL timestamp strings.
+**Impact**: Chat Inbox has the same compact header polish as the main broadcast platform, and conversation/message timestamps now support Mongo ISO strings, legacy SQL-style UTC strings, Date objects, and invalid values without showing `Invalid Date`.
+**Files Changed**: `frontend/src/components/WhatsAppChat.jsx`, `frontend/src/styles/main.css`, `frontend/src/utils/chatDates.js`, `backend/test/regression.test.js`, `knowledge-base/changelog.md`, `knowledge-base/known-issues.md`, `knowledge-base/chat-inbox.md`, `knowledge-base/frontend.md`, `knowledge-base/testing.md`, `knowledge-base/active-context.md`
+**Tests**: PASS - `cd backend && npm test` (23 tests); PASS - backend `node --check` sweep; PASS - `cd frontend && npm run lint` (10 warnings, 0 errors); PASS - `cd frontend && npm run build`; PASS - `npm audit --audit-level=high` in both `backend/` and `frontend/`; PASS - `git diff --check`.
+**Commit**: Pending
+
+- Added shared `chatDates.js` helpers for safe Chat Inbox timestamp parsing/formatting.
+- Updated `WhatsAppChat.jsx` to use the compact header classes and shared formatters.
+- Added regression coverage for compact header class contracts and Mongo ISO date formatting.
+
 ## 2026-07-02 — Restore Chat Inbox Handoff Routes On Vercel
 **What**: Added the missing Mongo/Vercel backend routes for Chat Inbox handoff resolution and teach-from-chat, and restored server-side Needs Human filtering.
 **Why**: The live Vercel frontend called `PATCH /api/v1/whatsapp/chat/conversations/:id/handoff/resolve`, but the backend did not define that route, so Express returned an HTML `Cannot PATCH ...` page in the error toast.
