@@ -2,6 +2,15 @@
 
 This document logs the architectural choices made during the development of the WhatsApp Broadcast SaaS.
 
+## Decision: No-Order Handoff Is Deferred Behind FAQ Retrieval
+**Date**: 2026-07-02
+**Status**: Accepted
+**Context**: Smart Flows can detect order-status intent before normal FAQ/product matching. When the phone has no order, returning the handoff immediately blocks valid delivery/payment/order-policy FAQs.
+**Decision**: Treat `reason: 'order_not_found'` handoffs as fallback replies. Store that Smart Flow reply, try retrieval v2 and legacy FAQ/product matching, and return the handoff only when retrieval cannot answer.
+**Alternatives Considered**: Disable order-status Smart Flow, always return no-order handoff, or move all retrieval ahead of flows. Those either remove useful order self-service, preserve the false-positive handoff, or weaken intentional flow replies.
+**Consequences**: Client FAQs can answer general order/delivery/payment questions even when the customer has no order. A true no-order status request still escalates if there is no FAQ/product match.
+**Superseded By**:
+
 ## Decision: Single-Client Vercel Product Uses Env-Only MongoDB
 **Date**: 2026-07-01
 **Status**: Accepted

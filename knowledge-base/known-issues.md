@@ -2,6 +2,28 @@
 
 A registry of active bugs, limitations, and workarounds.
 
+## ISSUE-021: No-Order Smart Flow Could Bypass FAQ Answers
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: A customer asking an order/delivery/payment-style question could receive the human-handoff text when their WhatsApp number had no order, even if the client had a matching Smart FAQ.
+**Root Cause**: `handleSmartReply()` returned any Smart Flow reply immediately. The `order_status` Smart Flow emits a `handoff` with `reason: 'order_not_found'`, so FAQ/product retrieval did not get a chance to answer.
+**Workaround**: None needed after this fix. Before this fix, broad delivery/payment FAQs could be shadowed by the no-order status flow.
+**Fix**: `smartResponder.js` now defers only `order_not_found` handoffs, tries retrieval v2 and legacy FAQ/product matching, and returns the deferred handoff only if retrieval cannot answer.
+**Regression Test**: `backend/test/regression.test.js` test `Smart Automation tries FAQ retrieval before no-order human handoff`.
+
+## ISSUE-020: Vercel Transformer Cache Tried To Write Under Read-Only Bundle
+**Status**: Resolved
+**Severity**: High
+**Discovered**: 2026-07-02
+**Resolved**: 2026-07-02
+**Symptom**: Switching Settings -> Automation & Hours to the multilingual E5 model on `https://narmada-broadcast-8vox.vercel.app/` showed `ENOENT: no such file or directory, mkdir '/var/task/backend/node_modules/@huggingface...'`.
+**Root Cause**: Transformers.js defaults its filesystem cache to a package-local `.cache` directory. On Vercel, `/var/task` is the deployed bundle and is read-only, so model downloads could not create cache folders there.
+**Workaround**: None needed after this fix. If a non-Vercel host needs a custom writable location, set `TRANSFORMERS_CACHE_DIR`.
+**Fix**: `backend/src/services/smartResponder.js` now sets `env.cacheDir` to `process.env.TRANSFORMERS_CACHE_DIR || path.join(os.tmpdir(), 'narmada-transformers-cache')` before any `pipeline()` model load.
+**Regression Test**: `backend/test/regression.test.js` asserts the Smart Responder configures a writable Transformers cache for serverless deploys.
+
 ## ISSUE-019: Vercel Fork Drifted Into External Provider Smart Automation
 **Status**: Resolved
 **Severity**: High

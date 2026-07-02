@@ -78,6 +78,31 @@ test('knowledge base API matches frontend contracts for list, test console, and 
   assert.match(routeSource, /router\.delete\('\/:id\/phrasings\/:phrasingId'/);
 });
 
+test('smart responder uses a writable Transformers cache on serverless deploys', () => {
+  const responderSource = readRepoFile('backend/src/services/smartResponder.js');
+
+  assert.match(responderSource, /import\s+fs\s+from\s+['"]node:fs['"]/);
+  assert.match(responderSource, /import\s+os\s+from\s+['"]node:os['"]/);
+  assert.match(responderSource, /import\s+path\s+from\s+['"]node:path['"]/);
+  assert.match(responderSource, /import\s+\{\s*env,\s*pipeline\s*\}\s+from\s+['"]@huggingface\/transformers['"]/);
+  assert.match(responderSource, /process\.env\.TRANSFORMERS_CACHE_DIR\s*\|\|\s*path\.join\(os\.tmpdir\(\),\s*['"]narmada-transformers-cache['"]\)/);
+  assert.match(responderSource, /env\.cacheDir\s*=\s*TRANSFORMERS_CACHE_DIR/);
+  assert.match(responderSource, /fs\.mkdirSync\(TRANSFORMERS_CACHE_DIR,\s*\{\s*recursive:\s*true\s*\}\)/);
+  assert.doesNotMatch(responderSource, /node_modules[^\n]+\.cache|\.cache[^\n]+node_modules/i);
+});
+
+test('Smart Automation tries FAQ retrieval before no-order human handoff', () => {
+  const smartFlowsSource = readRepoFile('backend/src/services/smartFlows.js');
+  const responderSource = readRepoFile('backend/src/services/smartResponder.js');
+
+  assert.match(smartFlowsSource, /reason: 'order_not_found'/);
+  assert.match(responderSource, /isDeferredFlowReply/);
+  assert.match(responderSource, /reply\?\.reason === 'order_not_found'/);
+  assert.match(responderSource, /deferredFlowReply = flowReply/);
+  assert.match(responderSource, /if \(retrievalReply\) return retrievalReply/);
+  assert.match(responderSource, /return legacyReply \|\| deferredFlowReply/);
+});
+
 test('smart responder can score text-only FAQs when vectors are unavailable', async () => {
   const { scoreTextMatch } = await importFromBackend('src/services/smartResponder.js');
 

@@ -24,7 +24,7 @@
 
 As of 2026-07-02:
 
-- PASS - `cd backend && npm test` (19 tests).
+- PASS - `cd backend && npm test` (21 tests).
 - PASS - backend PowerShell `node --check` sweep across `backend/src/**/*.js`.
 - PASS - `cd frontend && npm run lint` with 9 warnings and 0 errors.
 - PASS - `cd frontend && npm run build`.
@@ -52,6 +52,7 @@ Frontend automated component tests are not configured yet. Until they exist, kee
 - WhatsApp chat behavior must cover inbound message storage, realtime event refresh, 24-hour window enforcement, template sends, and bot auto-replies.
 - WhatsApp customer self-service actions must stay tenant-scoped and phone-scoped when acting on orders; cancel-order payloads must never update an order using only `tenant_id` and `id`.
 - WhatsApp support contact cards must use a configured tenant phone number; do not send placeholder or sample phone numbers to customers.
+- Smart Automation must not hand off no-order customers before trying FAQ/product retrieval.
 - Broadcast targeting must cover all recipient types, including tags, labels, and custom selections.
 - Settings must cover secret masking so tokens and payment secrets are not rehydrated into browser form state after reload.
 

@@ -1,11 +1,26 @@
-import { pipeline } from '@huggingface/transformers';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { env, pipeline } from '@huggingface/transformers';
 import KnowledgeBase from '../models/KnowledgeBase.js';
 import Product from '../models/Product.js';
 import FaqPhrasing from '../models/FaqPhrasing.js';
 import { MATCH_THRESHOLD, flagEnabled } from '../config/botConfig.js';
 
 const LEGACY_MODEL_ID = 'Xenova/all-MiniLM-L6-v2';
+const TRANSFORMERS_CACHE_DIR = process.env.TRANSFORMERS_CACHE_DIR || path.join(os.tmpdir(), 'narmada-transformers-cache');
 const extractors = new Map();
+
+function configureTransformersRuntime() {
+    try {
+        fs.mkdirSync(TRANSFORMERS_CACHE_DIR, { recursive: true });
+        env.cacheDir = TRANSFORMERS_CACHE_DIR;
+    } catch (err) {
+        console.warn('[SmartResponder] Unable to prepare local model cache:', err.message);
+    }
+}
+
+configureTransformersRuntime();
 
 export async function getExtractor(modelId = LEGACY_MODEL_ID) {
     if (!extractors.has(modelId)) {
@@ -186,10 +201,15 @@ async function applySmartFlowSlots(reply, context, botSettings) {
     }
 }
 
+function isDeferredFlowReply(reply) {
+    return reply?.type === 'handoff' && reply?.reason === 'order_not_found';
+}
+
 export async function handleSmartReply(tenantId, messageBody, chatHistory = [], botSettings = {}, context = {}) {
     if (!messageBody || messageBody.trim() === '') return null;
 
     let retrievalReply = null;
+    let deferredFlowReply = null;
     if (flagEnabled(botSettings, 'retrieval_v2')) {
         try {
             const { retrieveAnswer } = await import('./retrievalEngine.js');
@@ -215,7 +235,11 @@ export async function handleSmartReply(tenantId, messageBody, chatHistory = [], 
                 conversationId: context.conversationId,
                 persistState: context.persistState !== false,
             });
-            if (flowReply) return flowReply;
+            if (isDeferredFlowReply(flowReply)) {
+                deferredFlowReply = flowReply;
+            } else if (flowReply) {
+                return flowReply;
+            }
         } catch (err) {
             console.error('[SmartResponder] smart_flows failed, falling back to retrieval:', err.message);
         }
@@ -223,7 +247,8 @@ export async function handleSmartReply(tenantId, messageBody, chatHistory = [], 
 
     if (retrievalReply) return retrievalReply;
 
-    return applySmartFlowSlots(await handleSmartReplyLegacy(tenantId, messageBody, chatHistory), context, botSettings);
+    const legacyReply = await applySmartFlowSlots(await handleSmartReplyLegacy(tenantId, messageBody, chatHistory), context, botSettings);
+    return legacyReply || deferredFlowReply;
 }
 
 async function handleSmartReplyLegacy(tenantId, messageBody, chatHistory = []) {
