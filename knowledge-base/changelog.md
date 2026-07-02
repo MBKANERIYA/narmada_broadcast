@@ -162,7 +162,14 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
-## 2026-07-01 — Feature & Refactor: Full Frontend Parity with Reference Platform & Single-Client Adaptation
+## 2026-07-02 — WhatsApp Template Rendering in Chat Inbox
+**What**: Updated broadcast processing to render the actual template body instead of placeholder text in the Chat Inbox.
+**Why**: Users were seeing `[Broadcast Template: ...]` instead of the actual content of the broadcasted template in the chat view.
+**Files Changed**: `backend/src/routes/whatsapp.js`, `backend/src/routes/whatsapp-chat.js`
+- Exported template resolution helpers from `whatsapp-chat.js`.
+- Applied `resolveTemplateBody` in `processBroadcast` to save the rich template payload to `WhatsAppChatMessage`.
+
+## 2026-07-02 — WhatsApp Sync Fixes & Refactoring: Full Frontend Parity with Reference Platform & Single-Client Adaptation
 **What**: Synchronized all frontend UI components, stores, styles, and configurations from the reference platform (`D:\whatsapp_broadcast_saas`), while stripping out subscription plan paywalls and billing workflows to maintain the single-client architecture.
 **Why**: The user noticed that while backend features were ported earlier, the rich frontend UI capabilities—including Shopify Sync, AI Assistant Phase 2 testing & clustering console, brand theme customizer, and new catalogue management tools—were missing in the project frontend.
 **Files Changed**:
