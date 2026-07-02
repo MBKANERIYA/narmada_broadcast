@@ -2,6 +2,12 @@
 
 All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronological order.
 
+## 2026-07-02 — Sync: Pulled Latest Code
+**What**: Executed `git pull origin main` to fetch and accept all incoming changes from the remote repository.
+**Why**: User request to sync the local codebase with the remote repository.
+**Files Changed**: Multiple backend, frontend, and knowledge-base files were updated via fast-forward.
+**Commit**: `7496a14`
+
 ## 2026-07-02 — Restore Local Smart Automation For Vercel Fork
 **What**: Removed the external provider-key Smart Automation path from the Narmada Vercel fork, restored local embedding models with lexical fallback, renamed active UI/API surfaces to Smart Automation, and updated deployment docs so Vercel no longer asks for an AI key.
 **Why**: The client deployment must be a single-client version of the main WhatsApp Broadcast platform, not a cloud-provider chatbot variant. The earlier fork repair made a Gemini key optional, but the correct product contract is no external provider key requirement.
