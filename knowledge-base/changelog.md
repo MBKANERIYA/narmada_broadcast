@@ -240,6 +240,11 @@ All notable changes to the WhatsApp Broadcast SaaS project, in reverse chronolog
 - `backend/src/routes/auth.js`: Enhanced `/api/v1/auth/login` to trim inputs and robustly validate single-client `admin` / `admin123` credentials, returning `subscription_plan: 'commerce'` by default.
 - `backend/src/app.js`: Mounted `loadSettings` middleware globally before routes so all endpoints automatically attach single-tenant context.
 
+## 2026-07-02 — Contact CSV Import Array Parsing Fix
+**What**: Updated `backend/src/routes/contacts.js` to correctly handle `c.tags` and `c.labels` when they are passed as Arrays from the frontend.
+**Why**: After fixing the frontend parser, it passed cleanly formatted string arrays to the backend payload. However, the backend blindly attempted to run `.split(',')` on the tags, which crashed (TypeError: `c.tags.split is not a function`) because they were already Arrays, causing 100% of imported contacts to be skipped.
+**Files Changed**: `backend/src/routes/contacts.js`
+
 ## 2026-07-02 — Contact CSV Import Parsing Fix
 **What**: Replaced the naive `line.split(',')` CSV parser in `Contacts.jsx` with a proper parsing function that respects double quotes and commas within fields.
 **Why**: When users tried to import a CSV they had previously exported, the backend failed because the exported CSV wrapped fields in double quotes (e.g. `"Abhishek"`) and sometimes contained internal commas. The frontend wasn't stripping the quotes and was incorrectly splitting fields containing commas (like location or tags), leading to corrupted payload data and failed imports.

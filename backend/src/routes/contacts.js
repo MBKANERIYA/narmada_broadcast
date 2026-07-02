@@ -185,7 +185,20 @@ router.post('/import', async (req, res) => {
             }
 
             try {
-                const tags = c.tags ? c.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+                let tags = [];
+                if (Array.isArray(c.tags)) {
+                    tags = c.tags;
+                } else if (typeof c.tags === 'string') {
+                    tags = c.tags.split(',').map(t => t.trim()).filter(Boolean);
+                }
+
+                let labels = [];
+                if (Array.isArray(c.labels)) {
+                    labels = c.labels;
+                } else if (typeof c.labels === 'string') {
+                    labels = c.labels.split(',').map(t => t.trim()).filter(Boolean);
+                }
+
                 await Contact.findOneAndUpdate(
                     { phone: c.phone },
                     {
@@ -193,7 +206,7 @@ router.post('/import', async (req, res) => {
                         email: c.email || '',
                         location: c.location || '',
                         ticket_size: c.ticket_size ? parseFloat(c.ticket_size) : 0,
-                        $addToSet: { tags: { $each: tags } },
+                        $addToSet: { tags: { $each: tags }, labels: { $each: labels } },
                         notes: c.notes || '',
                         source: 'import'
                     },
