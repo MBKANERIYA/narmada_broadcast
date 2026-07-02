@@ -19,11 +19,5 @@
       "builder": "@vercel/node",
       "entrypoint": "src/app.js"
     }
-  },
-  "crons": [
-    {
-      "path": "/api/v1/orders/remind",
-      "schedule": "*/30 * * * *"
-    }
-  ]
+  }
 }
