@@ -7,7 +7,7 @@ export default function WhatsAppBroadcast() {
         fetchWhatsAppRecipients, sendWhatsAppBroadcast, sendWhatsAppMessage,
         fetchWhatsAppCampaigns, fetchWhatsAppCampaignDetail, controlWhatsAppCampaign,
         whatsappRecipients, whatsappCampaigns, showToast,
-        uploadTemplateImage, createWhatsAppTemplate, fetchWhatsAppTemplates,
+        uploadTemplateMedia, createWhatsAppTemplate, fetchWhatsAppTemplates,
         deleteWhatsAppTemplate, editWhatsAppTemplate, whatsappTemplates
     } = useStore();
 
@@ -20,8 +20,9 @@ export default function WhatsAppBroadcast() {
     const [tplBody, setTplBody] = useState('');
     const [tplFooter, setTplFooter] = useState('');
     const [tplButtons, setTplButtons] = useState([]); // { type, text, phone?, url?, urlExample? }
-    const [tplImageFile, setTplImageFile] = useState(null);
-    const [tplImagePreview, setTplImagePreview] = useState(null);
+    const [tplMediaFile, setTplMediaFile] = useState(null);
+    const [tplMediaPreview, setTplMediaPreview] = useState(null);
+    const [tplMediaType, setTplMediaType] = useState('IMAGE');
     const [tplCreating, setTplCreating] = useState(false);
     const [tplShowList, setTplShowList] = useState(false);
 
@@ -30,8 +31,9 @@ export default function WhatsAppBroadcast() {
     const [editBody, setEditBody] = useState('');
     const [editFooter, setEditFooter] = useState('');
     const [editButtons, setEditButtons] = useState([]);
-    const [editImageFile, setEditImageFile] = useState(null);
-    const [editImagePreview, setEditImagePreview] = useState(null);
+    const [editMediaFile, setEditMediaFile] = useState(null);
+    const [editMediaPreview, setEditMediaPreview] = useState(null);
+    const [editMediaType, setEditMediaType] = useState('IMAGE');
     const [editSaving, setEditSaving] = useState(false);
 
     const addButton = (type) => {
@@ -192,23 +194,25 @@ export default function WhatsAppBroadcast() {
         }
     };
 
-    // Template image handling
-    const handleImageSelect = (e) => {
+    // Template media handling
+    const handleMediaSelect = (e) => {
         const file = e.target.files?.[0];
         if (file) {
-            setTplImageFile(file);
+            setTplMediaFile(file);
+            setTplMediaType(file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE');
             const reader = new FileReader();
-            reader.onload = (ev) => setTplImagePreview(ev.target.result);
+            reader.onload = (ev) => setTplMediaPreview(ev.target.result);
             reader.readAsDataURL(file);
         }
     };
 
-    const handleEditImageSelect = (e) => {
+    const handleEditMediaSelect = (e) => {
         const file = e.target.files?.[0];
         if (file) {
-            setEditImageFile(file);
+            setEditMediaFile(file);
+            setEditMediaType(file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE');
             const reader = new FileReader();
-            reader.onload = (ev) => setEditImagePreview(ev.target.result);
+            reader.onload = (ev) => setEditMediaPreview(ev.target.result);
             reader.readAsDataURL(file);
         }
     };
@@ -223,8 +227,9 @@ export default function WhatsAppBroadcast() {
         setEditingTemplate(tpl);
         setEditBody(bodyComp?.text || '');
         setEditFooter(footerComp?.text || '');
-        setEditImageFile(null);
-        setEditImagePreview(null);
+        setEditMediaFile(null);
+        setEditMediaPreview(null);
+        setEditMediaType(headerComp?.format || 'IMAGE');
 
         // Reconstruct buttons
         if (buttonsComp?.buttons) {
@@ -239,10 +244,10 @@ export default function WhatsAppBroadcast() {
             setEditButtons([]);
         }
 
-        // If header is an image, show the existing URL as preview
-        if (headerComp?.format === 'IMAGE') {
+        // If header is an image or video, show the existing URL as preview
+        if (headerComp?.format === 'IMAGE' || headerComp?.format === 'VIDEO') {
             const existingUrl = headerComp.example?.header_handle?.[0] || headerComp.example?.header_url?.[0];
-            if (existingUrl) setEditImagePreview(existingUrl);
+            if (existingUrl) setEditMediaPreview(existingUrl);
         }
     };
 
@@ -252,8 +257,8 @@ export default function WhatsAppBroadcast() {
         setEditSaving(true);
         try {
             let headerImageHandle = null;
-            if (editImageFile) {
-                headerImageHandle = await uploadTemplateImage(editImageFile);
+            if (editMediaFile) {
+                headerImageHandle = await uploadTemplateMedia(editMediaFile);
             }
             const buttons = editButtons.filter(b => b.text?.trim()).map(b => ({
                 type: b.type,
@@ -264,6 +269,7 @@ export default function WhatsAppBroadcast() {
             await editWhatsAppTemplate(editingTemplate.id, {
                 bodyText: editBody,
                 headerImageHandle,
+                headerMediaType: editMediaType,
                 footerText: editFooter || null,
                 buttons,
             });
@@ -282,8 +288,8 @@ export default function WhatsAppBroadcast() {
         setTplCreating(true);
         try {
             let headerImageHandle = null;
-            if (tplImageFile) {
-                headerImageHandle = await uploadTemplateImage(tplImageFile);
+            if (tplMediaFile) {
+                headerImageHandle = await uploadTemplateMedia(tplMediaFile);
             }
             // Build buttons array for backend
             const buttons = tplButtons.filter(b => b.text?.trim()).map(b => ({
@@ -298,12 +304,13 @@ export default function WhatsAppBroadcast() {
                 language: tplLanguage,
                 bodyText: tplBody,
                 headerImageHandle,
+                headerMediaType: tplMediaType,
                 footerText: tplFooter || null,
                 buttons,
             });
             showToast('Template submitted for review by Meta');
             setTplName(''); setTplBody(''); setTplFooter(''); setTplButtons([]);
-            setTplImageFile(null); setTplImagePreview(null);
+            setTplMediaFile(null); setTplMediaPreview(null); setTplMediaType('IMAGE');
             fetchWhatsAppTemplates();
         } catch (err) {
             showToast(err.message, 'error');
@@ -404,8 +411,8 @@ export default function WhatsAppBroadcast() {
                                     </div>
 
                                     <div className="form-group">
-                                        <label className="form-label">Header Image (optional — upload new to replace)</label>
-                                        <input type="file" accept="image/*" onChange={handleEditImageSelect} className="form-input" />
+                                        <label className="form-label">Header Media (optional — upload new to replace)</label>
+                                        <input type="file" accept="image/*,video/mp4,video/quicktime" onChange={handleEditMediaSelect} className="form-input" />
                                     </div>
 
                                     <div className="form-group">
@@ -508,12 +515,17 @@ export default function WhatsAppBroadcast() {
                                             maxWidth: '300px', overflow: 'hidden',
                                             boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                                         }}>
-                                            {editImagePreview && (
-                                                <img src={editImagePreview} style={{
+                                            {editMediaPreview && editMediaType === 'VIDEO' ? (
+                                                <video src={editMediaPreview} controls style={{
                                                     width: '100%', height: '160px',
                                                     objectFit: 'cover', display: 'block',
                                                 }} />
-                                            )}
+                                            ) : editMediaPreview ? (
+                                                <img src={editMediaPreview} style={{
+                                                    width: '100%', height: '160px',
+                                                    objectFit: 'cover', display: 'block',
+                                                }} />
+                                            ) : null}
                                             <div style={{ padding: '6px 8px 4px' }}>
                                                 <div style={{
                                                     fontSize: '14px', color: '#111b21',
@@ -827,7 +839,7 @@ export default function WhatsAppBroadcast() {
                     const headerComp = selectedTemplate.components?.find(c => c.type === 'HEADER');
                     const buttonsComp = selectedTemplate.components?.find(c => c.type === 'BUTTONS');
                     const bodyText = bodyComp?.text?.replace(/\{\{(\d+)\}\}/g, (_, idx) => templateParams[parseInt(idx) - 1] || `{{${idx}}}`) || '';
-                    const hasHeaderImage = headerComp?.format === 'IMAGE';
+                    const hasHeaderMedia = headerComp?.format === 'IMAGE' || headerComp?.format === 'VIDEO';
                     const headerExample = headerComp?.example?.header_handle?.[0];
 
                     return (
@@ -841,14 +853,19 @@ export default function WhatsAppBroadcast() {
                                 background: '#ffffff', borderRadius: '0 8px 8px 8px',
                                 overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                             }}>
-                                {/* Header Image */}
-                                {hasHeaderImage && headerExample && (
+                                {/* Header Media */}
+                                {hasHeaderMedia && headerExample && headerComp?.format === 'VIDEO' ? (
+                                    <video src={headerExample} controls style={{
+                                        width: '100%', height: '150px',
+                                        objectFit: 'cover', display: 'block',
+                                    }} />
+                                ) : hasHeaderMedia && headerExample ? (
                                     <img src={headerExample} style={{
                                         width: '100%', height: '150px',
                                         objectFit: 'cover', display: 'block',
                                     }} />
-                                )}
-                                {hasHeaderImage && !headerExample && (
+                                ) : null}
+                                {hasHeaderMedia && !headerExample && (
                                     <div style={{
                                         width: '100%', height: '150px', background: '#f0f2f5',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1023,8 +1040,8 @@ export default function WhatsAppBroadcast() {
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label">Header Image (optional)</label>
-                                    <input type="file" accept="image/*" onChange={handleImageSelect} className="form-input" />
+                                    <label className="form-label">Header Media (optional)</label>
+                                    <input type="file" accept="image/*,video/mp4,video/quicktime" onChange={handleMediaSelect} className="form-input" />
                                 </div>
 
                                 <div className="form-group">
@@ -1128,13 +1145,18 @@ export default function WhatsAppBroadcast() {
                                     maxWidth: '300px', overflow: 'hidden',
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                                 }}>
-                                    {/* Header Image */}
-                                    {tplImagePreview && (
-                                        <img src={tplImagePreview} style={{
+                                    {/* Header Media */}
+                                    {tplMediaPreview && tplMediaType === 'VIDEO' ? (
+                                        <video src={tplMediaPreview} controls style={{
                                             width: '100%', height: '160px',
                                             objectFit: 'cover', display: 'block',
                                         }} />
-                                    )}
+                                    ) : tplMediaPreview ? (
+                                        <img src={tplMediaPreview} style={{
+                                            width: '100%', height: '160px',
+                                            objectFit: 'cover', display: 'block',
+                                        }} />
+                                    ) : null}
 
                                     {/* Body + Footer + Timestamp */}
                                     <div style={{ padding: '6px 8px 4px' }}>
