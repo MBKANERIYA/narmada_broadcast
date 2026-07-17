@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-17 — Fix Vercel Serverless Function Timeout
+**What**: 
+- Added a global Express middleware in `app.js` to explicitly wait for the MongoDB connection on every incoming request.
+- Added a 5-second `serverSelectionTimeoutMS` limit in `mongoose.connect()` inside `database.js` to ensure the application fails fast instead of hanging if the `MONGO_URI` is missing or invalid.
+- Updated `initDatabase` to check `mongoose.connection.readyState` directly to cleanly handle serverless cold starts.
+**Why**: 
+- The Vercel deployment was experiencing `INTERNAL_FUNCTION_INVOCATION_FAILED` (HTTP 500) errors during login because Mongoose was buffering connection promises and timing out in the serverless environment.
+**Files Changed**:
+- `backend/src/app.js`
+- `backend/src/database.js`
+- `backend/src/middleware/loadSettings.js`
+
 ## 2026-07-17 — Add Support for Video Templates in WhatsApp Broadcast
 **What**: 
 - Added support for `.mp4` and `.mov` (QuickTime) video file uploads for WhatsApp Template headers.
