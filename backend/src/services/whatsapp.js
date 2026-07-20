@@ -90,14 +90,15 @@ async function processAndCacheMediaId(mediaUrl, tenant) {
     }
 }
 
-export async function getTemplateDefinition(templateName, tenant) {
-    const cacheKey = tenantCacheKey(tenant, templateName);
+export async function getTemplateDefinition(templateName, languageCode, tenant) {
+    const cacheKey = tenantCacheKey(tenant, `${templateName}_${languageCode || 'default'}`);
     const cached = templateDefCache.get(cacheKey);
     if (cached && Date.now() - cached.fetchedAt < 5 * 60 * 1000) return cached.data;
 
     try {
         const templates = await fetchTemplates(tenant);
-        const tpl = templates.find(t => t.name === templateName);
+        // Find by name, and if language is provided, match language too. Otherwise return first match.
+        const tpl = templates.find(t => t.name === templateName && (!languageCode || t.language === languageCode));
         if (tpl) templateDefCache.set(cacheKey, { data: tpl, fetchedAt: Date.now() });
         return tpl || null;
     } catch (err) {
@@ -114,7 +115,7 @@ export async function sendTemplateMessage(phone, campaignName, templateParams = 
     if (!normalizedPhone) throw new Error(`Invalid phone number: ${phone}`);
 
     const { token, phoneId } = getCredentials(tenant);
-    const tplDef = await getTemplateDefinition(campaignName, tenant);
+    const tplDef = await getTemplateDefinition(campaignName, languageCode, tenant);
     const tplComponents = tplDef?.components || [];
     const components = [];
 

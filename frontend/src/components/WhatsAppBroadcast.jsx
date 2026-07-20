@@ -147,7 +147,8 @@ export default function WhatsAppBroadcast() {
     // Templates for dropdown
     const approvedTemplates = (whatsappTemplates || []).filter(t => t.status?.toUpperCase() === 'APPROVED');
 
-    const selectedTemplate = (whatsappTemplates || []).find(t => t.name === campaignName);
+    const [selectedTplName, selectedTplLang] = (campaignName || '').split('|');
+    const selectedTemplate = (whatsappTemplates || []).find(t => t.name === selectedTplName && t.language === selectedTplLang);
     const templateVariables = selectedTemplate?.components?.find(c => c.type === 'BODY')?.text?.match(/\{\{\d+\}\}/g) || [];
 
     const handleSend = async () => {
@@ -166,14 +167,16 @@ export default function WhatsAppBroadcast() {
             if (recipientType === 'direct') {
                 await sendWhatsAppMessage({
                     phone: directPhone,
-                    campaignName,
+                    campaignName: selectedTplName,
+                    languageCode: selectedTplLang,
                     templateParams: templateParams.filter(Boolean),
                     userName: directName || 'Customer',
                 });
                 showToast('Message sent!');
             } else {
                 const broadcastData = {
-                    campaignName,
+                    campaignName: selectedTplName,
+                    languageCode: selectedTplLang,
                     templateParams: templateParams.filter(Boolean),
                     recipientType: recipientType === 'custom' ? 'custom' : recipientType === 'labeled' ? 'labeled' : 'all',
                     recipientIds: recipientType === 'custom' ? selectedIds : undefined,
@@ -872,8 +875,9 @@ export default function WhatsAppBroadcast() {
                         <option value="">Select a template</option>
                         {(whatsappTemplates || []).map(t => {
                             const isApproved = t.status?.toUpperCase() === 'APPROVED';
+                            const compositeKey = `${t.name}|${t.language}`;
                             return (
-                                <option key={t.name} value={t.name} disabled={!isApproved}>
+                                <option key={compositeKey} value={compositeKey} disabled={!isApproved}>
                                     {t.name} ({t.language}) {isApproved ? '' : `- ${t.status}`}
                                 </option>
                             );

@@ -95,7 +95,7 @@ function countPhones(conversations, phoneSet) {
 
 export async function resolveTemplateBody(templateName, templateParams = [], tenant) {
     try {
-        const tpl = await getTemplateDefinition(templateName, tenant);
+        const tpl = await getTemplateDefinition(templateName, null, tenant);
         if (!tpl) return `[Template: ${templateName}]`;
 
         const components = tpl.components || [];
