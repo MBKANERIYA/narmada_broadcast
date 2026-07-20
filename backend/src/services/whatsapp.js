@@ -434,7 +434,9 @@ export async function uploadChunkToMeta(sessionId, fileOffset, buffer, mimeType,
         method: 'POST',
         headers: { 
             'Authorization': `OAuth ${token}`,
-            'file_offset': fileOffset.toString()
+            'file_offset': fileOffset.toString(),
+            'Content-Length': buffer.length.toString(),
+            'Content-Type': mimeType || 'application/octet-stream'
         },
         body: buffer,
     });
