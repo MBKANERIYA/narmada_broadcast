@@ -430,15 +430,16 @@ export async function startUploadSession(fileLength, mimeType, fileName, tenant)
 export async function uploadChunkToMeta(sessionId, fileOffset, buffer, mimeType, tenant) {
     const { token } = getCredentials(tenant);
     
+    // Explicitly wrap the Node Buffer in a Blob to ensure fetch streams the bytes correctly
+    const blob = new Blob([buffer], { type: mimeType || 'application/octet-stream' });
+    
     const uploadRes = await fetch(`${WHATSAPP_API_URL}/${sessionId}`, {
         method: 'POST',
         headers: { 
             'Authorization': `OAuth ${token}`,
-            'file_offset': fileOffset.toString(),
-            'Content-Length': buffer.length.toString(),
-            'Content-Type': mimeType || 'application/octet-stream'
+            'file_offset': fileOffset.toString()
         },
-        body: buffer,
+        body: blob,
     });
     const textData = await uploadRes.text();
     let uploadData;
