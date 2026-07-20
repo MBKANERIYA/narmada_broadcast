@@ -205,11 +205,18 @@ export default function Orders() {
     };
 
     const toggleSelectAll = () => {
-        if (selectedIds.size === orders.length) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(orders.map(o => o.id)));
-        }
+        const currentPageIds = orders.map(o => o.id);
+        const allCurrentSelected = currentPageIds.length > 0 && currentPageIds.every(id => selectedIds.has(id));
+
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (allCurrentSelected) {
+                currentPageIds.forEach(id => next.delete(id));
+            } else {
+                currentPageIds.forEach(id => next.add(id));
+            }
+            return next;
+        });
     };
 
     // ── Bulk Actions ──
@@ -499,7 +506,7 @@ export default function Orders() {
                     <thead>
                         <tr>
                             <th style={{ width: '36px', paddingRight: 0 }}>
-                                <input type="checkbox" checked={orders.length > 0 && selectedIds.size === orders.length} onChange={toggleSelectAll} />
+                                <input type="checkbox" checked={orders.length > 0 && orders.every(o => selectedIds.has(o.id))} onChange={toggleSelectAll} />
                             </th>
                             <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('created_at')}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -637,6 +644,7 @@ export default function Orders() {
                         <option value={25}>25 / page</option>
                         <option value={50}>50 / page</option>
                         <option value={100}>100 / page</option>
+                        <option value={500}>500 / page</option>
                     </select>
                 </div>
                 {totalPages > 1 && (

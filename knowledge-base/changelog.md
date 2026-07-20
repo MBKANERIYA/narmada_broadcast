@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-07-20 — Fix Pagination Selection Bug on Contacts and Orders
+**What**: 
+- Updated `frontend/src/components/Contacts.jsx` and `frontend/src/components/Orders.jsx` to persist selected items across different pagination pages.
+- The "Select All" checkbox in the table header now only toggles the selection for items on the current page, without unchecking previously selected items from other pages.
+- The "Select All" checkbox checked state now accurately reflects whether all items on the *current* page are selected.
+- Added a `500 / page` option to the pagination limit dropdown to allow bulk selection of up to 500 records at once.
+**Why**: 
+- When users selected items on the first page and navigated to the second page, the "Select All" checkbox logic incorrectly wiped out the selections from the previous pages. It also erroneously appeared checked if the total number of selected items happened to match the number of items on the current page. Adding the 500 items per page option provides an easier way to perform large bulk operations.
+**Files Changed**:
+- `frontend/src/components/Contacts.jsx`
+- `frontend/src/components/Orders.jsx`
+- `knowledge-base/changelog.md`
+
 ## 2026-07-17 — Fix Aggressive Scroll to Bottom in Chat Inbox
 **What**: 
 - Updated `frontend/src/components/WhatsAppChat.jsx` to only auto-scroll to the bottom when a new conversation is selected, when the user is already near the bottom and a new message arrives (via polling), or when the user themselves sends a message.

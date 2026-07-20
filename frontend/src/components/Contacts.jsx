@@ -105,11 +105,18 @@ export default function Contacts() {
     };
 
     const toggleSelectAll = () => {
-        if (selectedIds.size === contacts.length) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(contacts.map(c => c.id)));
-        }
+        const currentPageIds = contacts.map(c => c.id);
+        const allCurrentSelected = currentPageIds.length > 0 && currentPageIds.every(id => selectedIds.has(id));
+
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (allCurrentSelected) {
+                currentPageIds.forEach(id => next.delete(id));
+            } else {
+                currentPageIds.forEach(id => next.add(id));
+            }
+            return next;
+        });
     };
 
     // ── Bulk Delete ──
@@ -437,7 +444,7 @@ export default function Contacts() {
                     <thead>
                         <tr>
                             <th style={{ width: '36px', paddingRight: 0 }}>
-                                <input type="checkbox" checked={contacts.length > 0 && selectedIds.size === contacts.length} onChange={toggleSelectAll} />
+                                <input type="checkbox" checked={contacts.length > 0 && contacts.every(c => selectedIds.has(c.id))} onChange={toggleSelectAll} />
                             </th>
                             <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('name')}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -532,6 +539,7 @@ export default function Contacts() {
                         <option value={25}>25 / page</option>
                         <option value={50}>50 / page</option>
                         <option value={100}>100 / page</option>
+                        <option value={500}>500 / page</option>
                     </select>
                 </div>
                 {totalPages > 1 && (
