@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-20 — Add Pagination to Manual Contact Selection in WhatsApp Broadcast
+**What**: 
+- Updated `frontend/src/components/WhatsAppBroadcast.jsx` to support pagination when picking contacts manually for a broadcast.
+- Replaced the full list view with a paginated table view identical to the Contacts page.
+- Added `page` and `limit` state (options 25, 50, 100, 500 per page).
+- Updated the "Select All" logic to only toggle the contacts visible on the current page while preserving selection history.
+**Why**: 
+- When users had thousands of contacts, manually picking recipients caused a massive unbroken list to render, which was hard to navigate and selecting a large specific chunk was impossible without pagination controls.
+**Files Changed**:
+- `frontend/src/components/WhatsAppBroadcast.jsx`
+- `knowledge-base/changelog.md`
+
 ## 2026-07-20 — Fix Pagination Selection Bug on Contacts and Orders
 **What**: 
 - Updated `frontend/src/components/Contacts.jsx` and `frontend/src/components/Orders.jsx` to persist selected items across different pagination pages.

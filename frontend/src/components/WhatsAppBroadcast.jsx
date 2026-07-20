@@ -71,6 +71,8 @@ export default function WhatsAppBroadcast() {
     const [filterMaxTicket, setFilterMaxTicket] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState([]);
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(50);
     const [campaignName, setCampaignName] = useState('');
     const [templateParams, setTemplateParams] = useState(['', '', '']);
     const [directPhone, setDirectPhone] = useState('');
@@ -88,6 +90,7 @@ export default function WhatsAppBroadcast() {
 
     // Fetch recipients when filters change
     useEffect(() => {
+        setPage(1); // Reset page on filter change
         const timer = setTimeout(() => {
             if (recipientType !== 'direct') {
                 fetchWhatsAppRecipients({
@@ -108,6 +111,10 @@ export default function WhatsAppBroadcast() {
         return true;
     });
 
+    const contactsTotal = filteredContacts.length;
+    const totalPages = Math.ceil(contactsTotal / limit);
+    const paginatedContacts = filteredContacts.slice((page - 1) * limit, page * limit);
+
     const getRecipientCount = () => {
         if (recipientType === 'direct') return directPhone ? 1 : 0;
         if (recipientType === 'custom') return selectedIds.length;
@@ -119,8 +126,20 @@ export default function WhatsAppBroadcast() {
     };
 
     const selectAll = () => {
-        const validIds = filteredContacts.filter(c => c.validPhone).map(c => c.id);
-        setSelectedIds(validIds);
+        const validIds = paginatedContacts.filter(c => c.validPhone).map(c => c.id);
+        const allCurrentSelected = validIds.length > 0 && validIds.every(id => selectedIds.includes(id));
+
+        setSelectedIds(prev => {
+            let next = [...prev];
+            if (allCurrentSelected) {
+                next = next.filter(id => !validIds.includes(id));
+            } else {
+                validIds.forEach(id => {
+                    if (!next.includes(id)) next.push(id);
+                });
+            }
+            return next;
+        });
     };
 
     const deselectAll = () => setSelectedIds([]);
@@ -749,13 +768,19 @@ export default function WhatsAppBroadcast() {
 
                 {/* Contact List (for custom selection) */}
                 {recipientType === 'custom' && filteredContacts.length > 0 && (
+                    <>
                     <div style={{ maxHeight: '300px', overflow: 'auto', border: '1px solid var(--border)', borderRadius: '8px' }}>
                         <table className="table" style={{ fontSize: '13px' }}>
                             <thead>
-                                <tr><th style={{ width: '40px' }}></th><th>Name</th><th>Phone</th><th>Location</th><th>Ticket</th><th>Tags</th></tr>
+                                <tr>
+                                    <th style={{ width: '36px', paddingRight: 0 }}>
+                                        <input type="checkbox" checked={paginatedContacts.length > 0 && paginatedContacts.filter(c => c.validPhone).every(c => selectedIds.includes(c.id))} onChange={selectAll} />
+                                    </th>
+                                    <th>Name</th><th>Phone</th><th>Location</th><th>Ticket</th><th>Tags</th>
+                                </tr>
                             </thead>
                             <tbody>
-                                {filteredContacts.map(c => (
+                                {paginatedContacts.map(c => (
                                     <tr key={c.id} onClick={() => c.validPhone && toggleSelect(c.id)} style={{ cursor: c.validPhone ? 'pointer' : 'default', opacity: c.validPhone ? 1 : 0.4 }}>
                                         <td>
                                             <input type="checkbox" checked={selectedIds.includes(c.id)} disabled={!c.validPhone} onChange={() => {}} />
@@ -776,6 +801,32 @@ export default function WhatsAppBroadcast() {
                             </tbody>
                         </table>
                     </div>
+                    {/* Pagination */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', flexWrap: 'wrap', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                {contactsTotal > 0 ? `${((page - 1) * limit) + 1}–${Math.min(page * limit, contactsTotal)} of ${contactsTotal}` : '0 contacts'}
+                            </span>
+                            <select className="form-select" value={limit} onChange={e => { setLimit(parseInt(e.target.value)); setPage(1); }} style={{ width: 'auto', fontSize: '12px', padding: '4px 8px' }}>
+                                <option value={25}>25 / page</option>
+                                <option value={50}>50 / page</option>
+                                <option value={100}>100 / page</option>
+                                <option value={500}>500 / page</option>
+                            </select>
+                        </div>
+                        {totalPages > 1 && (
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                <button className="btn btn-secondary" disabled={page === 1} onClick={() => setPage(1)} style={{ padding: '4px 8px', fontSize: '12px' }}>«</button>
+                                <button className="btn btn-secondary" disabled={page === 1} onClick={() => setPage(p => p - 1)} style={{ padding: '4px 10px', fontSize: '12px' }}>‹ Prev</button>
+                                <span style={{ fontSize: '12px', fontWeight: 600, padding: '0 8px', color: 'var(--text-secondary)' }}>
+                                    Page {page} / {totalPages}
+                                </span>
+                                <button className="btn btn-secondary" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} style={{ padding: '4px 10px', fontSize: '12px' }}>Next ›</button>
+                                <button className="btn btn-secondary" disabled={page >= totalPages} onClick={() => setPage(totalPages)} style={{ padding: '4px 8px', fontSize: '12px' }}>»</button>
+                            </div>
+                        )}
+                    </div>
+                    </>
                 )}
 
                 {/* Next Button */}
