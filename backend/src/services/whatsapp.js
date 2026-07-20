@@ -433,8 +433,18 @@ export async function uploadChunkToMeta(sessionId, fileOffset, buffer, mimeType,
         headers: { 'Authorization': `OAuth ${token}`, 'file_offset': fileOffset.toString(), 'Content-Type': mimeType },
         body: buffer,
     });
-    const uploadData = await uploadRes.json();
-    if (!uploadRes.ok) throw new Error(formatMetaError(uploadData, 'Failed to upload media chunk'));
+    const textData = await uploadRes.text();
+    let uploadData;
+    try {
+        uploadData = JSON.parse(textData);
+    } catch(e) {
+        throw new Error(`Failed to upload media chunk: Non-JSON response from Meta: ${textData.substring(0, 100)}`);
+    }
+    
+    if (!uploadRes.ok) {
+        const defaultMsg = `Failed to upload media chunk. Raw: ${JSON.stringify(uploadData)}`;
+        throw new Error(formatMetaError(uploadData, defaultMsg));
+    }
     return uploadData;
 }
 

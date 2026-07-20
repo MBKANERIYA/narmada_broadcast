@@ -515,7 +515,7 @@ export const useStore = create(
                 let lastResult = null;
 
                 while (offset < mediaFile.size) {
-                    const chunk = mediaFile.slice(offset, offset + CHUNK_SIZE);
+                    const chunk = mediaFile.slice(offset, offset + CHUNK_SIZE, mediaFile.type);
                     const formData = new FormData();
                     formData.append('chunk', chunk, mediaFile.name);
                     formData.append('sessionId', sessionId);
