@@ -1,33 +1,5 @@
 # Changelog
 
-## 2026-07-21 — Add Missing Campaign Control Endpoints (Pause/Resume/Cancel)
-**What**:
-- Added `POST /api/v1/whatsapp/campaigns/:id/:action` endpoint to handle manual pausing, resuming, and cancelling of active broadcasts.
-- Updated the backend `process-batch` endpoint to safely halt processing and return `paused: true` if a campaign is interrupted mid-broadcast.
-- Modified the frontend `WhatsAppBroadcast.jsx` so that the `handleCampaignControl` successfully restarts the background chunking loop when a user clicks the "Resume" button.
-**Why**:
-- The new batch polling architecture bypassed Vercel's timeouts but inadvertently orphaned the UI's manual Pause/Cancel buttons since those API endpoints were missing from the new monolithic route setup. 
-- Restoring these endpoints allows users to safely stop massive broadcasts (like 200+ recipients) midway if they realize they made a mistake, without crashing the frontend loop.
-**Files Changed**:
-- `backend/src/routes/whatsapp.js`
-- `frontend/src/components/WhatsAppBroadcast.jsx`
-- `knowledge-base/changelog.md`
-
-## 2026-07-21 — Implement Frontend Batch Polling for WhatsApp Broadcasts (Vercel Fix)
-**What**:
-- Modified `POST /api/v1/whatsapp/broadcast` to only create the `WhatsAppCampaign` and insert pending `WhatsAppMessage` records, rather than processing them synchronously.
-- Created a new Vercel-safe endpoint `POST /api/v1/whatsapp/campaigns/:id/process-batch` that fetches and processes a chunk of 15 pending messages at a time.
-- Updated the frontend `WhatsAppBroadcast.jsx` to repeatedly poll the `process-batch` endpoint in a `while` loop until all messages in the campaign are processed.
-**Why**:
-- Vercel's Hobby tier enforces a strict 10-second maximum execution duration for serverless functions (`maxDuration` cannot be overridden while using the legacy `experimentalServices` monorepo routing).
-- The previous implementation caused the backend process to be killed midway through a 200-recipient broadcast.
-- By chunking the workload into batches of 15 and orchestrating the loop from the client-side, the Vercel execution limit is bypassed entirely, ensuring massive broadcasts scale reliably without requiring a dedicated background job queue.
-**Files Changed**:
-- `backend/src/routes/whatsapp.js`
-- `frontend/src/components/WhatsAppBroadcast.jsx`
-- `frontend/src/stores/store.js`
-- `knowledge-base/changelog.md`
-
 ## 2026-07-21 — Fix WhatsApp Broadcast Throughput & Vercel Timeouts
 **What**: 
 - Fixed a concurrency issue where `sendBulkMessages` was hitting Meta API rate limits by sending batches of 50 simultaneously. Messages are now sent sequentially.

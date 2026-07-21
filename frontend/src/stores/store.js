@@ -467,10 +467,6 @@ export const useStore = create(
                 return await api('/whatsapp/broadcast', { method: 'POST', body: JSON.stringify(broadcastData) });
             },
 
-            processWhatsAppBatch: async (campaignId) => {
-                return await api(`/whatsapp/campaigns/${campaignId}/process-batch`, { method: 'POST' });
-            },
-
             sendWhatsAppMessage: async (messageData) => {
                 return await api('/whatsapp/send', { method: 'POST', body: JSON.stringify(messageData) });
             },

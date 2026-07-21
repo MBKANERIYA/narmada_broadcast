@@ -4,7 +4,7 @@ import Icon from './Icons';
 
 export default function WhatsAppBroadcast() {
     const {
-        fetchWhatsAppRecipients, sendWhatsAppBroadcast, processWhatsAppBatch, sendWhatsAppMessage,
+        fetchWhatsAppRecipients, sendWhatsAppBroadcast, sendWhatsAppMessage,
         fetchWhatsAppCampaigns, fetchWhatsAppCampaignDetail, controlWhatsAppCampaign,
         whatsappRecipients, whatsappCampaigns, showToast,
         uploadTemplateMedia, createWhatsAppTemplate, fetchWhatsAppTemplates,
@@ -190,30 +190,8 @@ export default function WhatsAppBroadcast() {
                     }
                 };
                 const result = await sendWhatsAppBroadcast(broadcastData);
-                showToast(`Queued ${result.totalRecipients} contacts. Sending...`);
+                showToast(`Broadcasting to ${result.totalRecipients} contacts`);
                 fetchWhatsAppCampaigns();
-
-                // Process in chunks to prevent Vercel timeout
-                let isCompleted = false;
-                while (!isCompleted) {
-                    try {
-                        const batchRes = await processWhatsAppBatch(result.campaignId);
-                        if (batchRes.completed) {
-                            isCompleted = true;
-                            if (!batchRes.paused) {
-                                showToast(`Broadcast completed: ${batchRes.successCount} sent, ${batchRes.failCount} failed.`);
-                            }
-                        }
-                        fetchWhatsAppCampaigns(); // Update UI list
-                        if (selectedCampaign === result.campaignId) {
-                            fetchWhatsAppCampaignDetail(result.campaignId); // Update detail view if open
-                        }
-                    } catch (batchErr) {
-                        console.error('Batch processing error:', batchErr);
-                        isCompleted = true; // stop loop to prevent infinite crash loop
-                        showToast('Batch processing error. Resending may be needed.', 'error');
-                    }
-                }
             }
         } catch (err) {
             showToast(err.message, 'error');
@@ -234,28 +212,6 @@ export default function WhatsAppBroadcast() {
         try {
             await controlWhatsAppCampaign(campaign.id, action);
             showToast(`Campaign ${action === 'cancel' ? 'cancelled' : action === 'pause' ? 'paused' : 'resumed'}`);
-            if (action === 'resume') {
-                showToast(`Resuming broadcast...`);
-                let isCompleted = false;
-                while (!isCompleted) {
-                    try {
-                        const batchRes = await processWhatsAppBatch(campaign.id);
-                        if (batchRes.completed) {
-                            isCompleted = true;
-                            if (!batchRes.paused) {
-                                showToast(`Broadcast completed: ${batchRes.successCount} sent, ${batchRes.failCount} failed.`);
-                            }
-                        }
-                        fetchWhatsAppCampaigns();
-                        if (selectedCampaign === campaign.id) {
-                            fetchWhatsAppCampaignDetail(campaign.id);
-                        }
-                    } catch (batchErr) {
-                        console.error('Batch error:', batchErr);
-                        isCompleted = true;
-                    }
-                }
-            }
         } catch (err) {
             showToast(err.message, 'error');
         }
