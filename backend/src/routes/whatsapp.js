@@ -185,16 +185,14 @@ router.post('/broadcast', async (req, res) => {
             sent_by: req.user.userId,
         });
 
-        // Process in background
-        processBroadcast(campaign._id, recipients, campaignName, templateParams, languageCode, req.tenant).catch(err => {
-            console.error('Broadcast processing error:', err);
-        });
+        // Process synchronously so Vercel doesn't kill the serverless function
+        await processBroadcast(campaign._id, recipients, campaignName, templateParams, languageCode, req.tenant);
 
         res.json({
             success: true,
             campaignId: campaign._id,
             totalRecipients: recipients.length,
-            message: `Broadcasting to ${recipients.length} recipients.`,
+            message: `Successfully broadcasted to ${recipients.length} recipients.`,
         });
     } catch (error) {
         console.error('WhatsApp broadcast error:', error);
@@ -217,8 +215,8 @@ async function processBroadcast(campaignId, recipients, campaignName, templatePa
             });
         }
 
-        // Send messages via Meta API
-        const results = await sendBulkMessages(recipients, campaignName, templateParams, 50, 1000, languageCode, tenant);
+        // Send messages via Meta API — sequential with 100ms delay per message
+        const results = await sendBulkMessages(recipients, campaignName, templateParams, 0, 100, languageCode, tenant);
         console.log(`[Broadcast #${campaignId}] Done. Success: ${results.successful}, Failed: ${results.failed}`);
 
         // Update message statuses and sync with Chat Inbox

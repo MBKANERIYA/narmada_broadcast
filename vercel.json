@@ -19,5 +19,10 @@
       "builder": "@vercel/node",
       "entrypoint": "src/app.js"
     }
+  },
+  "functions": {
+    "backend/src/app.js": {
+      "maxDuration": 60
+    }
   }
 }

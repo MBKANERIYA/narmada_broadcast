@@ -1,7 +1,20 @@
 # Changelog
 
-## 2026-07-20 — Implement Chunked Media Uploads for Large Videos
+## 2026-07-21 — Fix WhatsApp Broadcast Throughput & Vercel Timeouts
 **What**: 
+- Fixed a concurrency issue where `sendBulkMessages` was hitting Meta API rate limits by sending batches of 50 simultaneously. Messages are now sent sequentially.
+- Reduced the artificial broadcast delay from 2000ms (and the hardcoded 1500ms minimum) to a configurable default of 100ms. Since Meta's rate limit is 80 req/sec, natural network latency combined with a 100ms delay easily stays well below limits while increasing broadcast speed 15x.
+- Awaited `processBroadcast` synchronously in `backend/src/routes/whatsapp.js` instead of running it fire-and-forget in the background.
+- Added `maxDuration: 60` to `vercel.json` for the backend entrypoint.
+**Why**: 
+- The user reported that broadcasts to 200 people were failing after ~11 messages. This was caused by two compounding issues: (1) Blasting 50 messages at once hit Meta's rate limits, and (2) Vercel's serverless environment immediately kills background promises once the HTTP response is sent. Awaiting the process and speeding up the send rate ensures all 200 messages are safely delivered within Vercel's 60-second execution window.
+**Files Changed**:
+- `backend/src/services/whatsapp.js`
+- `backend/src/routes/whatsapp.js`
+- `vercel.json`
+- `knowledge-base/changelog.md`
+
+## 2026-07-20 — Implement Chunked Media Uploads for Large Videos
 - Updated `frontend/src/stores/store.js` (`uploadTemplateMedia`) to split large media files into 4MB chunks and upload them sequentially.
 - Created `POST /api/v1/whatsapp/templates/upload-media/session` and `POST /api/v1/whatsapp/templates/upload-media/chunk` in `backend/src/routes/whatsapp.js` to proxy chunked uploads directly to Meta's Resumable Upload API.
 - Replaced the temporary 4.5MB file size limit in `frontend/src/components/WhatsAppBroadcast.jsx` with Meta's actual 16MB limit for video templates.

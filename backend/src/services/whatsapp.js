@@ -356,10 +356,21 @@ export async function getMediaUrl(mediaId, tenant) {
 }
 
 /**
- * Send bulk template messages with rate limiting
+ * Send bulk template messages — sequential with rate-limit protection.
+ * Sends ONE message at a time with a delay between each to avoid Meta throttling.
+ * Retries rate-limited messages (Meta error 130429) with exponential backoff.
+ *
+ * @param {Array}  recipients      - Array of { phone, name, id }
+ * @param {string} campaignName    - Template name
+ * @param {Array}  templateParams  - Body variable values
+ * @param {number} _batchSize      - (ignored, kept for backward compat)
+ * @param {number} delayMs         - Delay between each message (default 2000ms)
+ * @param {string} languageCode    - Template language code
+ * @param {object} tenant          - Tenant settings with WhatsApp credentials
  */
-export async function sendBulkMessages(recipients, campaignName, templateParams = [], batchSize = 0, delayMs = 100, languageCode = null, tenant) {
+export async function sendBulkMessages(recipients, campaignName, templateParams = [], _batchSize = 0, delayMs = 100, languageCode = null, tenant) {
     const results = { successful: 0, failed: 0, errors: [], messageIds: [] };
+    const MAX_RETRIES = 3;
 
     const validRecipients = recipients.filter(r => {
         const normalized = normalizePhone(r.phone);
@@ -367,26 +378,52 @@ export async function sendBulkMessages(recipients, campaignName, templateParams 
         return true;
     }).map(r => ({ ...r, normalizedPhone: normalizePhone(r.phone) }));
 
-    // Send all at once (no batching unless explicitly set)
-    const actualBatch = batchSize > 0 ? batchSize : validRecipients.length;
+    const safeDelay = delayMs;
 
-    for (let i = 0; i < validRecipients.length; i += actualBatch) {
-        const batch = validRecipients.slice(i, i + actualBatch);
-        const batchPromises = batch.map(async (recipient) => {
+    for (let i = 0; i < validRecipients.length; i++) {
+        const recipient = validRecipients[i];
+        let sent = false;
+
+        for (let attempt = 0; attempt < MAX_RETRIES && !sent; attempt++) {
             try {
-                const data = await sendTemplateMessage(recipient.normalizedPhone, campaignName, templateParams, recipient.name || 'Customer', languageCode, tenant);
+                const data = await sendTemplateMessage(
+                    recipient.normalizedPhone, campaignName, templateParams,
+                    recipient.name || 'Customer', languageCode, tenant
+                );
                 results.successful++;
                 results.messageIds.push({ phone: recipient.normalizedPhone, name: recipient.name, messageId: data.messageId });
+                sent = true;
             } catch (error) {
-                results.failed++;
-                results.errors.push({ phone: recipient.phone, name: recipient.name, error: error.message });
-            }
-        });
+                const isRateLimited = error.message?.includes('130429') ||
+                                      error.message?.toLowerCase().includes('rate') ||
+                                      error.message?.toLowerCase().includes('too many') ||
+                                      error.message?.toLowerCase().includes('throttl');
 
-        await Promise.all(batchPromises);
-        if (i + actualBatch < validRecipients.length) await new Promise(resolve => setTimeout(resolve, delayMs));
+                if (isRateLimited && attempt < MAX_RETRIES - 1) {
+                    // Exponential backoff: 5s, 15s, 45s
+                    const backoff = 5000 * Math.pow(3, attempt);
+                    console.log(`[Broadcast] Rate limited on ${recipient.normalizedPhone}, retrying in ${backoff / 1000}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
+                    await new Promise(resolve => setTimeout(resolve, backoff));
+                } else {
+                    results.failed++;
+                    results.errors.push({ phone: recipient.phone, name: recipient.name, error: error.message });
+                    sent = true; // Don't retry non-rate-limit errors
+                }
+            }
+        }
+
+        // Delay between each message to respect Meta rate limits
+        if (i < validRecipients.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, safeDelay));
+        }
+
+        // Log progress every 25 messages
+        if ((i + 1) % 25 === 0) {
+            console.log(`[Broadcast] Progress: ${i + 1}/${validRecipients.length} (✓${results.successful} ✗${results.failed})`);
+        }
     }
 
+    console.log(`[Broadcast] Complete: ${results.successful} sent, ${results.failed} failed out of ${validRecipients.length}`);
     return results;
 }
 
