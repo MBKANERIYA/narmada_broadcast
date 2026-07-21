@@ -4,7 +4,7 @@ import Icon from './Icons';
 
 export default function WhatsAppBroadcast() {
     const {
-        fetchWhatsAppRecipients, sendWhatsAppBroadcast, sendWhatsAppMessage,
+        fetchWhatsAppRecipients, sendWhatsAppBroadcast, processWhatsAppBatch, sendWhatsAppMessage,
         fetchWhatsAppCampaigns, fetchWhatsAppCampaignDetail, controlWhatsAppCampaign,
         whatsappRecipients, whatsappCampaigns, showToast,
         uploadTemplateMedia, createWhatsAppTemplate, fetchWhatsAppTemplates,
@@ -190,8 +190,28 @@ export default function WhatsAppBroadcast() {
                     }
                 };
                 const result = await sendWhatsAppBroadcast(broadcastData);
-                showToast(`Broadcasting to ${result.totalRecipients} contacts`);
+                showToast(`Queued ${result.totalRecipients} contacts. Sending...`);
                 fetchWhatsAppCampaigns();
+
+                // Process in chunks to prevent Vercel timeout
+                let isCompleted = false;
+                while (!isCompleted) {
+                    try {
+                        const batchRes = await processWhatsAppBatch(result.campaignId);
+                        if (batchRes.completed) {
+                            isCompleted = true;
+                            showToast(`Broadcast completed: ${batchRes.successCount} sent, ${batchRes.failCount} failed.`);
+                        }
+                        fetchWhatsAppCampaigns(); // Update UI list
+                        if (selectedCampaign === result.campaignId) {
+                            fetchWhatsAppCampaignDetail(result.campaignId); // Update detail view if open
+                        }
+                    } catch (batchErr) {
+                        console.error('Batch processing error:', batchErr);
+                        isCompleted = true; // stop loop to prevent infinite crash loop
+                        showToast('Batch processing error. Resending may be needed.', 'error');
+                    }
+                }
             }
         } catch (err) {
             showToast(err.message, 'error');

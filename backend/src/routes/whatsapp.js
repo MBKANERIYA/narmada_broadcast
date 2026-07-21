@@ -185,14 +185,14 @@ router.post('/broadcast', async (req, res) => {
             sent_by: req.user.userId,
         });
 
-        // Process synchronously so Vercel doesn't kill the serverless function
-        await processBroadcast(campaign._id, recipients, campaignName, templateParams, languageCode, req.tenant);
+        // Initialize campaign and insert pending messages
+        await initBroadcast(campaign._id, recipients, campaignName);
 
         res.json({
             success: true,
             campaignId: campaign._id,
             totalRecipients: recipients.length,
-            message: `Successfully broadcasted to ${recipients.length} recipients.`,
+            message: `Successfully queued ${recipients.length} recipients.`,
         });
     } catch (error) {
         console.error('WhatsApp broadcast error:', error);
@@ -200,36 +200,64 @@ router.post('/broadcast', async (req, res) => {
     }
 });
 
-async function processBroadcast(campaignId, recipients, campaignName, templateParams, languageCode, tenant) {
+async function initBroadcast(campaignId, recipients, campaignName) {
     try {
-        console.log(`[Broadcast #${campaignId}] Sending ${recipients.length} messages (template: ${campaignName})...`);
+        console.log(`[Broadcast #${campaignId}] Queuing ${recipients.length} messages (template: ${campaignName})...`);
 
         // Insert pending message records
-        for (const r of recipients) {
-            await WhatsAppMessage.create({
-                campaign_id: campaignId,
-                phone: normalizePhone(r.phone) || r.phone,
-                recipient_name: r.name,
-                recipient_id: r.id,
-                status: 'pending',
-            });
+        const pendingDocs = recipients.map(r => ({
+            campaign_id: campaignId,
+            phone: normalizePhone(r.phone) || r.phone,
+            recipient_name: r.name,
+            recipient_id: r.id,
+            status: 'pending',
+        }));
+        await WhatsAppMessage.insertMany(pendingDocs, { ordered: false });
+    } catch (error) {
+        console.error(`[Broadcast #${campaignId}] Error queuing messages:`, error.message);
+        throw error;
+    }
+}
+
+// Endpoint to process a chunk of pending messages for a campaign (Vercel-safe)
+router.post('/campaigns/:id/process-batch', auth, async (req, res) => {
+    try {
+        const campaignId = req.params.id;
+        const campaign = await WhatsAppCampaign.findById(campaignId);
+        if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+        
+        if (campaign.status === 'completed' || campaign.status === 'cancelled') {
+            return res.json({ completed: true, processed: 0, pending: 0 });
         }
 
-        // Send messages via Meta API — sequential with 100ms delay per message
-        const results = await sendBulkMessages(recipients, campaignName, templateParams, 0, 100, languageCode, tenant);
-        console.log(`[Broadcast #${campaignId}] Done. Success: ${results.successful}, Failed: ${results.failed}`);
+        const BATCH_LIMIT = 15; // Small batch to easily fit inside Vercel's 10s limit
+        const pendingMessages = await WhatsAppMessage.find({
+            campaign_id: campaignId,
+            status: 'pending'
+        }).limit(BATCH_LIMIT);
 
-        // Update message statuses and sync with Chat Inbox
-        const tenantId = tenant?._id ? tenant._id.toString() : '6a3a72a84065eb9ea35938db';
+        if (pendingMessages.length === 0) {
+            // Mark completed if no pending left
+            const successCount = await WhatsAppMessage.countDocuments({ campaign_id: campaignId, status: 'sent' });
+            const failCount = await WhatsAppMessage.countDocuments({ campaign_id: campaignId, status: 'failed' });
+            await WhatsAppCampaign.updateOne({ _id: campaignId }, { status: 'completed', successful_count: successCount, failed_count: failCount, completed_at: new Date() });
+            return res.json({ completed: true, processed: 0, pending: 0 });
+        }
+
+        // Send messages via Meta API
+        const recipientsToProcess = pendingMessages.map(m => ({ id: m.recipient_id, name: m.recipient_name, phone: m.phone }));
+        const templateParams = parseTemplateParams(campaign.template_params);
+        
+        const results = await sendBulkMessages(recipientsToProcess, campaign.campaign_name, templateParams, 0, 100, campaign.language_code, req.tenant);
+        
+        // Sync with Chat Inbox
+        const tenantId = req.tenant?._id ? req.tenant._id.toString() : '6a3a72a84065eb9ea35938db';
         const { resolveTemplateBody, getTemplatePlainText } = await import('./whatsapp-chat.js');
-        const resolvedBody = await resolveTemplateBody(campaignName, templateParams, tenant);
+        const resolvedBody = await resolveTemplateBody(campaign.campaign_name, templateParams, req.tenant);
         const plainTextBody = getTemplatePlainText(resolvedBody).substring(0, 100);
 
         for (const msg of results.messageIds) {
-            await WhatsAppMessage.updateOne(
-                { campaign_id: campaignId, phone: msg.phone },
-                { status: 'sent', sent_at: new Date(), provider_message_id: msg.messageId }
-            );
+            await WhatsAppMessage.updateOne({ campaign_id: campaignId, phone: msg.phone }, { status: 'sent', sent_at: new Date(), provider_message_id: msg.messageId });
 
             try {
                 let conversation = await WhatsAppConversation.findOne({ tenant_id: tenantId, phone: msg.phone });
@@ -262,30 +290,30 @@ async function processBroadcast(campaignId, recipients, campaignName, templatePa
                     sent_by: 'admin-user-id'
                 });
             } catch (chatErr) {
-                console.error(`[Broadcast #${campaignId}] Error syncing chat inbox for ${msg.phone}:`, chatErr.message);
+                console.error(`Error syncing chat inbox for ${msg.phone}:`, chatErr.message);
             }
         }
         for (const err of results.errors) {
             const normalized = normalizePhone(err.phone) || err.phone;
-            await WhatsAppMessage.updateOne(
-                { campaign_id: campaignId, phone: normalized },
-                { status: 'failed', error_message: err.error }
-            );
+            await WhatsAppMessage.updateOne({ campaign_id: campaignId, phone: normalized }, { status: 'failed', error_message: err.error });
         }
 
-        // Mark campaign completed
-        await WhatsAppCampaign.updateOne(
-            { _id: campaignId },
-            {
-                status: 'completed',
-                successful_count: results.successful,
-                failed_count: results.failed,
-                completed_at: new Date(),
-                error_log: results.errors.length > 0 ? JSON.stringify(results.errors.slice(0, 50)) : null,
-            }
-        );
+        // Update campaign counts
+        const successCount = await WhatsAppMessage.countDocuments({ campaign_id: campaignId, status: 'sent' });
+        const failCount = await WhatsAppMessage.countDocuments({ campaign_id: campaignId, status: 'failed' });
+        const remainingPending = await WhatsAppMessage.countDocuments({ campaign_id: campaignId, status: 'pending' });
+        
+        await WhatsAppCampaign.updateOne({ _id: campaignId }, { successful_count: successCount, failed_count: failCount, status: remainingPending === 0 ? 'completed' : 'processing' });
+
+        res.json({
+            completed: remainingPending === 0,
+            processed: pendingMessages.length,
+            pending: remainingPending,
+            successCount,
+            failCount
+        });
     } catch (error) {
-        console.error(`[Broadcast #${campaignId}] FATAL ERROR:`, error.message);
+        console.error(`[Broadcast Batch #${req.params.id}] Error:`, error.message);
         try {
             await WhatsAppCampaign.updateOne(
                 { _id: campaignId },
