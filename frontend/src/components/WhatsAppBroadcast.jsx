@@ -211,7 +211,11 @@ export default function WhatsAppBroadcast() {
     const handleCampaignControl = async (campaign, action) => {
         try {
             await controlWhatsAppCampaign(campaign.id, action);
-            showToast(`Campaign ${action === 'cancel' ? 'cancelled' : action === 'pause' ? 'paused' : 'resumed'}`);
+            showToast(`Campaign ${action === 'cancel' ? 'cancelled' : action === 'pause' ? 'paused' : action === 'retry-failed' ? 'retrying' : 'resumed'}`);
+            if (selectedCampaign === campaign.id || (campaignDetail && campaignDetail.id === campaign.id)) {
+                viewCampaign(campaign.id);
+            }
+            fetchWhatsAppCampaigns();
         } catch (err) {
             showToast(err.message, 'error');
         }
@@ -635,19 +639,37 @@ export default function WhatsAppBroadcast() {
                             </div>
                         )}
                         <div style={{ display: 'grid', grid: 'auto / 1fr 1fr 1fr', gap: '12px', margin: '16px 0' }}>
-                            <div className="stat-card">
-                                <div className="stat-value">{campaignDetail.total_recipients}</div>
+                            <div className="stat-card" style={{ borderColor: '#e2e8f0' }}>
+                                <div className="stat-value">{campaignDetail.total_recipients || 0}</div>
                                 <div className="stat-label">Total</div>
                             </div>
                             <div className="stat-card" style={{ borderColor: '#22c55e' }}>
-                                <div className="stat-value" style={{ color: '#22c55e' }}>{campaignDetail.successful_count || 0}</div>
+                                <div className="stat-value" style={{ color: '#22c55e' }}>
+                                    {campaignDetail.messages ? campaignDetail.messages.filter(m => ['sent','delivered','read'].includes(m.status)).length : (campaignDetail.successful_count || 0)}
+                                </div>
                                 <div className="stat-label">Sent</div>
                             </div>
                             <div className="stat-card" style={{ borderColor: '#ef4444' }}>
-                                <div className="stat-value" style={{ color: '#ef4444' }}>{campaignDetail.failed_count || 0}</div>
+                                <div className="stat-value" style={{ color: '#ef4444' }}>
+                                    {campaignDetail.messages ? campaignDetail.messages.filter(m => m.status === 'failed').length : (campaignDetail.failed_count || 0)}
+                                </div>
                                 <div className="stat-label">Failed</div>
                             </div>
                         </div>
+
+                        {campaignDetail.messages && campaignDetail.messages.some(m => m.status === 'failed') && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                                <button 
+                                    className="btn btn--outline" 
+                                    style={{ fontSize: '12px', color: '#ef4444', borderColor: '#ef4444' }}
+                                    onClick={() => handleCampaignControl(campaignDetail, 'retry-failed')}
+                                >
+                                    <Icon name="refresh" size={14} style={{ marginRight: '6px' }} />
+                                    Retry Failed Messages
+                                </button>
+                            </div>
+                        )}
+
                         {campaignDetail.messages && (
                             <table className="table" style={{ fontSize: '12px' }}>
                                 <thead>

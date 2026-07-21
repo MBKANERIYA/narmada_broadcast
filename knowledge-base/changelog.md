@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-07-21 — Add "Retry Failed" Broadcast Feature & Fix UI Stats
+**What**:
+- Modified `frontend/src/components/WhatsAppBroadcast.jsx` to dynamically calculate the `Sent` and `Failed` counts from the actual message list in the Campaign Detail modal, instead of relying on the campaign's top-level summary which could be stale if the process was interrupted.
+- Added a "Retry Failed Messages" button to the Campaign Detail modal.
+- Updated `POST /api/v1/whatsapp/campaigns/:id/:action` in `backend/src/routes/whatsapp.js` to support the `retry-failed` action. This fetches all failed messages, resets their status to `pending`, and re-triggers the `processBroadcast` loop exclusively for them.
+**Why**:
+- Previously, if a broadcast was cancelled midway, the UI top-level counters would display `0 Sent` but the individual message rows would accurately reflect `Sent`. Dynamically counting the message rows ensures 100% accuracy in the UI.
+- Users frequently requested the ability to automatically retry the failed contacts without having to create a brand new manual broadcast targeting just those specific numbers.
+**Files Changed**:
+- `backend/src/routes/whatsapp.js`
+- `frontend/src/components/WhatsAppBroadcast.jsx`
+- `knowledge-base/changelog.md`
+
 ## 2026-07-21 — Restore Missing Campaign Control Endpoints (Pause/Resume/Cancel)
 **What**:
 - Added `POST /api/v1/whatsapp/campaigns/:id/:action` endpoint to handle manual pausing, resuming, and cancelling of active broadcasts from the frontend UI.

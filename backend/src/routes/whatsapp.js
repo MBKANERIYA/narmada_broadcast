@@ -348,6 +348,25 @@ router.post('/campaigns/:id/:action', async (req, res) => {
             campaign.status = 'paused';
         } else if (action === 'resume') {
             campaign.status = 'processing';
+        } else if (action === 'retry-failed') {
+            const failedMessages = await WhatsAppMessage.find({ campaign_id: id, status: 'failed' }).lean();
+            if (failedMessages.length > 0) {
+                await WhatsAppMessage.updateMany(
+                    { campaign_id: id, status: 'failed' },
+                    { $set: { status: 'pending', error_message: null } }
+                );
+                campaign.status = 'processing';
+                
+                // Trigger background processing for just the failed ones
+                processBroadcast(
+                    campaign._id,
+                    failedMessages.map(m => ({ phone: m.phone, name: m.recipient_name, id: m.recipient_id })),
+                    campaign.campaign_name,
+                    [], // Parameters are not persisted, so we send empty [] for retries
+                    campaign.language_code || 'en_US',
+                    req.tenant
+                ).catch(err => console.error('Retry broadcast error:', err));
+            }
         } else if (action === 'cancel') {
             campaign.status = 'cancelled';
             await WhatsAppMessage.updateMany(
