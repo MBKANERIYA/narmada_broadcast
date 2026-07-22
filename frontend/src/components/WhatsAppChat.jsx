@@ -289,7 +289,7 @@ export default function WhatsAppChat() {
             try {
                 await fetchConversationsRef.current(searchRef.current, activeFilterRef.current);
                 if (currentConversationId) {
-                    await fetchChatMessagesRef.current(currentConversationId);
+                    await fetchChatMessagesRef.current(currentConversationId, { isPolling: true });
                 }
             } catch (err) {
                 console.error('Chat Inbox polling refresh failed:', err);
@@ -1032,7 +1032,16 @@ export default function WhatsAppChat() {
                                         <button
                                             onClick={async () => {
                                                 setLoadingOlder(true);
+                                                const container = chatContainerRef.current;
+                                                const prevScrollHeight = container ? container.scrollHeight : 0;
                                                 await fetchOlderMessages(selectedConvId);
+                                                // Preserve scroll position after older messages are prepended
+                                                if (container) {
+                                                    requestAnimationFrame(() => {
+                                                        const newScrollHeight = container.scrollHeight;
+                                                        container.scrollTop = newScrollHeight - prevScrollHeight;
+                                                    });
+                                                }
                                                 setLoadingOlder(false);
                                             }}
                                             disabled={loadingOlder}

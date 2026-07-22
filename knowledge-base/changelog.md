@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-07-22 — Fix "Load Older Messages" in Chat Inbox
+**What**: Fixed two bugs that made the "Load Older Messages" button non-functional:
+1. Polling (every 5s) was calling `fetchChatMessages` which replaced the entire message list with only the latest 50, wiping out any older messages the user had just loaded.
+2. After loading older messages, scroll position was not preserved — the view could jump away from the user's reading position.
+**Why**: Users clicking "Load Older Messages" would see the older messages flash briefly then disappear on the next poll cycle. The root cause was the polling refresh doing a full replace instead of merging.
+**Fix**:
+- Added `chatOlderLoaded` flag to the store. When true, polling merges only new messages at the bottom instead of replacing the full list.
+- The flag is set when `fetchOlderMessages` succeeds and cleared when a conversation is switched or a non-polling fetch occurs.
+- Added scroll position preservation in the button handler using `scrollHeight` delta calculation.
+**Files Changed**:
+- `frontend/src/stores/store.js` — Added `chatOlderLoaded` state, `chatHasMore` to initial state, modified `fetchChatMessages` to accept `{ isPolling }` option and merge instead of replace when older messages are loaded.
+- `frontend/src/components/WhatsAppChat.jsx` — Polling passes `{ isPolling: true }`, Load Older button preserves scroll position via `requestAnimationFrame`.
+- `knowledge-base/changelog.md`
+
 ## 2026-07-21 — Add "Retry Failed" Broadcast Feature & Fix UI Stats
 **What**:
 - Modified `frontend/src/components/WhatsAppBroadcast.jsx` to dynamically calculate the `Sent` and `Failed` counts from the actual message list in the Campaign Detail modal, instead of relying on the campaign's top-level summary which could be stale if the process was interrupted.

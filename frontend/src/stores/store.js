@@ -583,6 +583,8 @@ export const useStore = create(
             activeConversation: null,
             chatMessages: [],
             chatMessagesTotal: 0,
+            chatHasMore: false,
+            chatOlderLoaded: false,
 
             fetchConversations: async (search = '', filter = 'all') => {
                 try {
@@ -601,15 +603,36 @@ export const useStore = create(
                 }
             },
 
-            fetchChatMessages: async (conversationId) => {
+            fetchChatMessages: async (conversationId, { isPolling = false } = {}) => {
                 try {
                     const data = await api(`/whatsapp/chat/conversations/${conversationId}/messages?limit=50`);
-                    set({
-                        activeConversation: data.conversation,
-                        chatMessages: data.messages || [],
-                        chatMessagesTotal: data.total || 0,
-                        chatHasMore: data.has_more || false,
-                    });
+                    const newMessages = data.messages || [];
+
+                    // When older messages have been loaded and this is a poll refresh,
+                    // preserve the older messages and only merge new ones at the bottom
+                    if (isPolling && get().chatOlderLoaded) {
+                        const currentMessages = get().chatMessages;
+                        const existingIds = new Set(currentMessages.map(m => m.id));
+                        const brandNew = newMessages.filter(m => !existingIds.has(m.id));
+                        if (brandNew.length > 0) {
+                            set({
+                                activeConversation: data.conversation,
+                                chatMessages: [...currentMessages, ...brandNew],
+                                chatMessagesTotal: data.total || 0,
+                            });
+                        } else {
+                            // Still update conversation metadata (window status, etc.)
+                            set({ activeConversation: data.conversation });
+                        }
+                    } else {
+                        set({
+                            activeConversation: data.conversation,
+                            chatMessages: newMessages,
+                            chatMessagesTotal: data.total || 0,
+                            chatHasMore: data.has_more || false,
+                            chatOlderLoaded: false,
+                        });
+                    }
                     return data;
                 } catch (error) {
                     console.error('Failed to fetch chat messages:', error);
@@ -626,6 +649,7 @@ export const useStore = create(
                         set({
                             chatMessages: [...data.messages, ...currentMessages],
                             chatHasMore: data.has_more || false,
+                            chatOlderLoaded: true,
                         });
                     } else {
                         set({ chatHasMore: false });
