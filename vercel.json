@@ -1,4 +1,32 @@
 {
+  "version": 2,
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    },
+    {
+      "src": "backend/src/app.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/backend/src/app.js"
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": "/frontend/assets/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/index.html"
+    }
+  ],
   "build": {
     "env": {
       "VERCEL_SUPPORT_LARGE_FUNCTIONS": "1"
@@ -6,18 +34,5 @@
   },
   "env": {
     "VERCEL_SUPPORT_LARGE_FUNCTIONS": "1"
-  },
-  "experimentalServices": {
-    "frontend": {
-      "root": "frontend",
-      "routePrefix": "/",
-      "framework": "vite"
-    },
-    "backend": {
-      "root": "backend",
-      "routePrefix": "/api",
-      "builder": "@vercel/node",
-      "entrypoint": "src/app.js"
-    }
   }
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-23 — Fix Vercel Deployment Configuration
+**What**: Fixed the Vercel auto-deploy by correcting the `vercel.json` configuration.
+**Why**: The previous configuration used an invalid/unsupported `experimentalServices` property, which causes Vercel builds to fail. It was replaced with the standard `builds` and `rewrites` configuration to correctly deploy the frontend (Vite) and backend (Express API) in a single Vercel project.
+**Files Changed**:
+- `vercel.json` — Rewritten with proper `builds` and `rewrites`
+- `knowledge-base/changelog.md`
 ## 2026-07-23 — Fix Mobile Conversation List Scroll
 **What**: Fixed an issue where the conversation list inside the Chat Inbox would not scroll on mobile devices.
 **Why**: Flexbox containers (`.chat-sidebar`) were using `min-height` instead of fixed heights on mobile, which caused them to expand indefinitely to fit content, preventing the inner `.chat-conversation-list` (with `overflow-y: auto`) from triggering its scrollbar.
